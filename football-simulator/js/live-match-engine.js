@@ -409,6 +409,16 @@ class LiveMatchEngine {
     if (!owner || !owner.onField || owner.mustLeave) return this.resetPossession();
     this.state.stats[owner.side].possessionTicks++;
 
+    // Tras una parada el balón permanece blocado en las manos. Al terminar
+    // la retención, el portero distribuye en vez de retroceder con la pelota.
+    if (owner.position === 'GK' && Number.isFinite(ball.heldUntil)) {
+      if (this.state.minute < ball.heldUntil) return;
+      ball.heldUntil = null;
+      ball.heldByKeeper = false;
+      this.startPass(owner);
+      return;
+    }
+
     // Una ocasión manifiesta prevalece sobre cualquier instrucción de pase o
     // ritmo: delante de portería y sin defensor cercano, el jugador remata.
     if (this.hasClearScoringChance(owner)) {
@@ -709,7 +719,8 @@ class LiveMatchEngine {
     this.state.ball.x = victim.x;
     this.state.ball.y = victim.y;
     this.state.phase = 'SET_PIECE';
-    this.state.restart = { type: restartType, teamSide: victim.side, x: victim.x, y: victim.y, wait: 0.75 };
+    // La colocación de la falta debe verse, pero no sentirse como una pausa.
+    this.state.restart = { type: restartType, teamSide: victim.side, x: victim.x, y: victim.y, wait: 0.2 };
     this.state.referee.targetX = victim.x;
     this.state.referee.targetY = victim.y + 3;
   }
@@ -858,6 +869,11 @@ class LiveMatchEngine {
       this.addEvent('SAVE', `${keeper.name} detiene el ${isHeader ? 'remate de cabeza' : 'disparo'}`, null, defendingSide);
       this.alignPlayerToBall(keeper);
       this.givePossession(keeper.id);
+      this.state.ball.heldByKeeper = true;
+      this.state.ball.heldUntil = this.state.minute + 0.6;
+      keeper.actionTargetX = keeper.x;
+      keeper.actionTargetY = keeper.y;
+      keeper.actionTargetUntil = this.state.ball.heldUntil;
     } else {
       this.state.stats[shooter.side].shotsOnTarget++;
       this.state.score[shooter.side]++;
@@ -926,6 +942,8 @@ class LiveMatchEngine {
     this.state.ball.receiverId = null;
     this.state.ball.offsideLineX = null;
     this.state.ball.offsidePlayerId = null;
+    this.state.ball.heldByKeeper = false;
+    this.state.ball.heldUntil = null;
     if (this.state.transitionUntil <= this.state.minute) this.state.phase = 'BUILD_UP';
     return true;
   }

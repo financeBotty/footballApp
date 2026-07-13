@@ -736,6 +736,9 @@ class FootballSimulator {
     const logicStep = 0.1;
     const stepsPerHalf = 45 / logicStep;
     const baseDelay = (this.liveMatchEngine.halfDuration * 60 * 1000) / stepsPerHalf;
+    // Toda la reproducción parte de una cadencia base duplicada. Los modos
+    // 3× y 5× mantienen su proporción real respecto a 1×.
+    const playbackFactor = () => this.matchPlaybackSpeed * 2;
     const tick = () => {
       if (token !== this.matchLoopToken || this.isMatchPaused || !this.liveMatchEngine) return;
       this.liveMatchEngine.simulateNextStep(logicStep);
@@ -753,9 +756,9 @@ class FootballSimulator {
         return;
       }
       if (this.isMatchPaused) return;
-      this.matchTimer = setTimeout(tick, baseDelay / this.matchPlaybackSpeed);
+      this.matchTimer = setTimeout(tick, baseDelay / playbackFactor());
     };
-    this.matchTimer = setTimeout(tick, baseDelay / this.matchPlaybackSpeed);
+    this.matchTimer = setTimeout(tick, baseDelay / playbackFactor());
   }
 
   stopLiveMatchLoop() {

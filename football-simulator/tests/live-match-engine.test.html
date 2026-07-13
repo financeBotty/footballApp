@@ -72,8 +72,13 @@
       const { engine } = createEngine(5);
       const defender = engine.onField('away').find(item => item.position !== 'GK');
       const victim = engine.onField('home').find(item => item.position === 'ST') || engine.onField('home')[8];
+      engine.startMatch();
       engine.commitFoul(defender, victim);
-      return engine.state.phase === 'SET_PIECE' && engine.state.restart && engine.state.ball.state === 'set-piece';
+      const prepared = engine.state.phase === 'SET_PIECE' && engine.state.restart && engine.state.ball.state === 'set-piece';
+      engine.simulateNextStep(0.1);
+      engine.simulateNextStep(0.1);
+      engine.simulateNextStep(0.1);
+      return prepared && !engine.state.restart && engine.state.status === 'playing';
     });
 
     test('Solo roja, lesión y descanso exigen continuar', () => {
@@ -272,7 +277,13 @@
       let guard = 0;
       while (engine.state.ball.state === 'shooting' && guard++ < 20) engine.advanceBall(.1);
       const owner = engine.state.players[engine.state.ball.ownerId];
-      return owner && owner.position === 'GK' && Math.abs(engine.state.ball.x - contactX) < .01;
+      const heldX = engine.state.ball.x;
+      engine.startMatch();
+      engine.simulateNextStep(.1);
+      engine.simulateNextStep(.1);
+      engine.simulateNextStep(.1);
+      return owner && owner.position === 'GK' && engine.state.ball.heldByKeeper &&
+        Math.abs(heldX - contactX) < .01 && Math.abs(engine.state.ball.x - heldX) < .15;
     });
 
     test('Un atacante solo delante de portería siempre dispara', () => {

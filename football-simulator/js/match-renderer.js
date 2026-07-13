@@ -9,7 +9,7 @@ class MatchRenderer {
     this.ctx = canvas.getContext('2d');
     this.frameId = null;
     this.resizeObserver = null;
-    this.colors = { home: '#38bdf8', away: '#fb7185', referee: '#facc15' };
+    this.colors = { home: '#38bdf8', away: '#fb7185', referee: '#050505' };
     this.visualPlayers = {};
     this.visualBall = null;
     this.visualReferee = null;
@@ -65,10 +65,16 @@ class MatchRenderer {
     this.drawDefensiveLines(snapshot.players);
     if (Number.isFinite(snapshot.ball.offsideLineX)) this.drawOffsideLine(snapshot.ball.offsideLineX);
     if (['passing', 'shooting'].includes(snapshot.ball.state)) this.drawBallTrajectory(snapshot.ball);
+    const keeperHasJustSaved = snapshot.ball.heldByKeeper && this.previousBallState === 'shooting';
     snapshot.players.forEach(player => {
-      const visual = this.visualPlayers[player.id] || { x: player.x, y: player.y };
-      visual.x += (player.x - visual.x) * 0.12;
-      visual.y += (player.y - visual.y) * 0.12;
+      const mustSnapToBall = keeperHasJustSaved && snapshot.ball.ownerId === player.id;
+      const visual = mustSnapToBall
+        ? { x: player.x, y: player.y }
+        : this.visualPlayers[player.id] || { x: player.x, y: player.y };
+      if (!mustSnapToBall) {
+        visual.x += (player.x - visual.x) * 0.12;
+        visual.y += (player.y - visual.y) * 0.12;
+      }
       this.visualPlayers[player.id] = visual;
       this.drawPlayer({ ...player, x: visual.x, y: visual.y }, snapshot.ball.ownerId === player.id);
     });
@@ -210,7 +216,7 @@ class MatchRenderer {
   drawPlayer(player, ownsBall) {
     const ctx = this.ctx;
     const p = this.point(player.x, player.y);
-    const radius = this.width < 550 ? 9 : 11;
+    const radius = this.width < 550 ? 11 : 14;
     ctx.save();
     if (player.isPressing || player.isCovering) {
       ctx.beginPath();
@@ -236,13 +242,13 @@ class MatchRenderer {
     ctx.lineWidth = player.yellowCards || player.redCards ? 3 : 1.5;
     ctx.stroke();
     ctx.fillStyle = '#07111f';
-    ctx.font = `700 ${this.width < 550 ? 9 : 11}px system-ui`;
+    ctx.font = `800 ${this.width < 550 ? 10 : 13}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(player.number), p.x, p.y + 0.5);
     if (player.injured) {
       ctx.fillStyle = '#fff';
-      ctx.font = '700 10px system-ui';
+      ctx.font = '700 12px system-ui';
       ctx.fillText('+', p.x + radius, p.y - radius);
     }
     ctx.restore();
@@ -252,11 +258,11 @@ class MatchRenderer {
     const ctx = this.ctx;
     const p = this.point(referee.x, referee.y);
     ctx.beginPath();
-    ctx.arc(p.x, p.y, this.width < 550 ? 6.5 : 7.5, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, this.width < 550 ? 8 : 10, 0, Math.PI * 2);
     ctx.fillStyle = this.colors.referee;
     ctx.fill();
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#f8fafc';
+    ctx.lineWidth = 1.75;
     ctx.stroke();
   }
 

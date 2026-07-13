@@ -95,8 +95,10 @@ La aplicación funciona completamente sin necesidad de servidor ni dependencias 
 - Prepartido para revisar alineación y táctica y elegir entre resultado rápido o simulador en directo
 - Duración configurable de 1, 3, 5 o 10 minutos por parte
 - Campo Canvas 2D con 22 jugadores, pelota, porteros y árbitro
+- Jugadores y dorsales ampliados; árbitro representado como un punto negro con contorno
 - Posiciones y movimientos influidos por formación, mentalidad, presión, ritmo y anchura
 - Pases, controles, intercepciones, entradas, balones sueltos, disparos y paradas
+- Los porteros blocan el balón antes de iniciar la distribución, sin rebotes visuales invertidos
 
 ✅ **Consola del entrenador**
 - Instrucciones tácticas aplicables durante el encuentro
@@ -108,6 +110,7 @@ La aplicación funciona completamente sin necesidad de servidor ni dependencias 
 - IA rival que modifica táctica y realiza cambios según marcador y minuto
 - Pausa manual, velocidades 1×, 3× y 5×, salto al descanso y salto al final
 - Solo el descanso, una expulsión o una lesión exigen pulsar “Continuar”
+- Las faltas se ponen en juego de inmediato y la reproducción usa una cadencia base duplicada
 
 ✅ **Disciplina y balón parado**
 - Faltas, amarillas, dobles amarillas y rojas directas
