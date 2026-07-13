@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pruebas - Fase 7</title>
+  <style>
+    body { max-width: 860px; margin: 2rem auto; padding: 0 1rem; font: 16px system-ui; background: #0f172a; color: #f1f5f9; }
+    li { margin: .5rem 0; padding: .75rem; border-radius: .4rem; background: #1e293b; }
+    .ok { border-left: 5px solid #10b981; } .fail { border-left: 5px solid #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>Pruebas de la Fase 7</h1>
+  <p id="summary">Ejecutando…</p>
+  <ol id="results"></ol>
+  <script src="../js/data.js"></script>
+  <script src="../js/team-manager.js"></script>
+  <script src="../js/live-match-engine.js"></script>
+  <script>
+    const results = [];
+    const test = (name, assertion) => {
+      try {
+        if (!assertion()) throw new Error('La condición no se cumple');
+        results.push({ name, ok: true });
+      } catch (error) {
+        results.push({ name, ok: false, error: error.message });
+      }
+    };
+    const createEngine = seed => {
+      const manager = new TeamManager();
+      manager.getAllTeams().forEach(team => manager.autoSelectStartingXI(team.id));
+      const [home, away] = manager.getAllTeams();
+      return { manager, home, away, engine: new LiveMatchEngine(home, away, manager, { userTeamId: home.id, seed }) };
+    };
+
+    test('Crea 22 jugadores, pelota y árbitro', () => {
+      const { engine } = createEngine(1);
+      const snapshot = engine.getVisualSnapshot();
+      return snapshot.players.length === 22 && snapshot.ball && snapshot.referee;
+    });
+
+    test('Aplica instrucciones durante el partido', () => {
+      const { engine, home } = createEngine(2);
+      const result = engine.applyTactics(home.id, { mentality: 'Ofensiva', pressure: 'Alta', setPiecePreference: 'Disparar' });
+      const tactics = engine.getTeamState(home.id).tactics;
+      return result.valid && tactics.mentality === 'Ofensiva' && tactics.pressure === 'Alta' && tactics.setPiecePreference === 'Disparar';
+    });
+
+    test('Permite cinco sustituciones y bloquea la sexta', () => {
+      const { engine, home } = createEngine(3);
+      for (let index = 0; index < 5; index++) {
+        const state = engine.getTeamState(home.id);
+        const outgoing = state.onField.find(id => engine.state.players[id].position !== 'GK');
+        const incoming = state.bench.find(id => !engine.state.players[id].appeared);
+        if (!engine.makeSubstitution(home.id, outgoing, incoming).valid) return false;
+      }
+      const state = engine.getTeamState(home.id);
+      const sixth = engine.makeSubstitution(home.id, state.onField[1], state.bench.find(id => !engine.state.players[id].appeared));
+      return state.substitutions === 5 && !sixth.valid && engine.onField('home').length === 11;
+    });
+
+    test('Dos amarillas expulsan y reducen el equipo', () => {
+      const { engine } = createEngine(4);
+      const player = engine.onField('home').find(item => item.position !== 'GK');
+      engine.giveCard(player, 'yellow');
+      engine.giveCard(player, 'yellow');
+      return player.redCards === 1 && !player.onField && engine.onField('home').length === 10;
+    });
+
+    test('Una falta detiene el juego y prepara balón parado', () => {
+      const { engine } = createEngine(5);
+      const defender = engine.onField('away').find(item => item.position !== 'GK');
+      const victim = engine.onField('home').find(item => item.position === 'ST') || engine.onField('home')[8];
+      engine.commitFoul(defender, victim);
+      return engine.state.phase === 'SET_PIECE' && engine.state.restart && engine.state.ball.state === 'set-piece';
+    });
+
+    test('Solo roja, lesión y descanso exigen continuar', () => {
+      const { engine } = createEngine(501);
+      const defender = engine.onField('away').find(item => item.position !== 'GK');
+      const victim = engine.onField('home').find(item => item.position !== 'GK');
+      engine.commitFoul(defender, victim);
+      engine.giveCard(defender, 'red');
+      const healthyPlayer = engine.onField('home').find(item => !item.injured && item.id !== victim.id) || victim;
+      engine.injurePlayer(healthyPlayer);
+      engine.state.minute = 44.95;
+      engine.simulateNextStep(0.1);
+      const foul = engine.state.events.find(event => event.type === 'FOUL');
+      const red = engine.state.events.find(event => event.type === 'RED_CARD');
+      const injury = engine.state.events.find(event => event.type === 'INJURY');
+      const halfTime = engine.state.events.find(event => event.type === 'HALF_TIME');
+      const attentionEvents = engine.state.events.filter(event => event.requiresAttention);
+      return foul && !foul.requiresAttention && red && red.requiresAttention &&
+        injury && injury.requiresAttention && halfTime && halfTime.requiresAttention &&
+        attentionEvents.every(event => ['RED_CARD', 'INJURY', 'HALF_TIME'].includes(event.type));
+    });
+
+    test('Una colisión con el poseedor disputa el balón', () => {
+      const { engine } = createEngine(51);
+      const owner = engine.onField('home').find(item => item.position !== 'GK');
+      const defender = engine.onField('away').find(item => item.position !== 'GK');
+      owner.x = defender.x = 50;
+      owner.y = defender.y = 34;
+      engine.givePossession(owner.id);
+      engine.startMatch();
+      engine.simulateNextStep(0.1);
+      return engine.state.ball.ownerId !== owner.id || engine.state.restart;
+    });
+
+    test('Todo disparo termina en gol, poste o parada', () => {
+      const { engine } = createEngine(52);
+      const shooter = engine.onField('home').find(item => item.position === 'ST') || engine.onField('home')[8];
+      engine.startShot(shooter);
+      let guard = 0;
+      while (engine.state.ball.state === 'shooting' && guard++ < 10) engine.advanceBall(0.1);
+      const outcome = engine.state.events[engine.state.events.length - 1];
+      return ['GOAL', 'POST', 'SAVE'].includes(outcome.type) && !engine.state.events.some(event => event.type === 'SHOT_OFF');
+    });
+
+    test('Una falta dentro del área produce penalti', () => {
+      const { engine } = createEngine(53);
+      const defender = engine.onField('away').find(item => item.position !== 'GK');
+      const victim = engine.onField('home').find(item => item.position === 'ST') || engine.onField('home')[8];
+      victim.x = 90;
+      victim.y = 34;
+      engine.commitFoul(defender, victim);
+      return engine.state.restart && engine.state.restart.type === 'penalty';
+    });
+
+    test('Detecta fuera de juego y concede falta indirecta', () => {
+      const { engine } = createEngine(54);
+      const passer = engine.onField('home').find(item => ['CM', 'CAM', 'CDM'].includes(item.position)) || engine.onField('home')[6];
+      const receiver = engine.onField('home').find(item => item.position === 'ST') || engine.onField('home')[8];
+      passer.x = 60;
+      receiver.x = 92;
+      receiver.targetX = 92;
+      engine.onField('away').forEach((player, index) => { player.x = player.position === 'GK' ? 96 : 72 + index * 0.1; });
+      engine.givePossession(passer.id);
+      engine.startPass(passer, receiver.id);
+      let guard = 0;
+      while (engine.state.ball.state === 'passing' && guard++ < 20) engine.advanceBall(0.1);
+      return engine.state.stats.home.offsides === 1 && engine.state.restart &&
+        engine.state.restart.type === 'indirect-free-kick' && engine.state.events.some(event => event.type === 'OFFSIDE');
+    });
+
+    test('Una lesión guarda severidad y duración', () => {
+      const { engine } = createEngine(6);
+      const victim = engine.onField('home')[4];
+      engine.injurePlayer(victim);
+      const injury = engine.state.injuries[0];
+      return victim.injured && injury && ['minor', 'moderate'].includes(injury.severity);
+    });
+
+    test('Completa dos partes sin resultado precalculado', () => {
+      const { engine } = createEngine(7);
+      engine.startMatch();
+      let guard = 0;
+      while (!engine.state.complete && guard++ < 1200) {
+        engine.simulateNextStep(0.1);
+        if (engine.state.phase === 'HALF_TIME') engine.resumeSecondHalf();
+      }
+      return engine.state.complete && engine.state.minute === 90 && engine.state.events.some(event => event.type === 'END_MATCH');
+    });
+
+    test('Restaura un encuentro vivo serializado', () => {
+      const { engine, manager } = createEngine(8);
+      engine.startMatch();
+      for (let index = 0; index < 100; index++) engine.simulateNextStep(0.1);
+      const restored = LiveMatchEngine.deserialize(engine.serialize(), manager);
+      return restored.state.minute === engine.state.minute && restored.state.events.length === engine.state.events.length && restored.randomState === engine.randomState;
+    });
+
+    test('Separa a compañeros que ocupan el mismo espacio', () => {
+      const { engine } = createEngine(9);
+      const [first, second] = engine.onField('home').filter(player => player.position !== 'GK');
+      first.x = second.x = 50;
+      first.y = second.y = 34;
+      engine.applySpatialSeparation();
+      return engine.distance(first, second) >= 3;
+    });
+
+    test('Activa la transición al cambiar la posesión', () => {
+      const { engine } = createEngine(10);
+      const homePlayer = engine.onField('home')[5];
+      const awayPlayer = engine.onField('away')[5];
+      engine.givePossession(awayPlayer.id);
+      engine.givePossession(homePlayer.id);
+      return engine.state.phase === 'TRANSITION' && engine.state.transitionUntil > engine.state.minute;
+    });
+
+    test('Los pases elevados describen una trayectoria aérea', () => {
+      const { engine } = createEngine(11);
+      const passer = engine.onField('home').find(player => ['CB', 'CM'].includes(player.position)) || engine.onField('home')[3];
+      const receiver = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[9];
+      engine.state.teams.home.tactics.passStyle = 'Directo';
+      passer.x = 25;
+      receiver.x = receiver.targetX = 70;
+      engine.givePossession(passer.id);
+      engine.startPass(passer, receiver.id);
+      engine.advanceBall(0.1);
+      return engine.state.ball.passType === 'lofted' && engine.state.ball.height > 0;
+    });
+
+    test('El portero puede anticipar y atrapar un centro', () => {
+      const { engine } = createEngine(12);
+      const passer = engine.onField('home').find(player => player.position !== 'GK');
+      const originalRandom = engine.random;
+      engine.random = () => 0;
+      const claimed = engine.tryKeeperClaim({
+        passerId: passer.id,
+        targetX: 92,
+        targetY: 34,
+        x: 90,
+        y: 34
+      });
+      engine.random = originalRandom;
+      const owner = engine.state.players[engine.state.ball.ownerId];
+      return claimed && owner && owner.side === 'away' && owner.position === 'GK' &&
+        engine.state.events.some(event => event.type === 'KEEPER_CLAIM');
+    });
+
+    test('El saque inicial no teletransporta el balón', () => {
+      const { engine } = createEngine(13);
+      const owner = engine.state.players[engine.state.ball.ownerId];
+      return owner && engine.distance(owner, engine.state.ball) < 1;
+    });
+
+    test('Un receptor lejano no controla el pase a distancia', () => {
+      const { engine } = createEngine(14);
+      const passer = engine.onField('home').find(player => player.position === 'CM') || engine.onField('home')[5];
+      const receiver = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[9];
+      engine.givePossession(passer.id);
+      engine.state.ball.x = passer.x + .8;
+      engine.state.ball.y = passer.y;
+      engine.startPass(passer, receiver.id);
+      receiver.x = 5;
+      receiver.y = 5;
+      let guard = 0;
+      while (engine.state.ball.state === 'passing' && guard++ < 20) engine.advanceBall(.1);
+      return engine.state.ball.state === 'loose' && engine.state.ball.ownerId === null;
+    });
+
+    test('El control conserva el punto final del pase', () => {
+      const { engine } = createEngine(15);
+      const passer = engine.onField('home').find(player => player.position === 'CM') || engine.onField('home')[5];
+      const receiver = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[9];
+      engine.givePossession(passer.id);
+      engine.state.ball.x = passer.x + .8;
+      engine.state.ball.y = passer.y;
+      engine.startPass(passer, receiver.id);
+      receiver.x = engine.state.ball.targetX - .8;
+      receiver.y = engine.state.ball.targetY;
+      const targetX = engine.state.ball.targetX;
+      const targetY = engine.state.ball.targetY;
+      engine.random = () => .2;
+      let guard = 0;
+      while (engine.state.ball.state === 'passing' && guard++ < 20) engine.advanceBall(.1);
+      return engine.state.ball.ownerId === receiver.id &&
+        Math.hypot(engine.state.ball.x - targetX, engine.state.ball.y - targetY) < .01;
+    });
+
+    test('Una parada no hace rebotar el balón hacia atrás', () => {
+      const { engine } = createEngine(16);
+      const shooter = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[9];
+      engine.givePossession(shooter.id);
+      engine.state.ball.x = shooter.x + .8;
+      engine.state.ball.y = shooter.y;
+      engine.startShot(shooter);
+      const contactX = engine.state.ball.targetX;
+      engine.random = () => .99;
+      let guard = 0;
+      while (engine.state.ball.state === 'shooting' && guard++ < 20) engine.advanceBall(.1);
+      const owner = engine.state.players[engine.state.ball.ownerId];
+      return owner && owner.position === 'GK' && Math.abs(engine.state.ball.x - contactX) < .01;
+    });
+
+    test('Un atacante solo delante de portería siempre dispara', () => {
+      const { engine } = createEngine(17);
+      const striker = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[9];
+      striker.x = 90;
+      striker.y = 34;
+      engine.onField('away').filter(player => player.position !== 'GK').forEach((player, index) => {
+        player.x = 58 + index * .2;
+        player.y = 8 + index * 5;
+      });
+      engine.state.ball.x = 90.8;
+      engine.state.ball.y = 34;
+      engine.givePossession(striker.id);
+      engine.advanceBall(.1);
+      return engine.state.ball.state === 'shooting' && engine.state.ball.shooterId === striker.id;
+    });
+
+    const list = document.getElementById('results');
+    results.forEach(result => {
+      const item = document.createElement('li');
+      item.className = result.ok ? 'ok' : 'fail';
+      item.textContent = `${result.ok ? '✓' : '✗'} ${result.name}${result.error ? `: ${result.error}` : ''}`;
+      list.appendChild(item);
+    });
+    const passed = results.filter(result => result.ok).length;
+    document.getElementById('summary').textContent = `${passed}/${results.length} pruebas superadas`;
+    document.title = passed === results.length ? '✓ Fase 7 verificada' : '✗ Fallos en Fase 7';
+  </script>
+</body>
+</html>

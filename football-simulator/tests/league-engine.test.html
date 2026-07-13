@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pruebas - Motor de liga</title>
+  <style>
+    body { max-width: 820px; margin: 2rem auto; padding: 0 1rem; font: 16px system-ui; background: #0f172a; color: #f1f5f9; }
+    li { margin: .5rem 0; padding: .7rem; border-radius: .4rem; background: #1e293b; }
+    .ok { border-left: 5px solid #10b981; }
+    .fail { border-left: 5px solid #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>Pruebas del motor de liga</h1>
+  <p id="summary">Ejecutando…</p>
+  <ol id="results"></ol>
+
+  <script src="../js/data.js"></script>
+  <script src="../js/team-manager.js"></script>
+  <script src="../js/league-engine.js"></script>
+  <script>
+    const results = [];
+    function test(name, assertion) {
+      try {
+        if (!assertion()) throw new Error('La condición no se cumple');
+        results.push({ name, ok: true });
+      } catch (error) {
+        results.push({ name, ok: false, error: error.message });
+      }
+    }
+
+    const teams = new TeamManager();
+    const league = new LeagueEngine(teams);
+    league.generateSchedule();
+    teams.getAllTeams().forEach(team => teams.autoSelectStartingXI(team.id));
+
+    test('Genera 56 partidos y 14 jornadas', () =>
+      league.schedule.length === 56 && league.totalMatchdays === 14);
+    test('Cada jornada contiene cuatro partidos y ocho equipos únicos', () => {
+      for (let day = 1; day <= 14; day++) {
+        const matches = league.getMatchdayMatches(day);
+        const ids = matches.flatMap(match => [match.homeTeam, match.awayTeam]);
+        if (matches.length !== 4 || new Set(ids).size !== 8) return false;
+      }
+      return true;
+    });
+    test('Cada pareja se enfrenta dos veces, alternando localía', () => {
+      const pairs = new Map();
+      league.schedule.forEach(match => {
+        const key = [match.homeTeam, match.awayTeam].sort().join('|');
+        if (!pairs.has(key)) pairs.set(key, []);
+        pairs.get(key).push(match);
+      });
+      return pairs.size === 28 && [...pairs.values()].every(matches =>
+        matches.length === 2 && matches[0].homeTeam === matches[1].awayTeam);
+    });
+    test('La IA prepara once titulares para todos los equipos', () =>
+      teams.getAllTeams().every(team => teams.getStartingXI(team.id).length === 11));
+    test('Una jornada simula todos sus partidos y recalcula la tabla', () => {
+      league.simulateMatchday(1);
+      return league.getMatchdayMatches(1).every(match => match.played) &&
+        league.getStandings().every(row => row.played === 1);
+    });
+    test('No permite registrar dos veces el mismo encuentro', () => {
+      const match = league.getMatchdayMatches(1)[0];
+      return league.recordResult(match.id, 9, 9) === false;
+    });
+    test('Completa la temporada y determina campeón', () => {
+      for (let day = 2; day <= league.totalMatchdays; day++) league.simulateMatchday(day);
+      const summary = league.getSeasonSummary();
+      return league.isLeagueComplete() && summary.complete && summary.champion &&
+        summary.completedMatches === 56 && league.getStandings().every(row => row.played === 14);
+    });
+    test('Conserva calendario y tabla al serializar', () => {
+      const restored = LeagueEngine.deserialize(league.serialize(), teams);
+      return restored.schedule.length === 56 && restored.standings.length === 8 && restored.isLeagueComplete();
+    });
+    test('Migra un calendario antiguo sin perder resultados compatibles', () => {
+      const legacyMatch = { ...league.schedule[0], id: 'legacy-result', homeGoals: 2, awayGoals: 1, played: true };
+      const legacy = JSON.stringify({
+        schedule: [legacyMatch], results: [], standings: [], currentMatchday: 1, totalMatchdays: 14
+      });
+      const migrated = LeagueEngine.deserialize(legacy, teams);
+      return migrated.isScheduleValid() && migrated.schedule.length === 56 &&
+        migrated.schedule.some(match => match.played && match.homeGoals === 2 && match.awayGoals === 1);
+    });
+
+    const list = document.getElementById('results');
+    results.forEach(result => {
+      const item = document.createElement('li');
+      item.className = result.ok ? 'ok' : 'fail';
+      item.textContent = `${result.ok ? '✓' : '✗'} ${result.name}${result.error ? `: ${result.error}` : ''}`;
+      list.appendChild(item);
+    });
+    const passed = results.filter(result => result.ok).length;
+    document.getElementById('summary').textContent = `${passed}/${results.length} pruebas superadas`;
+    document.title = passed === results.length ? '✓ Pruebas superadas' : '✗ Pruebas fallidas';
+  </script>
+</body>
+</html>

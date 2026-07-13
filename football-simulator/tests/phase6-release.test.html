@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pruebas - Fase 6 y cierre</title>
+  <style>
+    body { max-width: 860px; margin: 2rem auto; padding: 0 1rem; font: 16px system-ui; background: #0f172a; color: #f1f5f9; }
+    li { margin: .5rem 0; padding: .75rem; border-radius: .4rem; background: #1e293b; }
+    .ok { border-left: 5px solid #10b981; } .fail { border-left: 5px solid #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>Pruebas de Fase 6 y cierre</h1>
+  <p id="summary">Ejecutando…</p>
+  <ol id="results"></ol>
+  <script src="../js/data.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/team-manager.js"></script>
+  <script src="../js/league-engine.js"></script>
+  <script>
+    const results = [];
+    const test = (name, assertion) => {
+      try {
+        if (!assertion()) throw new Error('La condición no se cumple');
+        results.push({ name, ok: true });
+      } catch (error) {
+        results.push({ name, ok: false, error: error.message });
+      }
+    };
+    const create = () => {
+      const manager = new TeamManager();
+      const league = new LeagueEngine(manager);
+      league.generateSchedule();
+      manager.getAllTeams().forEach(team => manager.autoSelectStartingXI(team.id));
+      return { manager, league, team: manager.getAllTeams()[0] };
+    };
+
+    test('Inicializa disponibilidad y plan semanal', () => {
+      const { manager, team } = create();
+      return team.trainingPlan.focus === 'balanced' && team.players.every(player =>
+        manager.getPlayerAvailability(player).available && player.suspensionMatches === 0);
+    });
+
+    test('Impide alinear a un futbolista lesionado', () => {
+      const { manager, team } = create();
+      const player = manager.getStartingXI(team.id)[1];
+      player.injury = { severity: 'moderate', matchesRemaining: 2, createdMatchday: 0 };
+      const result = manager.validateLineup(team.id, team.startingXI);
+      return !result.valid && result.error.includes(player.name);
+    });
+
+    test('La autoselección excluye lesionados y sancionados', () => {
+      const { manager, team } = create();
+      const [injured, suspended] = manager.getStartingXI(team.id).slice(1, 3);
+      injured.injury = { severity: 'minor', matchesRemaining: 1, createdMatchday: 0 };
+      suspended.suspensionMatches = 1;
+      manager.autoSelectStartingXI(team.id);
+      return !team.startingXI.includes(injured.id) && !team.startingXI.includes(suspended.id) &&
+        manager.getStartingXI(team.id).length === 11;
+    });
+
+    test('Registra roja, acumulación de amarillas y lesión', () => {
+      const { manager, team } = create();
+      const player = team.players[4];
+      player.yellowCardAccumulation = 4;
+      manager.registerMatchConsequences(team.id, {
+        players: { [player.id]: { id: player.id, teamId: team.id, appeared: true, redCards: 1, yellowCards: 1 } },
+        injuries: [{ playerId: player.id, severity: 'moderate', matchesRemaining: 3 }]
+      }, 2);
+      return player.suspensionMatches === 1 && player.yellowCardAccumulation === 0 &&
+        player.injury.matchesRemaining === 3 && player.injury.createdMatchday === 2;
+    });
+
+    test('Procesa recuperación exactamente una vez por jornada', () => {
+      const { manager, league, team } = create();
+      const player = team.players[5];
+      player.injury = { severity: 'moderate', matchesRemaining: 2, createdMatchday: 0 };
+      league.simulateMatchday(1);
+      const afterFirst = player.injury && player.injury.matchesRemaining;
+      const repeated = league.processMatchdayDevelopment(1);
+      return afterFirst === 1 && repeated === false && player.injury.matchesRemaining === 1;
+    });
+
+    test('El plan de recuperación mejora el fitness', () => {
+      const { manager, team } = create();
+      const player = team.players[6];
+      player.fitness = 40;
+      manager.setTrainingPlan(team.id, 'recovery', 'high');
+      manager.applyTrainingPlan(team);
+      return player.fitness === 60;
+    });
+
+    test('Conserva disponibilidad y desarrollo al serializar', () => {
+      const { manager, league, team } = create();
+      team.players[3].suspensionMatches = 2;
+      team.trainingPlan = { focus: 'technical', intensity: 'low' };
+      league.processedDevelopmentMatchdays = [1, 2];
+      const restoredManager = TeamManager.deserialize(manager.serialize());
+      const restoredLeague = LeagueEngine.deserialize(league.serialize(), restoredManager);
+      const restoredTeam = restoredManager.getTeam(team.id);
+      return restoredTeam.players[3].suspensionMatches === 2 &&
+        restoredTeam.trainingPlan.focus === 'technical' && restoredLeague.processedDevelopmentMatchdays.length === 2;
+    });
+
+    test('La IA adapta su entrenamiento al estado de la plantilla', () => {
+      const { manager, team } = create();
+      team.players.forEach(player => { player.fitness = 55; });
+      manager.chooseAITrainingPlan(team.id);
+      return team.trainingPlan.focus === 'recovery' && team.trainingPlan.intensity === 'low';
+    });
+
+    test('Rechaza archivos de backup inválidos', () => {
+      const invalid = GameStorage.validateImport({ format: 'football-simulator-save', values: { GAME_STATE: '{}' } });
+      return !invalid.valid && !!invalid.error;
+    });
+
+    const list = document.getElementById('results');
+    results.forEach(result => {
+      const item = document.createElement('li');
+      item.className = result.ok ? 'ok' : 'fail';
+      item.textContent = `${result.ok ? '✓' : '✗'} ${result.name}${result.error ? `: ${result.error}` : ''}`;
+      list.appendChild(item);
+    });
+    const passed = results.filter(result => result.ok).length;
+    document.getElementById('summary').textContent = `${passed}/${results.length} pruebas superadas`;
+    document.title = passed === results.length ? '✓ Fase 6 verificada' : '✗ Fallos en Fase 6';
+  </script>
+</body>
+</html>
