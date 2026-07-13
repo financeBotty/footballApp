@@ -333,7 +333,7 @@ class UIManager {
         const isStarter = startingXIIds.includes(player.id) && availability.available;
         playersHtml += `
           <tr class="player-row ${isStarter ? 'starter' : ''} ${availability.available ? '' : 'unavailable'}">
-            <td class="player-name">${player.name}</td>
+            <td class="player-name">${player.name}${player.id === team.captainId ? ' <strong>(C)</strong>' : ''}</td>
             <td>${player.age}</td>
             <td class="position-badge">${player.position}</td>
             <td class="overall-cell">${player.overall}</td>
@@ -484,6 +484,7 @@ class UIManager {
     const userTeamId = this.gameApp.userTeamId;
     const team = this.gameApp.teamManager.getTeam(userTeamId);
     const tactics = team.tactics;
+    const strategies = Object.keys(DATA.TACTICAL_STRATEGIES);
 
     const navBar = document.getElementById('navigation');
     const content = document.getElementById('main-content');
@@ -506,6 +507,16 @@ class UIManager {
     content.innerHTML = `
       <div class="tactics-container">
         <h2>Configuración Táctica</h2>
+
+        <div class="formation-info">
+          <h4>Identidad natural: ${team.naturalStrategy}</h4>
+          <p>La plantilla parte con este estilo. Puedes cambiarlo, pero una estrategia menos adecuada reduce la adaptación del equipo.</p>
+          <label>Estrategia activa</label>
+          <select id="tactics-strategy" class="form-control">
+            ${strategies.map(strategy => `<option value="${strategy}" ${team.strategy === strategy ? 'selected' : ''}>${strategy}${strategy === team.naturalStrategy ? ' · natural' : ''}</option>`).join('')}
+          </select>
+          <small>Adaptación actual: ${team.tacticalFamiliarity || 100}%</small>
+        </div>
 
         <div class="tactics-grid">
           <div class="tactic-option">
@@ -1191,6 +1202,7 @@ class UIManager {
 
     const userTeamId = this.gameApp.userTeamId;
     const newTactics = {
+      strategy: document.getElementById('tactics-strategy').value,
       mentality: document.getElementById('tactics-mentality').value,
       pressure: document.getElementById('tactics-pressure').value,
       tempo: document.getElementById('tactics-tempo').value,

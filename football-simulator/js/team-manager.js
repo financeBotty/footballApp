@@ -10,9 +10,20 @@ class TeamManager {
 
   initializeAvailabilityData() {
     this.teams.forEach(team => {
+      this.initializeTacticalIdentity(team);
+      this.initializeCaptain(team);
       team.trainingPlan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
       team.players.forEach(player => {
-        player.injury = player.injury && Number(player.injury.matchesRemaining) > 0 ? player.injury : null;
+        if (player.injury) {
+          const weeks = Number.isFinite(Number(player.injury.weeksRemaining))
+            ? Number(player.injury.weeksRemaining)
+            : Number(player.injury.matchesRemaining) || 0;
+          player.injury = weeks > 0 ? {
+            ...player.injury,
+            weeksRemaining: weeks,
+            matchesRemaining: weeks
+          } : null;
+        }
         player.suspensionMatches = Math.max(0, Number(player.suspensionMatches) || 0);
         player.yellowCardAccumulation = Math.max(0, Number(player.yellowCardAccumulation) || 0);
         player.trainingProgress = player.trainingProgress || {};
@@ -20,14 +31,85 @@ class TeamManager {
     });
   }
 
+  initializeCaptain(team) {
+    const players = team.players || [];
+    if (!players.length) return;
+    const storedCaptain = players.find(player => player.id === team.captainId);
+    if (storedCaptain && ['veteranía', 'calidad'].includes(team.captainReason)) return;
+    const identityValue = String(team.id || team.name).split('').reduce((sum, character) => sum + character.charCodeAt(0), 0);
+    const attribute = identityValue % 2 === 0 ? 'age' : 'overall';
+    const captain = [...players].sort((a, b) => (Number(b[attribute]) || 0) - (Number(a[attribute]) || 0))[0];
+    team.captainId = captain.id;
+    team.captainReason = attribute === 'age' ? 'veteranía' : 'calidad';
+  }
+
+  initializeTacticalIdentity(team) {
+    const isNewIdentity = !team.naturalStrategy;
+    const scores = this.calculateStrategyScores(team);
+    const naturalStrategy = team.naturalStrategy && DATA.TACTICAL_STRATEGIES[team.naturalStrategy]
+      ? team.naturalStrategy
+      : Object.keys(scores).sort((a, b) => scores[b] - scores[a])[0];
+    team.naturalStrategy = naturalStrategy;
+    team.strategy = DATA.TACTICAL_STRATEGIES[team.strategy] ? team.strategy : naturalStrategy;
+    if (isNewIdentity) {
+      team.tactics = { ...team.tactics, ...DATA.TACTICAL_STRATEGIES[team.strategy] };
+    }
+    team.tacticalFamiliarity = this.getStrategyFamiliarity(team, team.strategy, scores);
+  }
+
+  calculateStrategyScores(team) {
+    const players = team.players || [];
+    const average = (list, attributes) => {
+      if (!list.length) return 50;
+      return list.reduce((sum, player) => sum + attributes.reduce((value, key) => value + (Number(player[key]) || 50), 0) / attributes.length, 0) / list.length;
+    };
+    const defenders = players.filter(player => ['CB', 'RB', 'LB'].includes(player.position));
+    const midfielders = players.filter(player => ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(player.position));
+    const attackers = players.filter(player => ['ST', 'RW', 'LW'].includes(player.position));
+    const wholeTeam = players.filter(player => player.position !== 'GK');
+    const formationBonus = {
+      '4-3-3': { 'Posesión': 10, 'Presión alta': 3 },
+      '4-2-3-1': { 'Posesión': 12, 'Presión alta': 2 },
+      '4-4-2': { 'Juego directo': 5, 'Contraataque': 3 },
+      '5-3-2': { 'Bloque bajo': 12, 'Contraataque': 5 },
+      '3-5-2': { 'Presión alta': 14, 'Posesión': 4 }
+    }[team.formation] || {};
+    return {
+      'Posesión': average(midfielders, ['passing', 'dribbling']) + (formationBonus['Posesión'] || 0),
+      'Presión alta': average(wholeTeam, ['stamina', 'pace', 'physical']) + (formationBonus['Presión alta'] || 0),
+      'Juego directo': average(attackers, ['pace', 'shooting', 'physical']) + (formationBonus['Juego directo'] || 0),
+      'Contraataque': (average(defenders, ['defending']) + average(attackers, ['pace', 'dribbling'])) / 2 + (formationBonus['Contraataque'] || 0),
+      'Bloque bajo': average(defenders, ['defending', 'physical']) + (formationBonus['Bloque bajo'] || 0)
+    };
+  }
+
+  getStrategyFamiliarity(team, strategy, scores = null) {
+    const strategyScores = scores || this.calculateStrategyScores(team);
+    const best = Math.max(...Object.values(strategyScores));
+    if (strategy === team.naturalStrategy) return 100;
+    return Math.max(58, Math.min(88, Math.round(82 + ((strategyScores[strategy] || 50) - best) * 1.5)));
+  }
+
+  applyStrategy(teamId, strategy) {
+    const team = this.getTeam(teamId);
+    const preset = DATA.TACTICAL_STRATEGIES[strategy];
+    if (!team || !preset) return false;
+    team.strategy = strategy;
+    team.tactics = { ...team.tactics, ...preset };
+    team.tacticalFamiliarity = this.getStrategyFamiliarity(team, strategy);
+    return true;
+  }
+
   getPlayerAvailability(player) {
     if (!player) return { available: false, status: 'unknown', reason: 'Jugador no encontrado' };
-    if (player.injury && Number(player.injury.matchesRemaining) > 0) {
+    if (player.injury && Number(player.injury.weeksRemaining ?? player.injury.matchesRemaining) > 0) {
+      const weeks = Number(player.injury.weeksRemaining ?? player.injury.matchesRemaining);
       return {
         available: false,
         status: 'injured',
-        matchesRemaining: Number(player.injury.matchesRemaining),
-        reason: `Lesionado · ${player.injury.matchesRemaining} jornada${player.injury.matchesRemaining === 1 ? '' : 's'}`
+        weeksRemaining: weeks,
+        matchesRemaining: weeks,
+        reason: `${player.injury.diagnosis || 'Lesionado'} · ${weeks} semana${weeks === 1 ? '' : 's'}`
       };
     }
     if (Number(player.suspensionMatches) > 0) {
@@ -80,11 +162,15 @@ class TeamManager {
     Object.values(matchState.players).filter(state => state.teamId === teamId && state.appeared).forEach(state => {
       const player = this.getPlayer(teamId, state.id);
       if (!player) return;
-      const injury = (matchState.injuries || []).find(item => item.playerId === state.id && item.matchesRemaining > 0);
+      const injury = (matchState.injuries || []).find(item => item.playerId === state.id &&
+        Number(item.weeksRemaining ?? item.matchesRemaining) > 0);
       if (injury) {
+        const weeks = Number(injury.weeksRemaining ?? injury.matchesRemaining);
         player.injury = {
           severity: injury.severity,
-          matchesRemaining: injury.matchesRemaining,
+          diagnosis: injury.diagnosis,
+          weeksRemaining: weeks,
+          matchesRemaining: weeks,
           createdMatchday: matchday
         };
       }
@@ -108,8 +194,10 @@ class TeamManager {
       this.applyTrainingPlan(team, matchday);
       team.players.forEach(player => {
         if (player.injury && player.injury.createdMatchday !== matchday) {
-          player.injury.matchesRemaining = Math.max(0, Number(player.injury.matchesRemaining) - 1);
-          if (!player.injury.matchesRemaining) player.injury = null;
+          const remaining = Math.max(0, Number(player.injury.weeksRemaining ?? player.injury.matchesRemaining) - 1);
+          player.injury.weeksRemaining = remaining;
+          player.injury.matchesRemaining = remaining;
+          if (!remaining) player.injury = null;
         }
         if (player.suspensionMatches > 0 && player.suspensionCreatedMatchday !== matchday) {
           player.suspensionMatches = Math.max(0, player.suspensionMatches - 1);
@@ -143,7 +231,13 @@ class TeamManager {
         }
       });
       if (plan.intensity === 'high' && player.fitness < 55 && Math.random() < 0.025) {
-        player.injury = { severity: 'minor', matchesRemaining: 1, createdMatchday: matchday };
+        player.injury = {
+          severity: 'minor',
+          diagnosis: 'Sobrecarga muscular',
+          weeksRemaining: 1,
+          matchesRemaining: 1,
+          createdMatchday: matchday
+        };
       }
     });
   }
@@ -169,7 +263,9 @@ class TeamManager {
   updateTactics(teamId, newTactics) {
     const team = this.getTeam(teamId);
     if (team) {
-      team.tactics = { ...team.tactics, ...newTactics };
+      const { strategy, ...instructions } = newTactics;
+      team.tactics = { ...team.tactics, ...instructions };
+      if (strategy && strategy !== team.strategy) this.applyStrategy(teamId, strategy);
       return true;
     }
     return false;

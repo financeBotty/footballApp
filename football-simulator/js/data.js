@@ -163,6 +163,31 @@ const DEFAULT_TACTICS = {
   defensiveLine: 'Media'          // 'Baja', 'Media', 'Alta'
 };
 
+// Identidades tácticas. Cada plantilla recibe de inicio la que mejor encaja
+// con sus atributos; el entrenador puede cambiarla, con un coste de adaptación.
+const TACTICAL_STRATEGIES = {
+  'Posesión': {
+    mentality: 'Ofensiva', pressure: 'Media', tempo: 'Medio',
+    width: 'Amplia', passStyle: 'Corto', defensiveLine: 'Alta'
+  },
+  'Presión alta': {
+    mentality: 'Ofensiva', pressure: 'Alta', tempo: 'Alto',
+    width: 'Equilibrada', passStyle: 'Corto', defensiveLine: 'Alta'
+  },
+  'Juego directo': {
+    mentality: 'Ofensiva', pressure: 'Media', tempo: 'Alto',
+    width: 'Amplia', passStyle: 'Directo', defensiveLine: 'Media'
+  },
+  'Contraataque': {
+    mentality: 'Defensiva', pressure: 'Baja', tempo: 'Alto',
+    width: 'Amplia', passStyle: 'Directo', defensiveLine: 'Baja'
+  },
+  'Bloque bajo': {
+    mentality: 'Muy Defensiva', pressure: 'Baja', tempo: 'Bajo',
+    width: 'Estrecha', passStyle: 'Mixto', defensiveLine: 'Baja'
+  }
+};
+
 // Datos de equipos (8 equipos)
 const TEAMS = [
   {
@@ -272,6 +297,7 @@ const POSITIONS_BY_LINE = {
 const DATA = {
   FORMATIONS,
   DEFAULT_TACTICS,
+  TACTICAL_STRATEGIES,
   TEAMS,
   VALID_POSITIONS,
   POSITIONS_BY_LINE,

@@ -14,7 +14,7 @@ class FootballSimulator {
     this.matchTimer = null;
     this.matchLoopToken = 0;
     this.isMatchPaused = false;
-    this.matchPlaybackSpeed = 1;
+    this.matchPlaybackSpeed = 3;
     this.matchEventCursor = 0;
     this.matchFinalized = false;
     this.gameState = {
@@ -204,7 +204,7 @@ class FootballSimulator {
 
     let playersHtml = '';
     startingXI.forEach(player => {
-      playersHtml += `<li>${player.name} (${player.position})</li>`;
+      playersHtml += `<li>${player.name}${player.id === team.captainId ? ' (C)' : ''} (${player.position})</li>`;
     });
 
     content.innerHTML = `
@@ -391,7 +391,7 @@ class FootballSimulator {
         });
     this.matchEventCursor = 0;
     this.isMatchPaused = restoredEngine ? true : false;
-    this.matchPlaybackSpeed = 1;
+    this.matchPlaybackSpeed = 3;
     this.matchFinalized = false;
     this.pendingSubstitutions = [];
 
@@ -410,8 +410,7 @@ class FootballSimulator {
           <main class="live-pitch-column">
             <div class="match-controls live-controls live-controls-top">
               <button id="btn-pause" class="btn btn-secondary">${this.isMatchPaused ? 'Reanudar' : 'Pausa'}</button>
-              <button id="btn-normal-speed" class="btn btn-secondary active">1×</button>
-              <button id="btn-fast-speed" class="btn btn-secondary">3×</button>
+              <button id="btn-fast-speed" class="btn btn-secondary active">3×</button>
               <button id="btn-super-speed" class="btn btn-secondary">5×</button>
               <button id="btn-skip-first-half" class="btn btn-secondary">Hasta descanso</button>
               <button id="btn-skip-full-match" class="btn btn-secondary">Hasta final</button>
@@ -456,7 +455,7 @@ class FootballSimulator {
               </section>
             </div>
             <div class="coach-panel" data-coach-panel="tactics">
-              ${this.renderLiveTactics(userState.tactics)}
+              ${this.renderLiveTactics(userState.tactics, userState)}
               <button id="btn-apply-live-tactics" class="btn btn-primary">Aplicar instrucciones</button>
             </div>
             <div class="coach-panel" data-coach-panel="team">
@@ -483,12 +482,14 @@ class FootballSimulator {
     if (!this.isMatchPaused) this.startLiveMatchLoop();
   }
 
-  renderLiveTactics(tactics) {
+  renderLiveTactics(tactics, teamState = null) {
     const select = (id, label, values, value) => `
       <label>${label}<select id="${id}" class="form-control">
         ${values.map(option => `<option value="${option}" ${option === value ? 'selected' : ''}>${option}</option>`).join('')}
       </select></label>`;
     return `
+      ${select('live-strategy', 'Estrategia', Object.keys(DATA.TACTICAL_STRATEGIES), teamState?.strategy)}
+      <small>Estrategia natural: ${teamState?.naturalStrategy || 'Equilibrada'} · Adaptación ${teamState?.tacticalFamiliarity || 100}%</small>
       ${select('live-mentality', 'Mentalidad', ['Muy Defensiva', 'Defensiva', 'Equilibrada', 'Ofensiva', 'Muy Ofensiva'], tactics.mentality)}
       ${select('live-pressure', 'Presión', ['Baja', 'Media', 'Alta'], tactics.pressure)}
       ${select('live-tempo', 'Ritmo', ['Bajo', 'Medio', 'Alto'], tactics.tempo)}
@@ -505,11 +506,16 @@ class FootballSimulator {
     return teamState.onField.map(id => {
       const state = this.liveMatchEngine.state.players[id];
       if (!state || !state.onField) return '';
+      const fitness = Math.round(state.fitness);
+      const fitnessLevel = fitness < 40 ? 'critical' : fitness < 65 ? 'low' : fitness < 80 ? 'medium' : 'high';
       return `
         <button type="button" class="live-player-row" data-player-id="${state.id}" title="Preparar cambio de ${state.name}">
           <span class="live-player-dot ${state.side}">${state.number}</span>
-          <span><strong>${state.name}</strong><small>${state.position}</small></span>
-          <span class="fitness ${state.fitness < 55 ? 'low' : ''}">${Math.round(state.fitness)}%</span>
+          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${state.position}</small></span>
+          <span class="fitness ${fitnessLevel}" aria-label="Cansancio: ${fitness}%">
+            <span class="fitness-bar"><i style="width:${fitness}%"></i></span>
+            <em>${fitness}%</em>
+          </span>
           <span>${state.yellowCards ? '🟨' : ''}${state.redCards ? '🟥' : ''}${state.injured ? '✚' : ''}</span>
         </button>`;
     }).join('');
@@ -522,8 +528,11 @@ class FootballSimulator {
     const queuedOut = new Set((this.pendingSubstitutions || []).map(change => change.playerOutId));
     const queuedIn = new Set((this.pendingSubstitutions || []).map(change => change.playerInId));
     const outgoing = suggestedForId ? this.liveMatchEngine.state.players[suggestedForId] : null;
+    const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
     const players = ids.map(id => this.liveMatchEngine.state.players[id])
-      .filter(player => player && (onField ? player.onField && !queuedOut.has(player.id) : !player.appeared && !queuedIn.has(player.id)));
+      .filter(player => player && (onField
+        ? player.onField && !queuedOut.has(player.id) && (!requiredChange || player.id === requiredChange.playerId)
+        : !player.appeared && !queuedIn.has(player.id)));
     if (!onField && outgoing) {
       players.sort((a, b) => this.getSubstitutionFitScore(b, outgoing) - this.getSubstitutionFitScore(a, outgoing));
     }
@@ -579,6 +588,19 @@ class FootballSimulator {
   attachLiveMatchControls() {
     const byId = id => document.getElementById(id);
     byId('btn-pause').addEventListener('click', () => {
+      const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
+      if (requiredChange && this.liveMatchEngine.state.phase !== 'HALF_TIME') {
+        this.isMatchPaused = true;
+        this.stopLiveMatchLoop();
+        byId('btn-pause').textContent = 'Cambio obligatorio';
+        this.selectPlayerForSubstitution(requiredChange.playerId);
+        const feedback = document.getElementById('substitution-feedback');
+        if (feedback) {
+          feedback.textContent = 'Debes sustituir al jugador lesionado antes de continuar.';
+          feedback.className = 'coach-feedback error';
+        }
+        return;
+      }
       if (this.liveMatchEngine.state.phase === 'HALF_TIME') this.liveMatchEngine.resumeSecondHalf();
       this.isMatchPaused = !this.isMatchPaused;
       if (this.isMatchPaused) this.stopLiveMatchLoop();
@@ -586,22 +608,14 @@ class FootballSimulator {
       byId('btn-pause').textContent = this.isMatchPaused ? 'Reanudar' : 'Pausa';
       this.renderLiveMatchState();
     });
-    byId('btn-normal-speed').addEventListener('click', () => {
-      this.matchPlaybackSpeed = 1;
-      byId('btn-normal-speed').classList.add('active');
-      byId('btn-fast-speed').classList.remove('active');
-      byId('btn-super-speed').classList.remove('active');
-    });
     byId('btn-fast-speed').addEventListener('click', () => {
       this.matchPlaybackSpeed = 3;
       byId('btn-fast-speed').classList.add('active');
-      byId('btn-normal-speed').classList.remove('active');
       byId('btn-super-speed').classList.remove('active');
     });
     byId('btn-super-speed').addEventListener('click', () => {
       this.matchPlaybackSpeed = 5;
       byId('btn-super-speed').classList.add('active');
-      byId('btn-normal-speed').classList.remove('active');
       byId('btn-fast-speed').classList.remove('active');
     });
     byId('btn-skip-first-half').addEventListener('click', () => this.skipLiveMatchTo(45));
@@ -685,8 +699,14 @@ class FootballSimulator {
     const playerInId = document.getElementById('sub-player-in').value;
     const feedback = document.getElementById('substitution-feedback');
     const teamState = this.liveMatchEngine.getTeamState(this.userTeamId);
+    const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
     if (!playerOutId || !playerInId) {
       feedback.textContent = 'Selecciona quién sale y quién entra.';
+      feedback.className = 'coach-feedback error';
+      return false;
+    }
+    if (requiredChange && playerOutId !== requiredChange.playerId) {
+      feedback.textContent = 'Primero debes sustituir al jugador lesionado.';
       feedback.className = 'coach-feedback error';
       return false;
     }
@@ -736,12 +756,13 @@ class FootballSimulator {
     const logicStep = 0.1;
     const stepsPerHalf = 45 / logicStep;
     const baseDelay = (this.liveMatchEngine.halfDuration * 60 * 1000) / stepsPerHalf;
-    // Toda la reproducción parte de una cadencia base duplicada. Los modos
-    // 3× y 5× mantienen su proporción real respecto a 1×.
-    const playbackFactor = () => this.matchPlaybackSpeed * 2;
+    // La reproducción ofrece únicamente los modos rápidos 3× y 5×.
+    // 3× mantiene una cadencia cercana al ritmo fluido de 5×, pero conserva
+    // una diferencia suficiente para poder leer las jugadas.
+    const playbackFactor = () => this.matchPlaybackSpeed === 3 ? 8.5 : 10;
     const tick = () => {
       if (token !== this.matchLoopToken || this.isMatchPaused || !this.liveMatchEngine) return;
-      this.liveMatchEngine.simulateNextStep(logicStep);
+      this.liveMatchEngine.simulateNextStep(logicStep, baseDelay / (2 * 1000));
       this.processLiveMatchEvents();
       this.renderLiveMatchState();
       this.persistLiveMatch();
@@ -775,8 +796,14 @@ class FootballSimulator {
       this.liveMatchEngine.resumeSecondHalf();
     }
     let guard = 0;
-    while (!this.liveMatchEngine.state.complete && this.liveMatchEngine.state.minute < targetMinute && guard < 3000) {
+    const reachedTarget = () => targetMinute === 45
+      ? this.liveMatchEngine.state.phase === 'HALF_TIME'
+      : targetMinute >= 90
+        ? this.liveMatchEngine.state.complete
+        : this.liveMatchEngine.state.minute >= targetMinute;
+    while (!reachedTarget() && guard < 3000) {
       this.liveMatchEngine.simulateNextStep(0.1);
+      if (this.liveMatchEngine.getRequiredInjurySubstitution()) break;
       if (targetMinute > 45 && this.liveMatchEngine.state.phase === 'HALF_TIME') {
         this.liveMatchEngine.resumeSecondHalf();
       } else if (targetMinute === 45 && this.liveMatchEngine.state.phase === 'HALF_TIME') {
@@ -813,10 +840,19 @@ class FootballSimulator {
     });
     if (narrative) narrative.scrollTop = narrative.scrollHeight;
     if (requiresAttention) this.activateCoachTab('narrative');
+    const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
+    if (requiredChange) {
+      this.selectPlayerForSubstitution(requiredChange.playerId);
+      const feedback = document.getElementById('substitution-feedback');
+      if (feedback) {
+        feedback.textContent = 'Cambio obligatorio: el jugador lesionado no puede continuar.';
+        feedback.className = 'coach-feedback error';
+      }
+    }
     if (this.isMatchPaused) {
       this.stopLiveMatchLoop();
       const pauseBtn = document.getElementById('btn-pause');
-      if (pauseBtn) pauseBtn.textContent = requiresAttention ? 'Continuar' : 'Reanudar';
+      if (pauseBtn) pauseBtn.textContent = requiredChange ? 'Cambio obligatorio' : requiresAttention ? 'Continuar' : 'Reanudar';
     }
   }
 
@@ -829,8 +865,8 @@ class FootballSimulator {
     };
     set('home-score', state.score.home);
     set('away-score', state.score.away);
-    set('match-minute', `${state.displayMinute}'`);
-    set('match-phase', this.livePhaseLabel(state.phase));
+    set('match-minute', this.formatLiveMatchMinute(state));
+    set('match-phase', `${this.livePhaseLabel(state.phase)} · Árbitro ${state.referee.cardStrictness}/10`);
     const totalPossession = state.stats.home.possessionTicks + state.stats.away.possessionTicks;
     const homePossession = totalPossession ? Math.round(state.stats.home.possessionTicks / totalPossession * 100) : 50;
     set('possession', `${homePossession} - ${100 - homePossession}`);
@@ -849,12 +885,24 @@ class FootballSimulator {
     return {
       KICK_OFF: 'Saque inicial', BUILD_UP: 'En juego', TRANSITION: 'Transición',
       ATTACK: 'Ataque', LOOSE_BALL: 'Balón dividido', SET_PIECE: 'Balón parado',
+      GOAL_CELEBRATION: 'Celebración del gol', KICK_OFF_SETUP: 'Preparando el saque',
       HALF_TIME: 'Descanso', FULL_TIME: 'Final'
     }[phase] || 'En juego';
   }
 
+  formatLiveMatchMinute(state) {
+    if (state.half === 1 && state.minute > 45) {
+      return `45+${Math.min(state.addedTime.firstHalf, Math.ceil(state.minute - 45))}'`;
+    }
+    if (state.half === 2 && state.minute > 90) {
+      return `90+${Math.min(state.addedTime.secondHalf, Math.ceil(state.minute - 90))}'`;
+    }
+    return `${state.displayMinute}'`;
+  }
+
   applyLiveTactics() {
     const changes = {
+      strategy: document.getElementById('live-strategy').value,
       mentality: document.getElementById('live-mentality').value,
       pressure: document.getElementById('live-pressure').value,
       tempo: document.getElementById('live-tempo').value,
@@ -1010,7 +1058,8 @@ class FootballSimulator {
         <div class="post-match-stats">
           ${[
             ['Tiros', 'shots'], ['A puerta', 'shotsOnTarget'], ['Pases', 'passes'],
-            ['Entradas', 'tackles'], ['Faltas', 'fouls'], ['Fueras de juego', 'offsides']
+            ['Entradas', 'tackles'], ['Faltas', 'fouls'], ['Fueras de juego', 'offsides'],
+            ['Saques de banda', 'throwIns']
           ].map(([label, key]) => `
             <div><strong>${stats.home[key] || 0}</strong><span>${label}</span><strong>${stats.away[key] || 0}</strong></div>
           `).join('')}

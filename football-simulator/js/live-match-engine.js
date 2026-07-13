@@ -22,6 +22,8 @@ class LiveMatchEngine {
     const firstOwner = this.random() < 0.5 ? home.onField[8] : away.onField[8];
     const owner = firstOwner || home.onField.find(Boolean) || away.onField.find(Boolean);
     const players = this.createPlayerStates(home, away);
+    const cardStrictness = 1 + Math.floor(this.random() * 10);
+    const maxRedCards = cardStrictness === 10 ? 3 : cardStrictness >= 5 ? 2 : 1;
     const kickoffPlayer = players[owner];
     if (kickoffPlayer) {
       kickoffPlayer.x = kickoffPlayer.side === 'home' ? 49.2 : 50.8;
@@ -39,6 +41,7 @@ class LiveMatchEngine {
       complete: false,
       pausedReason: null,
       score: { home: 0, away: 0 },
+      hasTrailed: { home: false, away: false },
       stats: {
         home: this.emptyTeamStats(),
         away: this.emptyTeamStats()
@@ -51,16 +54,40 @@ class LiveMatchEngine {
         progress: 1, duration: 1, receiverId: null, action: null,
         passType: 'ground', height: 0, arc: 0
       },
-      referee: { x: 48, y: 42, targetX: 48, targetY: 42 },
+      referee: {
+        x: 48, y: 42, targetX: 48, targetY: 42,
+        cardStrictness,
+        maxRedCards
+      },
       restart: null,
-      events: [this.makeEvent('START_MATCH', 'Comienza el partido', 0)],
+      events: [
+        this.makeEvent('START_MATCH', 'Comienza el partido', 0),
+        this.makeEvent('REFEREE_PROFILE', `Árbitro tarjetero: ${cardStrictness}/10`, 0)
+      ],
       eventCursor: 0,
       injuries: [],
+      requiredInjurySubstitution: null,
       decisions: [],
       lastActionMinute: 0,
       possessionSide: home.onField.includes(owner) ? 'home' : 'away',
       possessionChangedAt: 0,
       transitionUntil: 0,
+      celebration: null,
+      goalBallReturn: null,
+      animations: { substitutions: [], medical: null, captainProtest: null },
+      coaches: {
+        home: { side: 'home', x: 35, y: 73.5, targetX: 35, targetY: 73.5, location: 'bench', dismissed: false, nextMoveAt: 1 },
+        away: { side: 'away', x: 65, y: 73.5, targetX: 65, targetY: 73.5, location: 'bench', dismissed: false, nextMoveAt: 1 }
+      },
+      coachDismissal: this.random() < 0.1 ? {
+        side: this.random() < 0.5 ? 'home' : 'away',
+        minute: 18 + Math.floor(this.random() * 68),
+        completed: false
+      } : null,
+      addedTime: {
+        firstHalf: 2 + Math.floor(this.random() * 4),
+        secondHalf: 4 + Math.floor(this.random() * 5)
+      },
       aiCheckpoints: []
     };
   }
@@ -69,7 +96,7 @@ class LiveMatchEngine {
     return {
       shots: 0, shotsOnTarget: 0, saves: 0, fouls: 0,
       yellowCards: 0, redCards: 0, corners: 0, offsides: 0,
-      passes: 0, tackles: 0, possessionTicks: 0
+      throwIns: 0, passes: 0, tackles: 0, possessionTicks: 0
     };
   }
 
@@ -81,6 +108,10 @@ class LiveMatchEngine {
     const bench = team.players
       .filter(player => !onField.includes(player.id) && this.teamManager.isPlayerAvailable(player))
       .map(player => player.id);
+    const captainChoice = team.captainReason === 'veteranía' ? 'age' : 'overall';
+    const designatedCaptain = onField.includes(team.captainId) ? team.players.find(player => player.id === team.captainId) : null;
+    const captain = designatedCaptain || onField.map(id => team.players.find(player => player.id === id)).filter(Boolean)
+      .sort((a, b) => (Number(b[captainChoice]) || 0) - (Number(a[captainChoice]) || 0))[0];
     return {
       teamId: team.id,
       side,
@@ -89,6 +120,11 @@ class LiveMatchEngine {
       usedPlayers: [...onField],
       substitutions: 0,
       tactics: { ...team.tactics },
+      strategy: team.strategy,
+      naturalStrategy: team.naturalStrategy,
+      tacticalFamiliarity: Number(team.tacticalFamiliarity) || 100,
+      captainId: captain ? captain.id : onField[0],
+      captainReason: team.captainReason,
       formation: team.formation
     };
   }
@@ -130,7 +166,8 @@ class LiveMatchEngine {
           actionTargetUntil: 0,
           lastDuelMinute: -1,
           isPressing: false,
-          isCovering: false
+          isCovering: false,
+          isCaptain: player.id === teamState.captainId
         };
       });
     });
@@ -163,35 +200,78 @@ class LiveMatchEngine {
     return this.getLiveState();
   }
 
-  simulateNextStep(step = 0.25) {
+  simulateNextStep(step = 0.25, playbackSeconds = null) {
     if (this.state.complete) return this.getLiveState();
+    const elapsedSeconds = Number.isFinite(playbackSeconds)
+      ? Math.max(0, playbackSeconds)
+      : (this.halfDuration * 60 * step) / 90;
+    this.advanceTechnicalArea(elapsedSeconds);
+    this.advanceCaptainProtest(elapsedSeconds);
+
+    if (this.state.animations.medical) {
+      this.state.status = 'playing';
+      this.state.pausedReason = null;
+      this.advanceMedicalAnimation(elapsedSeconds);
+      return this.getLiveState();
+    }
+    if (this.getRequiredInjurySubstitution()) {
+      this.state.status = 'paused';
+      this.state.pausedReason = 'injury-substitution';
+      return this.getLiveState();
+    }
+    if (this.state.celebration) {
+      this.state.status = 'playing';
+      this.state.pausedReason = null;
+      this.advanceGoalCelebration(elapsedSeconds);
+      return this.getLiveState();
+    }
+    if (this.state.goalBallReturn) {
+      this.state.status = 'playing';
+      this.state.pausedReason = null;
+      this.advanceGoalBallReturn(elapsedSeconds);
+      return this.getLiveState();
+    }
+
     if (this.state.status === 'ready') this.startMatch();
     this.state.status = 'playing';
     this.state.pausedReason = null;
 
-    this.state.minute = Math.min(90, this.state.minute + step);
+    this.state.minute += step;
     this.state.displayMinute = Math.ceil(this.state.minute);
-    this.state.half = this.state.minute <= 45 ? 1 : 2;
     this.updateFitness(step);
     this.updateTacticalTargets();
     this.moveEntities(step);
     this.advanceBall(step);
     this.runAI();
+    this.maybeDismissCoach();
 
-    if (this.state.minute >= 45 && !this.state.events.some(event => event.type === 'HALF_TIME')) {
-      this.addEvent('HALF_TIME', 'Descanso', 45, null, true);
-      this.state.phase = 'HALF_TIME';
-      this.state.pausedReason = 'half-time';
-      this.state.status = 'paused';
+    // La celebración termina antes de señalar el descanso o el final.
+    if (this.state.celebration) return this.getLiveState();
+
+    if (this.state.half === 1) {
+      if (this.state.minute >= 45 && !this.state.events.some(event => event.type === 'ADDED_TIME_FIRST_HALF')) {
+        this.addEvent('ADDED_TIME_FIRST_HALF', `Se añaden ${this.state.addedTime.firstHalf} minutos`, 45);
+      }
+      if (this.state.minute >= 45 + this.state.addedTime.firstHalf) {
+        this.addEvent('HALF_TIME', 'Descanso', 45, null, true);
+        this.state.phase = 'HALF_TIME';
+        this.state.pausedReason = 'half-time';
+        this.state.status = 'paused';
+      }
+    } else {
+      if (this.state.minute >= 90 && !this.state.events.some(event => event.type === 'ADDED_TIME_SECOND_HALF')) {
+        this.addEvent('ADDED_TIME_SECOND_HALF', `Se añaden ${this.state.addedTime.secondHalf} minutos`, 90);
+      }
+      if (this.state.minute >= 90 + this.state.addedTime.secondHalf) this.finishMatch();
     }
-
-    if (this.state.minute >= 90) this.finishMatch();
     return this.getLiveState();
   }
 
   resumeSecondHalf() {
     if (this.state.phase !== 'HALF_TIME') return false;
-    this.state.minute = Math.max(45.01, this.state.minute);
+    this.state.minute = 45.01;
+    this.state.displayMinute = 46;
+    this.state.half = 2;
     this.state.phase = 'BUILD_UP';
     this.state.status = 'playing';
     this.state.pausedReason = null;
@@ -201,16 +281,139 @@ class LiveMatchEngine {
 
   updateFitness(step) {
     Object.values(this.state.players).forEach(state => {
-      if (!state.onField) return;
+      if (!state.onField || state.mustLeave) return;
       const player = this.getPlayer(state.id);
       const teamState = this.getTeamState(state.teamId);
-      const pressureCost = teamState.tactics.pressure === 'Alta' ? 1.25 :
-        teamState.tactics.pressure === 'Baja' ? 0.8 : 1;
+      const pressureCost = teamState.tactics.pressure === 'Alta' ? 1.3 :
+        teamState.tactics.pressure === 'Baja' ? 0.78 : 1;
       const tempoCost = teamState.tactics.tempo === 'Alto' ? 1.2 :
-        teamState.tactics.tempo === 'Bajo' ? 0.85 : 1;
-      state.fitness = Math.max(5, state.fitness - ((105 - player.stamina) / 850) * step * pressureCost * tempoCost);
+        teamState.tactics.tempo === 'Bajo' ? 0.84 : 1;
+      const positionCost = player.position === 'GK' ? 0.36 :
+        ['CM', 'CDM', 'CAM', 'RM', 'LM', 'RW', 'LW', 'RB', 'LB'].includes(player.position) ? 1.08 :
+          player.position === 'CB' ? 0.92 : 1;
+      const activityCost = (state.isPressing ? 1.16 : 1) *
+        (this.state.transitionUntil > this.state.minute && player.position !== 'GK' ? 1.08 : 1);
+      const drainPerMinute = 0.14 + (100 - player.stamina) * 0.005;
+      const adaptationCost = 1 + (100 - (teamState.tacticalFamiliarity || 100)) / 180;
+      const drain = drainPerMinute * pressureCost * tempoCost * positionCost * activityCost * adaptationCost * step;
+      state.fitness = Math.max(5, state.fitness - drain);
       state.minutesPlayed += step;
     });
+  }
+
+  advanceTechnicalArea(elapsedSeconds) {
+    const animations = this.state.animations;
+    animations.substitutions = animations.substitutions.filter(animation => {
+      animation.elapsedSeconds += elapsedSeconds;
+      const progress = this.clamp(animation.elapsedSeconds / animation.durationSeconds, 0, 1);
+      animation.player.x = animation.fromX + (animation.toX - animation.fromX) * progress;
+      animation.player.y = animation.fromY + (animation.toY - animation.fromY) * progress;
+      return progress < 1;
+    });
+
+    Object.values(this.state.coaches).forEach(coach => {
+      if (coach.dismissed) return;
+      if (this.state.minute >= coach.nextMoveAt) {
+        const center = coach.side === 'home' ? 35 : 65;
+        const returnsToBench = coach.location !== 'bench' && this.random() < 0.48;
+        coach.location = returnsToBench ? 'bench' : 'technical-area';
+        coach.targetX = returnsToBench ? center : center + (this.random() - 0.5) * 16;
+        coach.targetY = returnsToBench ? 73.5 : 69.2;
+        coach.nextMoveAt = this.state.minute + 2.5 + this.random() * 5.5;
+      }
+      coach.x += (coach.targetX - coach.x) * Math.min(0.24, Math.max(0.03, elapsedSeconds * 0.35));
+      coach.y += (coach.targetY - coach.y) * Math.min(0.24, Math.max(0.03, elapsedSeconds * 0.35));
+    });
+  }
+
+  advanceCaptainProtest(elapsedSeconds) {
+    const protest = this.state.animations.captainProtest;
+    if (!protest) return;
+    const captain = this.state.players[protest.playerId];
+    if (!captain || !captain.onField) {
+      this.state.animations.captainProtest = null;
+      return;
+    }
+    protest.remainingSeconds = Math.max(0, protest.remainingSeconds - elapsedSeconds);
+    const referee = this.state.referee;
+    const sideOffset = captain.side === 'home' ? -2.2 : 2.2;
+    captain.targetX = this.clamp(referee.x + sideOffset, 2, 98);
+    captain.targetY = this.clamp(referee.y + 1.5, 2, 66);
+    captain.actionTargetX = captain.targetX;
+    captain.actionTargetY = captain.targetY;
+    captain.actionTargetUntil = this.state.minute + 0.8;
+    const movement = Math.min(0.3, Math.max(0.05, elapsedSeconds * 0.3));
+    captain.x += (captain.targetX - captain.x) * movement;
+    captain.y += (captain.targetY - captain.y) * movement;
+    if (protest.remainingSeconds <= 0) this.state.animations.captainProtest = null;
+  }
+
+  maybeCaptainProtest(side, reason) {
+    const teamState = this.state.teams[side];
+    const captain = teamState ? this.state.players[teamState.captainId] : null;
+    if (!captain || !captain.onField || this.random() >= 0.2) return false;
+    const duration = 2 + this.random() * 3;
+    this.state.animations.captainProtest = {
+      type: 'captain-protest', side, playerId: captain.id, reason,
+      durationSeconds: duration, remainingSeconds: duration
+    };
+    this.addEvent('CAPTAIN_PROTEST', `${captain.name}, capitán, pide explicaciones al árbitro por ${reason}`, null, side);
+    return true;
+  }
+
+  advanceMedicalAnimation(elapsedSeconds) {
+    const animation = this.state.animations.medical;
+    if (!animation) return;
+    animation.elapsedSeconds += elapsedSeconds;
+    const progress = this.clamp(animation.elapsedSeconds / animation.durationSeconds, 0, 1);
+    const approach = this.clamp(progress / 0.42, 0, 1);
+    const exit = this.clamp((progress - 0.42) / 0.58, 0, 1);
+    const exitX = animation.side === 'home' ? 42 : 58;
+    const exitY = 70;
+    const playerX = animation.fromX + (exitX - animation.fromX) * exit;
+    const playerY = animation.fromY + (exitY - animation.fromY) * exit;
+    animation.player.x = playerX;
+    animation.player.y = playerY;
+    animation.medics[0].x = animation.fromX - 2 + (playerX - 2 - (animation.fromX - 2)) * approach;
+    animation.medics[0].y = 70 + (playerY - 70) * approach;
+    animation.medics[1].x = animation.fromX + 2 + (playerX + 2 - (animation.fromX + 2)) * approach;
+    animation.medics[1].y = 70 + (playerY - 70) * approach;
+    if (approach >= 1) {
+      animation.medics[0].x = playerX - 2;
+      animation.medics[0].y = playerY;
+      animation.medics[1].x = playerX + 2;
+      animation.medics[1].y = playerY;
+    }
+    if (progress < 1) return;
+    const player = this.state.players[animation.playerId];
+    if (player && player.onField && !player.mustLeave) {
+      player.x = player.baseX;
+      player.y = player.baseY;
+      player.targetX = player.baseX;
+      player.targetY = player.baseY;
+    } else if (player && player.onField) {
+      player.x = exitX;
+      player.y = 66;
+      player.targetX = exitX;
+      player.targetY = 66;
+    }
+    this.state.animations.medical = null;
+  }
+
+  addStoppageTime(minutes) {
+    const key = this.state.half === 1 ? 'firstHalf' : 'secondHalf';
+    const cap = this.state.half === 1 ? 12 : 18;
+    this.state.addedTime[key] = Math.min(cap, this.state.addedTime[key] + minutes);
+  }
+
+  maybeDismissCoach() {
+    const dismissal = this.state.coachDismissal;
+    if (!dismissal || dismissal.completed || this.state.minute < dismissal.minute) return;
+    dismissal.completed = true;
+    this.state.coaches[dismissal.side].dismissed = true;
+    const team = this.teamManager.getTeam(this.state.teams[dismissal.side].teamId);
+    this.addEvent('COACH_RED_CARD', `El árbitro expulsa al entrenador de ${team.name}`, null, dismissal.side);
+    this.addStoppageTime(1);
   }
 
   updateTacticalTargets() {
@@ -227,6 +430,11 @@ class LiveMatchEngine {
         if (!state || !state.onField) return;
         state.isPressing = false;
         state.isCovering = false;
+        if (state.mustLeave) {
+          state.targetX = state.side === 'home' ? 42 : 58;
+          state.targetY = 66;
+          return;
+        }
         const player = this.getPlayer(id);
         const anchor = { x: state.baseX, y: state.baseY };
         const ballInfluence = (ball.x - 50) * 0.32;
@@ -268,6 +476,18 @@ class LiveMatchEngine {
           player.targetX = this.clamp(owner.x - direction * (3 + index * 2) + direction * forwardRun, 4, 96);
           player.targetY = this.clamp(owner.y + (index - 1) * 9, 4, 64);
         });
+        teamState.onField.map(id => this.state.players[id])
+          .filter(player => player && player.onField && player.id !== ball.ownerId &&
+            ['ST', 'CF', 'RW', 'LW'].includes(player.position) && !player.mustLeave)
+          .forEach(player => {
+            const data = this.getPlayer(player.id);
+            const isFinisher = data.shooting >= 74 && data.shooting > data.passing + 4;
+            if (!isFinisher) return;
+            player.targetX = side === 'home' ? this.clamp(86 + data.shooting * 0.08, 86, 94) : this.clamp(14 - data.shooting * 0.08, 6, 14);
+            player.targetY = player.position === 'ST' || player.position === 'CF'
+              ? this.clamp(34 + (player.baseY - 34) * 0.25, 26, 42)
+              : this.clamp(player.baseY, 18, 50);
+          });
       }
 
       if (!hasBall && ball.ownerId) {
@@ -317,7 +537,87 @@ class LiveMatchEngine {
           player.targetX = this.clamp(restart.x + wallDirection * 9, 4, 96);
           player.targetY = this.clamp(restart.y + (index - 1.5) * 2.2, 4, 64);
         });
+      const taker = restart.takerId ? this.state.players[restart.takerId] : null;
+      if (taker && taker.onField) {
+        taker.targetX = restart.x;
+        taker.targetY = restart.y < 34 ? 2 : 66;
+      }
     }
+  }
+
+  advanceGoalCelebration(elapsedSeconds) {
+    const celebration = this.state.celebration;
+    if (!celebration) return;
+    celebration.remainingSeconds = Math.max(0, celebration.remainingSeconds - elapsedSeconds);
+    const teammates = this.onField(celebration.scoringSide);
+    const participantIds = new Set(celebration.participantIds);
+    const participants = teammates.filter(player => participantIds.has(player.id));
+    const inwardX = celebration.cornerX < 50 ? 1 : -1;
+    const inwardY = celebration.cornerY < 34 ? 1 : -1;
+    const elapsed = celebration.durationSeconds - celebration.remainingSeconds;
+    const progress = this.clamp(elapsed / celebration.durationSeconds, 0, 1);
+
+    teammates.forEach(player => {
+      player.targetX = player.baseX;
+      player.targetY = player.baseY;
+      player.isPressing = false;
+      player.isCovering = false;
+    });
+    participants.forEach((player, index) => {
+      if (celebration.type === 'SIDELINE_RUN') {
+        const startingX = celebration.scoringSide === 'home' ? 96 : 4;
+        const runDirection = celebration.scoringSide === 'home' ? -1 : 1;
+        player.targetX = startingX + runDirection * (8 + progress * 32) + runDirection * index * 2;
+        player.targetY = celebration.cornerY + inwardY * (1.5 + index * 1.8);
+      } else if (celebration.type === 'GOAL_HUDDLE') {
+        const centerX = celebration.scoringSide === 'home' ? 91 : 9;
+        const angle = (Math.PI * 2 * index) / Math.max(1, participants.length);
+        player.targetX = centerX + Math.cos(angle) * 3.2;
+        player.targetY = 34 + Math.sin(angle) * 5;
+      } else {
+        const column = index % 3;
+        const row = Math.floor(index / 3);
+        player.targetX = celebration.cornerX + inwardX * (1.2 + column * 1.6);
+        player.targetY = celebration.cornerY + inwardY * (1.2 + row * 1.45);
+      }
+    });
+    this.onField(celebration.kickoffSide).forEach(player => {
+      player.targetX = player.baseX;
+      player.targetY = player.baseY;
+      player.isPressing = false;
+      player.isCovering = false;
+    });
+
+    const movement = 1 - Math.exp(-Math.max(0.04, elapsedSeconds) * 0.65);
+    Object.values(this.state.players).forEach(player => {
+      if (!player.onField) return;
+      player.x += (player.targetX - player.x) * Math.min(0.32, movement);
+      player.y += (player.targetY - player.y) * Math.min(0.32, movement);
+    });
+    this.applySpatialSeparation();
+    this.state.referee.targetX = 50;
+    this.state.referee.targetY = 34;
+    this.state.referee.x += (50 - this.state.referee.x) * Math.min(0.22, movement);
+    this.state.referee.y += (34 - this.state.referee.y) * Math.min(0.22, movement);
+
+    if (celebration.remainingSeconds <= 0) this.completeGoalCelebration(celebration.kickoffSide);
+  }
+
+  advanceGoalBallReturn(elapsedSeconds) {
+    const ballReturn = this.state.goalBallReturn;
+    if (!ballReturn) return;
+    ballReturn.elapsedSeconds += elapsedSeconds;
+    const progress = this.clamp(ballReturn.elapsedSeconds / ballReturn.durationSeconds, 0, 1);
+    const eased = progress * progress * (3 - 2 * progress);
+    this.state.ball.x = ballReturn.fromX + (50 - ballReturn.fromX) * eased;
+    this.state.ball.y = ballReturn.fromY + (34 - ballReturn.fromY) * eased;
+    if (progress < 1) return;
+    const kickoffSide = ballReturn.kickoffSide;
+    this.state.ball.x = 50;
+    this.state.ball.y = 34;
+    this.state.goalBallReturn = null;
+    this.resetPossession(kickoffSide);
+    this.state.phase = 'KICK_OFF';
   }
 
   moveEntities(step) {
@@ -453,24 +753,51 @@ class LiveMatchEngine {
     }
 
     const attackingDistance = owner.side === 'home' ? 100 - owner.x : owner.x;
-    if (attackingDistance < 36 && this.random() < 0.22) {
-      this.startShot(owner, false);
+    this.chooseRoleAction(owner, attackingDistance);
+  }
+
+  chooseRoleAction(owner, attackingDistance) {
+    const data = this.getPlayer(owner.id);
+    const position = owner.position;
+    if (['GK', 'CB', 'RB', 'LB'].includes(position)) {
+      if (this.random() < 0.88) this.startPass(owner);
+      else this.startDribble(owner);
       return;
     }
-    if (this.random() < 0.5) this.startPass(owner);
-    else this.startDribble(owner);
+    if (['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position)) {
+      const creativeQuality = (data.passing * 0.5) + (data.dribbling * 0.2) + (data.overall * 0.3);
+      if (creativeQuality >= 78 && data.shooting >= 68 && attackingDistance < 32 && this.random() < 0.3) {
+        this.startShot(owner, false);
+      } else if (this.random() < (creativeQuality >= 78 ? 0.82 : 0.74)) {
+        this.startPass(owner);
+      } else {
+        this.startDribble(owner);
+      }
+      return;
+    }
+    const associationQuality = (data.passing * 0.4) + (data.dribbling * 0.3) + (data.overall * 0.3);
+    const shotChance = this.clamp(0.12 + data.shooting / 260 + (attackingDistance < 25 ? 0.18 : 0), 0.2, 0.68);
+    if (attackingDistance < 42 && this.random() < shotChance) {
+      this.startShot(owner, false);
+    } else if (associationQuality >= 76 && this.random() < 0.62) {
+      this.startPass(owner);
+    } else if (associationQuality >= 76) {
+      this.startDribble(owner);
+    } else {
+      this.startPass(owner);
+    }
   }
 
   hasClearScoringChance(owner) {
     if (!owner || owner.position === 'GK') return false;
     const goalDistance = owner.side === 'home' ? 100 - owner.x : owner.x;
     const centralDistance = Math.abs(owner.y - 34);
-    if (goalDistance > 18 || centralDistance > 14) return false;
+    if (goalDistance > 30 || centralDistance > 18) return false;
     const defendingSide = owner.side === 'home' ? 'away' : 'home';
     const nearestOutfield = this.onField(defendingSide)
       .filter(player => player.position !== 'GK' && !player.mustLeave)
       .sort((a, b) => this.distance(a, owner) - this.distance(b, owner))[0];
-    return !nearestOutfield || this.distance(nearestOutfield, owner) > 6;
+    return !nearestOutfield || this.distance(nearestOutfield, owner) > 7.5;
   }
 
   startDribble(owner) {
@@ -488,14 +815,49 @@ class LiveMatchEngine {
     if (!mates.length) return;
     const direction = owner.side === 'home' ? 1 : -1;
     const passStyle = this.state.teams[owner.side].tactics.passStyle;
-    const candidates = mates.sort((a, b) => {
+    const player = this.getPlayer(owner.id);
+    let forcedPassType = null;
+    let candidates = [...mates];
+
+    if (!forcedReceiverId && ['GK', 'CB', 'RB', 'LB'].includes(owner.position)) {
+      const longPassChance = this.clamp(0.06 + player.passing / 320 + (passStyle === 'Directo' ? 0.12 : 0), 0.12, 0.48);
+      if (this.random() < longPassChance) {
+        const longTargets = mates.filter(mate => ['ST', 'CF', 'RW', 'LW', 'CAM'].includes(mate.position));
+        if (longTargets.length) {
+          candidates = longTargets.sort((a, b) => direction * (b.x - a.x));
+          forcedPassType = 'lofted';
+        }
+      } else {
+        const circulation = mates.filter(mate => ['GK', 'CB', 'RB', 'LB', 'CDM'].includes(mate.position));
+        if (circulation.length) candidates = circulation.sort((a, b) => this.distance(owner, a) - this.distance(owner, b));
+      }
+    } else if (!forcedReceiverId && ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(owner.position)) {
+      const creativeQuality = player.passing * 0.55 + player.dribbling * 0.2 + player.overall * 0.25;
+      if (creativeQuality >= 78 && this.random() < 0.62) {
+        const insideTargets = mates.filter(mate => ['ST', 'CF', 'CAM', 'CM'].includes(mate.position) && direction * (mate.x - owner.x) > 4);
+        if (insideTargets.length) {
+          candidates = insideTargets.sort((a, b) => direction * (b.x - a.x));
+          forcedPassType = 'through';
+        }
+      } else {
+        const wideTargets = mates.filter(mate => ['RW', 'LW', 'RM', 'LM', 'RB', 'LB'].includes(mate.position));
+        if (wideTargets.length) candidates = wideTargets.sort((a, b) => Math.abs(b.y - 34) - Math.abs(a.y - 34));
+      }
+    } else if (!forcedReceiverId && ['ST', 'CF', 'RW', 'LW'].includes(owner.position)) {
+      const associationQuality = player.passing * 0.4 + player.dribbling * 0.3 + player.overall * 0.3;
+      const associationTargets = mates.filter(mate => associationQuality >= 76
+        ? ['ST', 'CF', 'RW', 'LW', 'CAM', 'CM'].includes(mate.position)
+        : ['CAM', 'CM', 'RM', 'LM'].includes(mate.position));
+      if (associationTargets.length) candidates = associationTargets.sort((a, b) => this.distance(owner, a) - this.distance(owner, b));
+    }
+
+    candidates = candidates.sort((a, b) => {
       if (passStyle === 'Corto') return this.distance(owner, a) - this.distance(owner, b);
       if (passStyle === 'Directo') return direction * (b.x - a.x);
       return (direction * b.x + this.random() * 20) - (direction * a.x + this.random() * 20);
     });
     let receiver = forcedReceiverId ? this.state.players[forcedReceiverId] : candidates[Math.floor(this.random() * Math.min(4, candidates.length))];
     if (!receiver) return;
-    const player = this.getPlayer(owner.id);
     const inAttackingThird = owner.side === 'home' ? owner.x > 67 : owner.x < 33;
     const isWide = owner.y < 15 || owner.y > 53;
     const shouldCross = !forcedReceiverId && inAttackingThird && isWide;
@@ -506,9 +868,13 @@ class LiveMatchEngine {
     }
     const distance = this.distance(owner, receiver);
     const progressiveDistance = direction * (receiver.x - owner.x);
-    const passType = shouldCross ? 'cross' :
-      (passStyle === 'Directo' && distance > 19) || (distance > 27 && this.random() < 0.42) ? 'lofted' :
-        progressiveDistance > 13 && this.random() < 0.32 ? 'through' : 'ground';
+    let passType = forcedPassType;
+    if (shouldCross) passType = 'cross';
+    else if (!passType) {
+      passType = ((passStyle === 'Directo' && distance > 19) || (distance > 27 && this.random() < 0.42))
+        ? 'lofted'
+        : progressiveDistance > 13 && this.random() < 0.32 ? 'through' : 'ground';
+    }
     const runDx = receiver.targetX - receiver.x;
     const runDy = receiver.targetY - receiver.y;
     const runDistance = Math.hypot(runDx, runDy) || 1;
@@ -536,7 +902,7 @@ class LiveMatchEngine {
       targetX: passTargetX,
       targetY: passTargetY,
       progress: 0,
-      duration: this.clamp(Math.hypot(passTargetX - kickX, passTargetY - kickY) / (35 + player.passing * 0.35), 0.25, 0.9),
+      duration: this.clamp(Math.hypot(passTargetX - kickX, passTargetY - kickY) / (55 + player.passing * 0.5), 0.16, 0.58),
       receiverId: receiver.id,
       passerId: owner.id,
       action: offside.isOffside ? 'offside-pass' : 'pass',
@@ -559,6 +925,12 @@ class LiveMatchEngine {
     }
     if (ball.action === 'offside-pass') {
       this.resolveOffside(ball);
+      return;
+    }
+    if (ball.action === 'pass' && (ball.targetY <= 20 || ball.targetY >= 48) && this.random() < 0.3) {
+      const passer = this.state.players[ball.passerId];
+      const throwInSide = passer && passer.side === 'home' ? 'away' : 'home';
+      this.awardThrowIn(throwInSide, ball.targetX, ball.targetY);
       return;
     }
     const receiver = this.state.players[ball.receiverId];
@@ -651,7 +1023,13 @@ class LiveMatchEngine {
     const inOpposingHalf = homeAttacksRight ? receiver.x > 50 : receiver.x < 50;
     const aheadOfBall = homeAttacksRight ? receiver.x > this.state.ball.x + 0.5 : receiver.x < this.state.ball.x - 0.5;
     const beyondLine = homeAttacksRight ? receiver.x > lineX + 0.5 : receiver.x < lineX - 0.5;
-    return { isOffside: inOpposingHalf && aheadOfBall && beyondLine, lineX };
+    const distanceToLine = homeAttacksRight ? receiver.x - lineX : lineX - receiver.x;
+    const progressiveRun = homeAttacksRight ? receiver.x > passer.x + 7 : receiver.x < passer.x - 7;
+    // En desmarques al límite, el receptor puede arrancar una fracción antes
+    // del pase aunque su posición de muestreo aún parezca ligeramente legal.
+    const mistimedRun = inOpposingHalf && aheadOfBall && progressiveRun &&
+      distanceToLine > -3.2 && this.random() < 0.42;
+    return { isOffside: inOpposingHalf && aheadOfBall && (beyondLine || mistimedRun), lineX };
   }
 
   resolveOffside(ball) {
@@ -675,6 +1053,42 @@ class LiveMatchEngine {
     };
   }
 
+  awardThrowIn(teamSide, x, y) {
+    const touchlineY = y < 34 ? 1.5 : 66.5;
+    this.state.stats[teamSide].throwIns++;
+    this.addEvent('THROW_IN', `Saque de banda para ${this.teamManager.getTeam(this.state.teams[teamSide].teamId).name}`, null, teamSide);
+    this.state.ball = {
+      ...this.state.ball,
+      ownerId: null,
+      state: 'set-piece',
+      action: null,
+      x: this.clamp(x, 4, 96),
+      y: touchlineY,
+      targetX: this.clamp(x, 4, 96),
+      targetY: touchlineY,
+      height: 0,
+      arc: 0
+    };
+    const taker = this.onField(teamSide).filter(player => !player.mustLeave)
+      .sort((a, b) => this.distance(a, this.state.ball) - this.distance(b, this.state.ball))[0];
+    if (taker) {
+      taker.actionTargetX = this.state.ball.x;
+      taker.actionTargetY = touchlineY < 34 ? 2 : 66;
+      taker.actionTargetUntil = this.state.minute + 2.5;
+      taker.targetX = taker.actionTargetX;
+      taker.targetY = taker.actionTargetY;
+    }
+    this.state.phase = 'SET_PIECE';
+    this.state.restart = {
+      type: 'throw-in',
+      teamSide,
+      takerId: taker ? taker.id : null,
+      x: this.state.ball.x,
+      y: touchlineY,
+      wait: 0.8
+    };
+  }
+
   resolveTackle(defender, attacker, forcedCollision = false) {
     const defenderData = this.getPlayer(defender.id);
     const attackerData = this.getPlayer(attacker.id);
@@ -684,6 +1098,11 @@ class LiveMatchEngine {
     const foulChance = this.clamp(baseFoulChance * (attackerInBox ? 0.52 : 1), 0.055, 0.42);
     if (this.random() < foulChance) {
       this.commitFoul(defender, attacker);
+      return;
+    }
+    if ((attacker.y < 8 || attacker.y > 60) && this.random() < 0.28) {
+      const throwInSide = this.random() < 0.72 ? defender.side : attacker.side;
+      this.awardThrowIn(throwInSide, (defender.x + attacker.x) / 2, attacker.y);
       return;
     }
     const winChance = this.clamp(0.35 + defenderData.defending / 220 + defenderData.physical / 500 - attackerData.dribbling / 260, 0.18, 0.82);
@@ -705,10 +1124,12 @@ class LiveMatchEngine {
   commitFoul(defender, victim) {
     this.state.stats[defender.side].fouls++;
     const severity = this.random();
+    const probabilities = this.getCardProbabilities();
+    const cardRoll = this.random();
     let card = null;
-    if (severity > 0.992) card = 'red';
-    else if (severity > 0.77) card = 'yellow';
-    if (card) this.giveCard(defender, card);
+    if (cardRoll < probabilities.red) card = 'red';
+    else if (cardRoll < probabilities.red + probabilities.yellow) card = 'yellow';
+    if (card && !this.giveCard(defender, card)) card = null;
     const foulX = victim.x;
     const inPenaltyArea = victim.side === 'home' ? foulX > 84 : foulX < 16;
     const restartType = inPenaltyArea ? 'penalty' : 'free-kick';
@@ -723,15 +1144,19 @@ class LiveMatchEngine {
     this.state.restart = { type: restartType, teamSide: victim.side, x: victim.x, y: victim.y, wait: 0.2 };
     this.state.referee.targetX = victim.x;
     this.state.referee.targetY = victim.y + 3;
+    if (restartType === 'penalty') this.maybeCaptainProtest(defender.side, 'el penalti');
   }
 
   giveCard(playerState, card) {
     const stats = this.state.stats[playerState.side];
     if (card === 'yellow') {
+      if (playerState.yellowCards >= 1 && this.totalRedCards() >= this.getMaxRedCards()) return false;
       playerState.yellowCards++;
       stats.yellowCards++;
       if (playerState.yellowCards >= 2) this.giveCard(playerState, 'red');
+      return true;
     } else if (!playerState.redCards) {
+      if (this.totalRedCards() >= this.getMaxRedCards()) return false;
       playerState.redCards = 1;
       stats.redCards++;
       playerState.onField = false;
@@ -739,36 +1164,137 @@ class LiveMatchEngine {
       teamState.onField = teamState.onField.filter(id => id !== playerState.id);
       if (this.state.ball.ownerId === playerState.id) this.state.ball.ownerId = null;
       this.addEvent('RED_CARD', `Expulsado ${playerState.name}`, null, playerState.side, true);
+      return true;
     }
+    return false;
+  }
+
+  getCardProbabilities() {
+    const strictness = this.clamp(Number(this.state.referee.cardStrictness) || 5, 1, 10);
+    return {
+      yellow: 0.075 + strictness * 0.027,
+      red: 0.001 + strictness * strictness * 0.00022
+    };
+  }
+
+  getMaxRedCards() {
+    const strictness = this.clamp(Number(this.state.referee.cardStrictness) || 5, 1, 10);
+    return strictness === 10 ? 3 : strictness >= 5 ? 2 : 1;
+  }
+
+  totalRedCards() {
+    return this.state.stats.home.redCards + this.state.stats.away.redCards;
   }
 
   injurePlayer(victim, offender = null) {
     if (victim.injured) return;
-    const severe = this.random() < 0.45 || victim.fitness < 35;
+    const diagnosis = this.createInjuryDiagnosis();
     victim.injured = true;
-    victim.mustLeave = severe;
-    victim.fitness = Math.max(5, victim.fitness - (severe ? 30 : 12));
+    victim.mustLeave = true;
+    victim.fitness = Math.max(5, victim.fitness - diagnosis.fitnessLoss);
     const injury = {
       playerId: victim.id,
       teamId: victim.teamId,
       minute: this.state.displayMinute,
-      severity: severe ? 'moderate' : 'minor',
-      matchesRemaining: severe ? 1 + Math.floor(this.random() * 4) : 0,
+      severity: diagnosis.severity,
+      diagnosis: diagnosis.name,
+      weeksRemaining: diagnosis.weeks,
+      matchesRemaining: diagnosis.weeks,
       causedBy: offender ? offender.id : null
     };
     this.state.injuries.push(injury);
-    this.addEvent('INJURY', `${victim.name} ${severe ? 'no puede continuar' : 'queda dolorido'}`, null, victim.side, true);
-    if (severe && victim.teamId !== this.userTeamId) this.makeAutomaticSubstitution(victim.side, victim.id);
+    this.state.animations.medical = {
+      playerId: victim.id,
+      side: victim.side,
+      elapsedSeconds: 0,
+      durationSeconds: 9,
+      fromX: victim.x,
+      fromY: victim.y,
+      player: { ...victim },
+      medics: [
+        { x: victim.x - 2, y: 70 },
+        { x: victim.x + 2, y: 70 }
+      ]
+    };
+    this.addStoppageTime(2);
+    const durationText = diagnosis.weeks === 0
+      ? 'sin baja posterior'
+      : `${diagnosis.weeks} semana${diagnosis.weeks === 1 ? '' : 's'} de baja`;
+    const isUserPlayer = victim.teamId === this.userTeamId;
+    this.addEvent('INJURY', `${victim.name}: ${diagnosis.name} · ${durationText}`, null, victim.side, isUserPlayer);
+    if (isUserPlayer && this.canReplaceInjuredPlayer(victim.side)) {
+      this.state.requiredInjurySubstitution = { teamId: victim.teamId, playerId: victim.id };
+    } else if (!isUserPlayer) {
+      this.makeAutomaticSubstitution(victim.side, victim.id);
+    }
+  }
+
+  createInjuryDiagnosis() {
+    const roll = this.random();
+    if (roll < 0.04) {
+      return { severity: 'critical', name: 'Rotura del ligamento cruzado anterior', weeks: 22 + Math.floor(this.random() * 5), fitnessLoss: 45 };
+    }
+    if (roll < 0.11) {
+      return { severity: 'very-severe', name: 'Fractura de peroné', weeks: 14 + Math.floor(this.random() * 7), fitnessLoss: 40 };
+    }
+    if (roll < 0.27) {
+      return { severity: 'severe', name: 'Desgarro de isquiotibiales grado II', weeks: 5 + Math.floor(this.random() * 4), fitnessLoss: 32 };
+    }
+    if (roll < 0.55) {
+      return { severity: 'moderate', name: 'Esguince de tobillo grado I', weeks: 1 + Math.floor(this.random() * 3), fitnessLoss: 22 };
+    }
+    return { severity: 'minor', name: 'Contusión muscular leve', weeks: 0, fitnessLoss: 12 };
+  }
+
+  canReplaceInjuredPlayer(side) {
+    const teamState = this.state.teams[side];
+    return teamState.substitutions < 5 && teamState.bench.some(id => {
+      const player = this.state.players[id];
+      return player && !player.appeared;
+    });
+  }
+
+  getRequiredInjurySubstitution() {
+    const requirement = this.state.requiredInjurySubstitution;
+    if (!requirement) return null;
+    const teamState = this.getTeamState(requirement.teamId);
+    const player = this.state.players[requirement.playerId];
+    if (!teamState || !player || !player.onField || !this.canReplaceInjuredPlayer(teamState.side)) {
+      this.state.requiredInjurySubstitution = null;
+      return null;
+    }
+    return requirement;
   }
 
   executeRestart() {
     const restart = this.state.restart;
     if (!restart) return;
-    const taker = this.bestSetPieceTaker(restart.teamSide);
+    const taker = restart.type === 'throw-in' && restart.takerId
+      ? this.state.players[restart.takerId]
+      : this.bestSetPieceTaker(restart.teamSide);
+    if (!taker) {
+      this.state.restart = null;
+      return this.resetPossession();
+    }
+    if (restart.type === 'throw-in' && this.distance(taker, restart) > 3.2) {
+      taker.targetX = restart.x;
+      taker.targetY = restart.y < 34 ? 2 : 66;
+      taker.actionTargetX = taker.targetX;
+      taker.actionTargetY = taker.targetY;
+      taker.actionTargetUntil = this.state.minute + 0.5;
+      restart.wait = 0.15;
+      return;
+    }
     this.state.restart = null;
-    if (!taker) return this.resetPossession();
     const attackingDistance = restart.teamSide === 'home' ? 100 - restart.x : restart.x;
-    if (restart.type === 'indirect-free-kick') {
+    if (restart.type === 'throw-in') {
+      const nearby = this.onField(restart.teamSide).filter(player => !player.mustLeave)
+        .sort((a, b) => this.distance(a, restart) - this.distance(b, restart));
+      const receiver = nearby.find(player => player.id !== taker.id) || nearby[0];
+      this.alignPlayerToBall(taker);
+      this.givePossession(taker.id);
+      if (receiver && receiver.id !== taker.id) this.startPass(taker, receiver.id);
+    } else if (restart.type === 'indirect-free-kick') {
       this.addEvent('INDIRECT_FREE_KICK', `${taker.name} reanuda tras el fuera de juego`, null, restart.teamSide);
       this.alignPlayerToBall(taker);
       this.givePossession(taker.id);
@@ -808,9 +1334,11 @@ class LiveMatchEngine {
     const player = this.getPlayer(shooter.id);
     const kickX = this.state.ball.x;
     const kickY = this.state.ball.y;
-    const shotQuality = this.clamp(
+    const familiarity = this.state.teams[side].tacticalFamiliarity || 100;
+    const adaptationMultiplier = 0.82 + familiarity * 0.0018;
+    const shotQuality = this.clamp((
       0.35 + player.shooting / 160 + (action === 'penalty' ? 0.25 : 0) +
-        (action === 'header' ? player.physical / 500 - 0.13 : 0) - (setPiece && action !== 'penalty' ? 0.04 : 0),
+        (action === 'header' ? player.physical / 500 - 0.13 : 0) - (setPiece && action !== 'penalty' ? 0.04 : 0)) * adaptationMultiplier,
       0.35,
       0.96
     );
@@ -823,7 +1351,7 @@ class LiveMatchEngine {
       targetX: goalX,
       targetY: 29 + this.random() * 10,
       progress: 0,
-      duration: 0.28,
+      duration: 0.18,
       shooterId: shooter.id,
       receiverId: null,
       action,
@@ -855,8 +1383,9 @@ class LiveMatchEngine {
       this.state.stats[shooter.side].shotsOnTarget++;
       this.state.score[shooter.side]++;
       shooter.goals++;
+      const goalContext = this.registerGoalContext(shooter.side);
       this.addEvent('GOAL', `⚽ ${isHeader ? 'Gol de cabeza' : 'Gol'} de ${shooter.name}`, null, shooter.side, shooter.teamId === this.userTeamId ? false : this.state.minute > 60);
-      this.resetAfterGoal(defendingSide);
+      this.resetAfterGoal(defendingSide, shooter.id, goalContext);
     } else if (roll < goalChance + postChance) {
       const postName = this.random() < 0.5 ? 'poste izquierdo' : 'poste derecho';
       this.addEvent('POST', `¡Al palo! El ${isHeader ? 'remate de cabeza' : 'disparo'} de ${shooter.name} golpea el ${postName}`, null, shooter.side);
@@ -878,21 +1407,99 @@ class LiveMatchEngine {
       this.state.stats[shooter.side].shotsOnTarget++;
       this.state.score[shooter.side]++;
       shooter.goals++;
+      const goalContext = this.registerGoalContext(shooter.side);
       this.addEvent('GOAL', `⚽ ${isHeader ? 'Gol de cabeza' : 'Gol'} de ${shooter.name}`, null, shooter.side);
-      this.resetAfterGoal(defendingSide);
+      this.resetAfterGoal(defendingSide, shooter.id, goalContext);
     }
   }
 
-  resetAfterGoal(kickoffSide) {
+  registerGoalContext(scoringSide) {
+    const opponentSide = scoringSide === 'home' ? 'away' : 'home';
+    const scoringGoals = this.state.score[scoringSide];
+    const opponentGoals = this.state.score[opponentSide];
+    const context = {
+      late: this.state.minute >= 80,
+      equalizer: scoringGoals === opponentGoals,
+      comeback: this.state.hasTrailed[scoringSide] && scoringGoals > opponentGoals,
+      lateGoAhead: this.state.minute >= 70 && scoringGoals === opponentGoals + 1
+    };
+    if (scoringGoals > opponentGoals) this.state.hasTrailed[opponentSide] = true;
+    return context;
+  }
+
+  resetAfterGoal(kickoffSide, scorerId = null, goalContext = null) {
+    const scoringSide = kickoffSide === 'home' ? 'away' : 'home';
+    const types = ['SOLO_CORNER', 'TRIO_CORNER', 'TEAM_CORNER', 'SIDELINE_RUN', 'GOAL_HUDDLE'];
+    const type = types[Math.floor(this.random() * types.length)];
+    const upperCorner = this.random() < 0.5;
+    const importance = goalContext || { late: false, equalizer: false, comeback: false, lateGoAhead: false };
+    const baseDuration = 6 + Math.floor(this.random() * 7);
+    const durationSeconds = this.clamp(
+      baseDuration + (importance.late ? 6 : 0) + (importance.equalizer ? 5 : 0) +
+        (importance.comeback ? 7 : 0) + (importance.lateGoAhead ? 3 : 0),
+      6,
+      25
+    );
+    const eligible = this.onField(scoringSide).filter(player => !player.mustLeave);
+    const scorer = this.state.players[scorerId] || eligible.find(player => player.position !== 'GK') || eligible[0];
+    const closest = scorer ? eligible.filter(player => player.id !== scorer.id)
+      .sort((a, b) => this.distance(a, scorer) - this.distance(b, scorer)) : [];
+    let participants = scorer ? [scorer] : [];
+    if (type === 'TRIO_CORNER' || type === 'SIDELINE_RUN') participants = [...participants, ...closest.slice(0, 2)];
+    else if (type === 'TEAM_CORNER') participants = eligible;
+    else if (type === 'GOAL_HUDDLE') participants = [...participants, ...closest.slice(0, 4)];
+    this.state.celebration = {
+      type,
+      scoringSide,
+      kickoffSide,
+      scorerId: scorer ? scorer.id : null,
+      participantIds: participants.map(player => player.id),
+      cornerX: scoringSide === 'home' ? 98 : 2,
+      cornerY: upperCorner ? 2 : 66,
+      importance,
+      durationSeconds,
+      remainingSeconds: durationSeconds
+    };
+    this.state.goalBallReturn = null;
+    this.state.ball = {
+      ...this.state.ball,
+      x: scoringSide === 'home' ? 101.3 : -1.3,
+      targetX: scoringSide === 'home' ? 101.3 : -1.3,
+      ownerId: null,
+      state: 'dead',
+      action: null,
+      receiverId: null,
+      height: 0,
+      arc: 0
+    };
+    this.state.phase = 'GOAL_CELEBRATION';
+    this.maybeCaptainProtest(kickoffSide, 'el gol');
+  }
+
+  completeGoalCelebration(kickoffSide) {
     Object.values(this.state.players).forEach(player => {
       if (!player.onField) return;
       player.x = player.baseX;
       player.y = player.baseY;
+      player.targetX = player.baseX;
+      player.targetY = player.baseY;
+      player.actionTargetUntil = 0;
     });
-    this.state.ball.x = 50;
-    this.state.ball.y = 34;
-    this.resetPossession(kickoffSide);
-    this.state.phase = 'KICK_OFF';
+    this.state.celebration = null;
+    this.state.goalBallReturn = {
+      kickoffSide,
+      elapsedSeconds: 0,
+      durationSeconds: 2,
+      fromX: this.state.ball.x,
+      fromY: this.state.ball.y
+    };
+    this.state.ball.ownerId = null;
+    this.state.ball.state = 'returning';
+    this.state.ball.fromX = this.state.ball.x;
+    this.state.ball.fromY = this.state.ball.y;
+    this.state.ball.targetX = 50;
+    this.state.ball.targetY = 34;
+    this.state.phase = 'KICK_OFF_SETUP';
   }
 
   makeBallLoose(x, y) {
@@ -1012,9 +1619,16 @@ class LiveMatchEngine {
     allowed.forEach(key => {
       if (changes[key]) teamState.tactics[key] = changes[key];
     });
+    if (changes.strategy && changes.strategy !== teamState.strategy && DATA.TACTICAL_STRATEGIES[changes.strategy]) {
+      teamState.strategy = changes.strategy;
+      teamState.tactics = { ...teamState.tactics, ...DATA.TACTICAL_STRATEGIES[changes.strategy] };
+      const team = this.teamManager.getTeam(teamId);
+      teamState.tacticalFamiliarity = this.teamManager.getStrategyFamiliarity(team, changes.strategy);
+    }
     this.state.decisions.push({ minute: this.state.displayMinute, teamId, type: 'tactics', changes: { ...changes }, isAI });
     const team = this.teamManager.getTeam(teamId);
-    this.addEvent('TACTICS', `${team.name} modifica sus instrucciones`, null, teamState.side);
+    const adaptation = teamState.tacticalFamiliarity < 90 ? ` · adaptación ${teamState.tacticalFamiliarity}%` : '';
+    this.addEvent('TACTICS', `${team.name} modifica sus instrucciones${adaptation}`, null, teamState.side);
     return { valid: true };
   }
 
@@ -1028,23 +1642,58 @@ class LiveMatchEngine {
     if (!incoming || incoming.teamId !== teamId || incoming.onField || incoming.appeared || !teamState.bench.includes(playerInId)) {
       return { valid: false, error: 'El suplente no está disponible' };
     }
+    const benchX = teamState.side === 'home' ? 38 : 62;
+    if (!this.state.animations.medical || this.state.animations.medical.playerId !== outgoing.id) {
+      this.state.animations.substitutions.push({
+        type: 'substitution',
+        side: teamState.side,
+        elapsedSeconds: 0,
+        durationSeconds: 7,
+        fromX: outgoing.x,
+        fromY: outgoing.y,
+        toX: benchX,
+        toY: 70,
+        player: { ...outgoing }
+      });
+    }
     outgoing.onField = false;
     outgoing.substitutedOut = true;
     incoming.onField = true;
     incoming.appeared = true;
     incoming.fitness = Number(this.getPlayer(playerInId).fitness) || 100;
-    incoming.x = outgoing.x;
-    incoming.y = outgoing.y;
+    incoming.x = benchX;
+    incoming.y = 69;
     incoming.baseX = outgoing.baseX;
     incoming.baseY = outgoing.baseY;
+    incoming.targetX = outgoing.baseX;
+    incoming.targetY = outgoing.baseY;
     teamState.onField = teamState.onField.map(id => id === playerOutId ? playerInId : id);
     teamState.bench = teamState.bench.filter(id => id !== playerInId);
+    teamState.bench.push(playerOutId);
     teamState.usedPlayers.push(playerInId);
     teamState.substitutions++;
+    if (teamState.captainId === playerOutId) this.assignNewCaptain(teamState);
+    if (this.state.requiredInjurySubstitution && this.state.requiredInjurySubstitution.playerId === playerOutId) {
+      this.state.requiredInjurySubstitution = null;
+    }
     if (this.state.ball.ownerId === playerOutId) this.givePossession(playerInId);
     this.state.decisions.push({ minute: this.state.displayMinute, teamId, type: 'substitution', playerOutId, playerInId, isAI });
     this.addEvent('SUBSTITUTION', `Entra ${incoming.name} por ${outgoing.name}`, null, teamState.side);
+    this.addStoppageTime(1);
     return { valid: true };
+  }
+
+  assignNewCaptain(teamState) {
+    const candidates = teamState.onField.map(id => this.state.players[id]).filter(player => player && player.onField);
+    const reason = teamState.captainReason === 'veteranía' ? 'age' : 'overall';
+    const captain = candidates.sort((a, b) => {
+      const playerA = this.getPlayer(a.id);
+      const playerB = this.getPlayer(b.id);
+      return (Number(playerB[reason]) || 0) - (Number(playerA[reason]) || 0);
+    })[0];
+    Object.values(this.state.players).filter(player => player.teamId === teamState.teamId)
+      .forEach(player => { player.isCaptain = Boolean(captain && player.id === captain.id); });
+    teamState.captainId = captain ? captain.id : null;
   }
 
   makeAutomaticSubstitution(side, playerOutId) {
@@ -1054,23 +1703,32 @@ class LiveMatchEngine {
     const bench = teamState.bench.map(id => this.state.players[id])
       .filter(player => player && !player.appeared)
       .sort((a, b) => {
-        const posA = a.position === outgoing.position ? 100 : 0;
-        const posB = b.position === outgoing.position ? 100 : 0;
-        return (posB + this.getPlayer(b.id).overall) - (posA + this.getPlayer(a.id).overall);
+        return this.getAutomaticSubstitutionScore(b, outgoing) - this.getAutomaticSubstitutionScore(a, outgoing);
       });
     if (!bench.length) return false;
     return this.makeSubstitution(teamState.teamId, playerOutId, bench[0].id, true).valid;
   }
 
+  getAutomaticSubstitutionScore(candidate, outgoing) {
+    const line = position => position === 'GK' ? 'GK' :
+      ['CB', 'RB', 'LB'].includes(position) ? 'DEF' :
+        ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position) ? 'MID' : 'ATK';
+    const exactPosition = candidate.position === outgoing.position ? 1000 : 0;
+    const sameLine = line(candidate.position) === line(outgoing.position) ? 420 : 0;
+    const data = this.getPlayer(candidate.id);
+    return exactPosition + sameLine + data.overall * 3 + candidate.fitness;
+  }
+
   finishMatch() {
     if (this.state.complete) return this.getResult();
-    this.state.minute = 90;
-    this.state.displayMinute = 90;
+    const finalMinute = 90 + this.state.addedTime.secondHalf;
+    this.state.minute = finalMinute;
+    this.state.displayMinute = finalMinute;
     this.state.complete = true;
     this.state.status = 'complete';
     this.state.phase = 'FULL_TIME';
     this.state.ball.ownerId = null;
-    this.addEvent('END_MATCH', 'Final del partido', 90);
+    this.addEvent('END_MATCH', 'Final del partido', finalMinute);
     return this.getResult();
   }
 
@@ -1085,8 +1743,13 @@ class LiveMatchEngine {
       player.yellowCards = (player.yellowCards || 0) + state.yellowCards;
       player.redCards = (player.redCards || 0) + state.redCards;
       player.fitness = Math.max(20, Math.round(state.fitness));
-      const injury = this.state.injuries.find(item => item.playerId === state.id && item.matchesRemaining > 0);
-      if (injury) player.injury = { severity: injury.severity, matchesRemaining: injury.matchesRemaining };
+      const injury = this.state.injuries.find(item => item.playerId === state.id && item.weeksRemaining > 0);
+      if (injury) player.injury = {
+        severity: injury.severity,
+        diagnosis: injury.diagnosis,
+        weeksRemaining: injury.weeksRemaining,
+        matchesRemaining: injury.weeksRemaining
+      };
     });
     this.committed = true;
     return true;
@@ -1116,6 +1779,12 @@ class LiveMatchEngine {
       minute: this.state.displayMinute,
       phase: this.state.phase,
       players: Object.values(this.state.players).filter(player => player.onField),
+      benches: ['home', 'away'].map(side => ({
+        side,
+        players: this.state.teams[side].bench.map(id => this.state.players[id]).filter(Boolean)
+      })),
+      coaches: Object.values(this.state.coaches),
+      animations: this.state.animations,
       ball: { ...this.state.ball },
       referee: { ...this.state.referee }
     };
@@ -1191,11 +1860,69 @@ class LiveMatchEngine {
     engine.randomState = parsed.randomState || parsed.seed;
     engine.committed = !!parsed.committed;
     if (!engine.state.possessionSide) engine.state.possessionSide = engine.ownerSide();
+    if (!engine.state.hasTrailed) engine.state.hasTrailed = { home: false, away: false };
     if (!Number.isFinite(engine.state.possessionChangedAt)) engine.state.possessionChangedAt = 0;
     if (!Number.isFinite(engine.state.transitionUntil)) engine.state.transitionUntil = 0;
+    if (!engine.state.celebration) engine.state.celebration = null;
+    else {
+      const celebration = engine.state.celebration;
+      if (!celebration.type) celebration.type = 'TEAM_CORNER';
+      if (!Array.isArray(celebration.participantIds)) {
+        celebration.participantIds = engine.onField(celebration.scoringSide)
+          .filter(player => player.position !== 'GK').map(player => player.id);
+      }
+      if (!celebration.importance) celebration.importance = { late: false, equalizer: false, comeback: false, lateGoAhead: false };
+    }
+    if (!engine.state.goalBallReturn) engine.state.goalBallReturn = null;
+    if (!engine.state.animations) engine.state.animations = { substitutions: [], medical: null, captainProtest: null };
+    if (typeof engine.state.animations.captainProtest === 'undefined') engine.state.animations.captainProtest = null;
+    ['home', 'away'].forEach(side => {
+      const teamState = engine.state.teams[side];
+      const team = teamManager.getTeam(teamState.teamId);
+      teamState.strategy = teamState.strategy || team.strategy;
+      teamState.naturalStrategy = teamState.naturalStrategy || team.naturalStrategy;
+      teamState.tacticalFamiliarity = Number(teamState.tacticalFamiliarity) || team.tacticalFamiliarity || 100;
+      if (!teamState.captainId || !engine.state.players[teamState.captainId]?.onField) {
+        teamState.captainReason = teamState.captainReason || 'calidad';
+        engine.assignNewCaptain(teamState);
+      } else {
+        engine.state.players[teamState.captainId].isCaptain = true;
+      }
+    });
+    if (!engine.state.animations) engine.state.animations = { substitutions: [], medical: null };
+    if (!Array.isArray(engine.state.animations.substitutions)) engine.state.animations.substitutions = [];
+    if (typeof engine.state.requiredInjurySubstitution === 'undefined') engine.state.requiredInjurySubstitution = null;
+    (engine.state.injuries || []).forEach(injury => {
+      if (!Number.isFinite(injury.weeksRemaining)) injury.weeksRemaining = Number(injury.matchesRemaining) || 0;
+      if (!Number.isFinite(injury.matchesRemaining)) injury.matchesRemaining = injury.weeksRemaining;
+      if (!injury.diagnosis) injury.diagnosis = injury.severity === 'moderate' ? 'Lesión muscular moderada' : 'Contusión muscular leve';
+    });
+    if (!engine.state.coaches) {
+      engine.state.coaches = {
+        home: { side: 'home', x: 35, y: 73.5, targetX: 35, targetY: 73.5, location: 'bench', dismissed: false, nextMoveAt: engine.state.minute + 1 },
+        away: { side: 'away', x: 65, y: 73.5, targetX: 65, targetY: 73.5, location: 'bench', dismissed: false, nextMoveAt: engine.state.minute + 1 }
+      };
+    }
+    Object.values(engine.state.coaches).forEach(coach => {
+      const center = coach.side === 'home' ? 35 : 65;
+      if (!Number.isFinite(coach.y)) coach.y = 73.5;
+      if (!Number.isFinite(coach.targetY)) coach.targetY = coach.y;
+      if (!Number.isFinite(coach.targetX)) coach.targetX = center;
+      if (!coach.location) coach.location = coach.y > 71 ? 'bench' : 'technical-area';
+    });
+    if (typeof engine.state.coachDismissal === 'undefined') engine.state.coachDismissal = null;
+    if (!engine.state.addedTime) engine.state.addedTime = { firstHalf: 3, secondHalf: 5 };
+    if (!Number.isFinite(engine.state.addedTime.firstHalf)) engine.state.addedTime.firstHalf = 3;
+    if (!Number.isFinite(engine.state.addedTime.secondHalf)) engine.state.addedTime.secondHalf = 5;
+    ['home', 'away'].forEach(side => {
+      if (!Number.isFinite(engine.state.stats[side].throwIns)) engine.state.stats[side].throwIns = 0;
+    });
     if (!Number.isFinite(engine.state.ball.height)) engine.state.ball.height = 0;
     if (!Number.isFinite(engine.state.ball.arc)) engine.state.ball.arc = 0;
     if (!engine.state.ball.passType) engine.state.ball.passType = 'ground';
+    if (!Number.isFinite(engine.state.referee.cardStrictness)) engine.state.referee.cardStrictness = 5;
+    engine.state.referee.cardStrictness = engine.clamp(Math.round(engine.state.referee.cardStrictness), 1, 10);
+    engine.state.referee.maxRedCards = engine.getMaxRedCards();
     Object.values(engine.state.players || {}).forEach(player => {
       if (!Number.isFinite(player.baseX)) player.baseX = player.x;
       if (!Number.isFinite(player.baseY)) player.baseY = player.y;

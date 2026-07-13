@@ -42,7 +42,7 @@ class MatchRenderer {
     const rect = this.canvas.getBoundingClientRect();
     const ratio = Math.min(2, window.devicePixelRatio || 1);
     const width = Math.max(320, rect.width || 900);
-    const height = Math.max(190, width * 0.54);
+    const height = Math.max(210, width * 0.6);
     this.canvas.style.height = `${height}px`;
     this.canvas.width = Math.round(width * ratio);
     this.canvas.height = Math.round(height * ratio);
@@ -52,21 +52,25 @@ class MatchRenderer {
   }
 
   point(x, y) {
-    const padding = 16;
+    const paddingX = 16;
+    const paddingTop = 14;
+    const paddingBottom = 54;
     return {
-      x: padding + (x / 100) * (this.width - padding * 2),
-      y: padding + (y / 68) * (this.height - padding * 2)
+      x: paddingX + (x / 100) * (this.width - paddingX * 2),
+      y: paddingTop + (y / 68) * (this.height - paddingTop - paddingBottom)
     };
   }
 
   render(snapshot) {
     if (!this.ctx || !this.width) return;
     this.drawPitch();
+    this.drawBenches(snapshot.benches, snapshot.animations);
     this.drawDefensiveLines(snapshot.players);
     if (Number.isFinite(snapshot.ball.offsideLineX)) this.drawOffsideLine(snapshot.ball.offsideLineX);
     if (['passing', 'shooting'].includes(snapshot.ball.state)) this.drawBallTrajectory(snapshot.ball);
     const keeperHasJustSaved = snapshot.ball.heldByKeeper && this.previousBallState === 'shooting';
-    snapshot.players.forEach(player => {
+    const treatedPlayerId = snapshot.animations.medical ? snapshot.animations.medical.playerId : null;
+    snapshot.players.filter(player => player.id !== treatedPlayerId).forEach(player => {
       const mustSnapToBall = keeperHasJustSaved && snapshot.ball.ownerId === player.id;
       const visual = mustSnapToBall
         ? { x: player.x, y: player.y }
@@ -84,12 +88,15 @@ class MatchRenderer {
       (snapshot.ball.ownerId && snapshot.ball.ownerId !== this.previousBallOwnerId);
     if (snapBall) this.visualBall = { x: snapshot.ball.x, y: snapshot.ball.y };
     this.visualBall = this.visualBall || { x: snapshot.ball.x, y: snapshot.ball.y };
-    const ballInterpolation = ['passing', 'shooting'].includes(snapshot.ball.state) ? 0.38 : 0.26;
+    const ballInterpolation = ['passing', 'shooting'].includes(snapshot.ball.state) ? 0.62 : 0.34;
     this.visualBall.x += (snapshot.ball.x - this.visualBall.x) * ballInterpolation;
     this.visualBall.y += (snapshot.ball.y - this.visualBall.y) * ballInterpolation;
     this.visualReferee = this.visualReferee || { x: snapshot.referee.x, y: snapshot.referee.y };
     this.visualReferee.x += (snapshot.referee.x - this.visualReferee.x) * 0.1;
     this.visualReferee.y += (snapshot.referee.y - this.visualReferee.y) * 0.1;
+    snapshot.animations.substitutions.forEach(animation => this.drawPlayer(animation.player, false, true));
+    if (snapshot.animations.medical) this.drawMedicalAnimation(snapshot.animations.medical);
+    snapshot.coaches.forEach(coach => this.drawCoach(coach));
     this.drawReferee(this.visualReferee);
     this.drawBall({ ...snapshot.ball, x: this.visualBall.x, y: this.visualBall.y });
     if (snapshot.phase === 'SET_PIECE') this.drawSetPieceMarker(snapshot.ball);
@@ -118,18 +125,21 @@ class MatchRenderer {
 
     const p0 = this.point(0, 0);
     const p1 = this.point(100, 68);
+    ctx.fillStyle = '#243244';
+    ctx.fillRect(0, p1.y + 3, this.width, this.height - p1.y - 3);
     ctx.strokeStyle = 'rgba(255,255,255,.9)';
     ctx.lineWidth = 2;
     ctx.strokeRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
     ctx.beginPath();
-    ctx.moveTo(this.width / 2, p0.y);
-    ctx.lineTo(this.width / 2, p1.y);
+    const center = this.point(50, 34);
+    ctx.moveTo(center.x, p0.y);
+    ctx.lineTo(center.x, p1.y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(this.width / 2, this.height / 2, (this.width - 32) * 0.09, 0, Math.PI * 2);
+    ctx.arc(center.x, center.y, (this.width - 32) * 0.09, 0, Math.PI * 2);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(this.width / 2, this.height / 2, 3, 0, Math.PI * 2);
+    ctx.arc(center.x, center.y, 3, 0, Math.PI * 2);
     ctx.fillStyle = 'white';
     ctx.fill();
     this.drawPenaltyArea('home');
@@ -205,6 +215,26 @@ class MatchRenderer {
     ctx.fill();
     const goalTop = this.point(side === 'home' ? 0 : 100, 29);
     const goalBottom = this.point(side === 'home' ? 0 : 100, 39);
+    const netBackTop = this.point(side === 'home' ? -2 : 102, 29);
+    const netBackBottom = this.point(side === 'home' ? -2 : 102, 39);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(goalTop.x, goalTop.y);
+    ctx.lineTo(netBackTop.x, netBackTop.y);
+    ctx.lineTo(netBackBottom.x, netBackBottom.y);
+    ctx.lineTo(goalBottom.x, goalBottom.y);
+    ctx.stroke();
+    [31.5, 34, 36.5].forEach(y => {
+      const front = this.point(side === 'home' ? 0 : 100, y);
+      const back = this.point(side === 'home' ? -2 : 102, y);
+      ctx.beginPath();
+      ctx.moveTo(front.x, front.y);
+      ctx.lineTo(back.x, back.y);
+      ctx.stroke();
+    });
+    ctx.restore();
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.moveTo(goalTop.x, goalTop.y);
@@ -213,14 +243,14 @@ class MatchRenderer {
     ctx.lineWidth = 2;
   }
 
-  drawPlayer(player, ownsBall) {
+  drawPlayer(player, ownsBall, sideline = false) {
     const ctx = this.ctx;
     const p = this.point(player.x, player.y);
-    const radius = this.width < 550 ? 11 : 14;
+    const radius = this.width < 550 ? 5.5 : 7;
     ctx.save();
     if (player.isPressing || player.isCovering) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, radius + 7, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, radius + 4.5, 0, Math.PI * 2);
       ctx.strokeStyle = player.isPressing ? 'rgba(250, 204, 21, .9)' : 'rgba(255, 255, 255, .5)';
       ctx.lineWidth = player.isPressing ? 2 : 1.5;
       ctx.setLineDash(player.isCovering ? [3, 3] : []);
@@ -229,7 +259,7 @@ class MatchRenderer {
     }
     if (ownsBall) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, radius + 5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, radius + 3.5, 0, Math.PI * 2);
       ctx.strokeStyle = '#fef08a';
       ctx.lineWidth = 2;
       ctx.stroke();
@@ -242,10 +272,15 @@ class MatchRenderer {
     ctx.lineWidth = player.yellowCards || player.redCards ? 3 : 1.5;
     ctx.stroke();
     ctx.fillStyle = '#07111f';
-    ctx.font = `800 ${this.width < 550 ? 10 : 13}px system-ui`;
+    ctx.font = `800 ${this.width < 550 ? 6 : 8}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(player.number), p.x, p.y + 0.5);
+    if (player.isCaptain) {
+      ctx.fillStyle = '#fff';
+      ctx.font = `900 ${this.width < 550 ? 6 : 7}px system-ui`;
+      ctx.fillText('C', p.x + radius + 2, p.y + radius + 1);
+    }
     if (player.injured) {
       ctx.fillStyle = '#fff';
       ctx.font = '700 12px system-ui';
@@ -254,11 +289,88 @@ class MatchRenderer {
     ctx.restore();
   }
 
+  drawBenches(benches = [], animations = { substitutions: [] }) {
+    const ctx = this.ctx;
+    const pitchBottom = this.point(50, 68).y;
+    const walkingOff = new Set(animations.substitutions.map(animation => animation.player.id));
+    benches.forEach(bench => {
+      const centerX = bench.side === 'home' ? 35 : 65;
+      const left = this.point(centerX - 11, 68).x;
+      const right = this.point(centerX + 11, 68).x;
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, .82)';
+      ctx.strokeStyle = bench.side === 'home' ? this.colors.home : this.colors.away;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.rect(left, pitchBottom + 9, right - left, 28);
+      ctx.fill();
+      ctx.stroke();
+      const visible = bench.players.filter(player => !walkingOff.has(player.id)).slice(0, 9);
+      visible.forEach((player, index) => {
+        const x = left + 10 + index * ((right - left - 20) / Math.max(1, visible.length - 1));
+        const y = pitchBottom + 24;
+        ctx.beginPath();
+        ctx.arc(x, y, this.width < 550 ? 2.4 : 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = this.colors[bench.side];
+        ctx.fill();
+        ctx.fillStyle = '#07111f';
+        ctx.font = `800 ${this.width < 550 ? 4 : 5}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(player.number), x, y);
+      });
+      ctx.restore();
+    });
+  }
+
+  drawCoach(coach) {
+    if (coach.dismissed) return;
+    const ctx = this.ctx;
+    const p = this.point(coach.x, coach.y);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, this.width < 550 ? 3.5 : 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fill();
+    ctx.strokeStyle = this.colors[coach.side];
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#0f172a';
+    ctx.font = `900 ${this.width < 550 ? 5 : 6}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('E', p.x, p.y);
+    ctx.restore();
+  }
+
+  drawMedicalAnimation(animation) {
+    this.drawPlayer(animation.player, false, true);
+    animation.medics.forEach(medic => {
+      const ctx = this.ctx;
+      const p = this.point(medic.x, medic.y);
+      const radius = this.width < 550 ? 4.5 : 6;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#ef4444';
+      ctx.font = `900 ${this.width < 550 ? 9 : 12}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('+', p.x, p.y);
+      ctx.restore();
+    });
+  }
+
   drawReferee(referee) {
     const ctx = this.ctx;
     const p = this.point(referee.x, referee.y);
     ctx.beginPath();
-    ctx.arc(p.x, p.y, this.width < 550 ? 8 : 10, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, this.width < 550 ? 5.5 : 7, 0, Math.PI * 2);
     ctx.fillStyle = this.colors.referee;
     ctx.fill();
     ctx.strokeStyle = '#f8fafc';

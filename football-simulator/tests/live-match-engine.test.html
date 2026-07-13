@@ -68,6 +68,62 @@
       return player.redCards === 1 && !player.onField && engine.onField('home').length === 10;
     });
 
+    test('Cada partido recibe un nivel tarjetero entre 1 y 10', () => {
+      const { engine } = createEngine(401);
+      const level = engine.state.referee.cardStrictness;
+      return level >= 1 && level <= 10 && Number.isInteger(level) &&
+        engine.state.events.some(event => event.type === 'REFEREE_PROFILE' && event.narration.includes(`${level}/10`));
+    });
+
+    test('Cada equipo tiene un capitán elegido por veteranía o calidad', () => {
+      const { engine } = createEngine(403);
+      return ['home', 'away'].every(side => {
+        const team = engine.state.teams[side];
+        const captains = engine.onField(side).filter(player => player.isCaptain);
+        if (captains.length !== 1 || captains[0].id !== team.captainId) return false;
+        const attribute = team.captainReason === 'veteranía' ? 'age' : 'overall';
+        const maximum = Math.max(...engine.onField(side).map(player => engine.getPlayer(player.id)[attribute]));
+        return engine.getPlayer(captains[0].id)[attribute] === maximum;
+      });
+    });
+
+    test('El capitán puede pedir explicaciones al árbitro por gol o penalti', () => {
+      const { engine } = createEngine(404);
+      engine.random = () => 0;
+      const captain = engine.state.players[engine.state.teams.home.captainId];
+      const started = engine.maybeCaptainProtest('home', 'el penalti');
+      const before = engine.distance(captain, engine.state.referee);
+      engine.advanceCaptainProtest(1);
+      return started && engine.state.animations.captainProtest &&
+        engine.distance(captain, engine.state.referee) < before &&
+        engine.state.events.some(event => event.type === 'CAPTAIN_PROTEST');
+    });
+
+    test('La plantilla tiene estrategia natural y cambiarla reduce la adaptación', () => {
+      const { engine, manager, home } = createEngine(405);
+      const natural = home.naturalStrategy;
+      const alternative = Object.keys(DATA.TACTICAL_STRATEGIES).find(strategy => strategy !== natural);
+      const validIdentity = DATA.TACTICAL_STRATEGIES[natural] && home.strategy === natural && home.tacticalFamiliarity === 100;
+      const result = engine.applyTactics(home.id, { strategy: alternative });
+      manager.updateTactics(home.id, { strategy: alternative });
+      const state = engine.getTeamState(home.id);
+      return validIdentity && result.valid && state.strategy === alternative &&
+        state.tacticalFamiliarity < 100 && home.tacticalFamiliarity < 100;
+    });
+
+    test('Un árbitro 10 es más tarjetero y admite como máximo tres expulsados', () => {
+      const { engine } = createEngine(402);
+      engine.state.referee.cardStrictness = 1;
+      const lenient = engine.getCardProbabilities();
+      engine.state.referee.cardStrictness = 10;
+      const strict = engine.getCardProbabilities();
+      const candidates = [...engine.onField('home'), ...engine.onField('away')]
+        .filter(player => player.position !== 'GK').slice(0, 4);
+      candidates.forEach(player => engine.giveCard(player, 'red'));
+      return strict.yellow > lenient.yellow && strict.red > lenient.red &&
+        engine.totalRedCards() === 3 && candidates.filter(player => player.redCards).length === 3;
+    });
+
     test('Una falta detiene el juego y prepara balón parado', () => {
       const { engine } = createEngine(5);
       const defender = engine.onField('away').find(item => item.position !== 'GK');
@@ -89,7 +145,14 @@
       engine.giveCard(defender, 'red');
       const healthyPlayer = engine.onField('home').find(item => !item.injured && item.id !== victim.id) || victim;
       engine.injurePlayer(healthyPlayer);
-      engine.state.minute = 44.95;
+      while (engine.state.animations.medical) engine.simulateNextStep(0.1, 1);
+      const required = engine.getRequiredInjurySubstitution();
+      if (required) {
+        const team = engine.getTeamState(required.teamId);
+        const incoming = team.bench.find(id => !engine.state.players[id].appeared);
+        engine.makeSubstitution(required.teamId, required.playerId, incoming);
+      }
+      engine.state.minute = 45 + engine.state.addedTime.firstHalf - 0.05;
       engine.simulateNextStep(0.1);
       const foul = engine.state.events.find(event => event.type === 'FOUL');
       const red = engine.state.events.find(event => event.type === 'RED_CARD');
@@ -123,6 +186,73 @@
       return ['GOAL', 'POST', 'SAVE'].includes(outcome.type) && !engine.state.events.some(event => event.type === 'SHOT_OFF');
     });
 
+    test('La celebración normal dura menos y conserva el balón dentro de la portería', () => {
+      const { engine } = createEngine(520);
+      const scorer = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[8];
+      engine.resetAfterGoal('away', scorer.id);
+      const celebration = engine.state.celebration;
+      if (!celebration || engine.state.phase !== 'GOAL_CELEBRATION') return false;
+      const validDuration = celebration.durationSeconds >= 6 && celebration.durationSeconds <= 12;
+      const ballInsideGoal = engine.state.ball.state === 'dead' && engine.state.ball.x > 100;
+      engine.simulateNextStep(.1, 1);
+      for (let second = 1; second < celebration.durationSeconds; second++) engine.simulateNextStep(.1, 1);
+      const returnsSmoothly = engine.state.goalBallReturn && engine.state.phase === 'KICK_OFF_SETUP';
+      const beforeReturnX = engine.state.ball.x;
+      engine.simulateNextStep(.1, 1);
+      const movedTowardCenter = Math.abs(engine.state.ball.x - 50) < Math.abs(beforeReturnX - 50);
+      while (engine.state.goalBallReturn) engine.simulateNextStep(.1, 1);
+      return validDuration && ballInsideGoal && !engine.state.celebration &&
+        returnsSmoothly && movedTowardCenter && engine.state.phase === 'KICK_OFF' &&
+        engine.state.ball.x === 50 && engine.state.ball.y === 34;
+    });
+
+    test('Elige aleatoriamente entre cinco celebraciones con distinto número de jugadores', () => {
+      const { engine } = createEngine(522);
+      const scorer = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[8];
+      const typeRolls = [.01, .21, .41, .61, .81];
+      const expectedParticipants = [1, 3, engine.onField('home').length, 3, 5];
+      const types = [];
+      const counts = [];
+      typeRolls.forEach(roll => {
+        const values = [roll, .2, .2];
+        let index = 0;
+        engine.random = () => values[Math.min(index++, values.length - 1)];
+        engine.resetAfterGoal('away', scorer.id);
+        types.push(engine.state.celebration.type);
+        counts.push(engine.state.celebration.participantIds.length);
+        engine.completeGoalCelebration('away');
+      });
+      return new Set(types).size === 5 && counts.every((count, index) => count === expectedParticipants[index]);
+    });
+
+    test('Los goles decisivos tienen celebraciones más largas', () => {
+      const { engine } = createEngine(523);
+      const scorer = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[8];
+      engine.random = () => 0;
+      engine.resetAfterGoal('away', scorer.id, { late: false, equalizer: false, comeback: false, lateGoAhead: false });
+      const ordinary = engine.state.celebration.durationSeconds;
+      engine.completeGoalCelebration('away');
+      engine.resetAfterGoal('away', scorer.id, { late: true, equalizer: true, comeback: true, lateGoAhead: true });
+      const decisive = engine.state.celebration.durationSeconds;
+      return ordinary === 6 && decisive === 25;
+    });
+
+    test('El entrenador entra y sale aleatoriamente de su zona técnica', () => {
+      const { engine } = createEngine(521);
+      const coach = engine.state.coaches.home;
+      const originalRandom = engine.random;
+      engine.random = () => 0;
+      coach.location = 'technical-area';
+      coach.nextMoveAt = 0;
+      engine.advanceTechnicalArea(1);
+      const returnsToBench = coach.location === 'bench' && coach.targetX === 35 && coach.targetY === 73.5;
+      coach.nextMoveAt = 0;
+      engine.advanceTechnicalArea(1);
+      const exitsAgain = coach.location === 'technical-area' && coach.targetY === 69.2;
+      engine.random = originalRandom;
+      return returnsToBench && exitsAgain;
+    });
+
     test('Una falta dentro del área produce penalti', () => {
       const { engine } = createEngine(53);
       const defender = engine.onField('away').find(item => item.position !== 'GK');
@@ -149,23 +279,158 @@
         engine.state.restart.type === 'indirect-free-kick' && engine.state.events.some(event => event.type === 'OFFSIDE');
     });
 
+    test('Concede y ejecuta saques de banda', () => {
+      const { engine } = createEngine(55);
+      engine.awardThrowIn('home', 62, 66);
+      const prepared = engine.state.stats.home.throwIns === 1 && engine.state.restart &&
+        engine.state.restart.type === 'throw-in' && engine.state.events.some(event => event.type === 'THROW_IN');
+      const taker = engine.state.players[engine.state.restart.takerId];
+      taker.x = 40;
+      taker.y = 34;
+      const start = { x: taker.x, y: taker.y };
+      engine.executeRestart();
+      const didNotTeleport = engine.state.restart && taker.x === start.x && taker.y === start.y;
+      let guard = 0;
+      while (engine.state.restart && guard++ < 40) {
+        engine.updateTacticalTargets();
+        engine.moveEntities(.5);
+        engine.state.restart.wait = 0;
+        engine.executeRestart();
+      }
+      return prepared && didNotTeleport && !engine.state.restart && ['passing', 'controlled'].includes(engine.state.ball.state);
+    });
+
+    test('Añade varios minutos antes del descanso y del final', () => {
+      const { engine } = createEngine(56);
+      const validRanges = engine.state.addedTime.firstHalf >= 2 && engine.state.addedTime.firstHalf <= 5 &&
+        engine.state.addedTime.secondHalf >= 4 && engine.state.addedTime.secondHalf <= 8;
+      engine.state.minute = 44.95;
+      engine.simulateNextStep(.1);
+      const announced = engine.state.events.some(event => event.type === 'ADDED_TIME_FIRST_HALF');
+      const stillPlaying = engine.state.phase !== 'HALF_TIME';
+      engine.state.minute = 45 + engine.state.addedTime.firstHalf - .05;
+      engine.simulateNextStep(.1);
+      return validRanges && announced && stillPlaying && engine.state.phase === 'HALF_TIME';
+    });
+
     test('Una lesión guarda severidad y duración', () => {
       const { engine } = createEngine(6);
       const victim = engine.onField('home')[4];
       engine.injurePlayer(victim);
       const injury = engine.state.injuries[0];
-      return victim.injured && injury && ['minor', 'moderate'].includes(injury.severity);
+      const medical = engine.state.animations.medical;
+      return victim.injured && victim.mustLeave && injury && injury.diagnosis &&
+        injury.weeksRemaining >= 0 && injury.weeksRemaining <= 26 &&
+        medical && medical.medics.length === 2 && medical.medics.every(medic => medic.y === 70);
+    });
+
+    test('Define cinco diagnósticos desde 0 semanas hasta 6 meses', () => {
+      const { engine } = createEngine(601);
+      const diagnose = values => {
+        let index = 0;
+        engine.random = () => values[Math.min(index++, values.length - 1)];
+        return engine.createInjuryDiagnosis();
+      };
+      const diagnoses = [
+        diagnose([.01, .99]), diagnose([.06, .99]), diagnose([.2, .99]),
+        diagnose([.4, .01]), diagnose([.9])
+      ];
+      return new Set(diagnoses.map(item => item.name)).size === 5 &&
+        diagnoses[0].weeks >= 22 && diagnoses[0].weeks <= 26 &&
+        diagnoses[3].weeks >= 1 && diagnoses[3].weeks <= 3 && diagnoses[4].weeks === 0;
+    });
+
+    test('Una lesión propia obliga a realizar el cambio antes de seguir', () => {
+      const { engine, home } = createEngine(602);
+      const victim = engine.onField('home').find(player => player.position !== 'GK');
+      engine.random = () => .9;
+      engine.injurePlayer(victim);
+      const requirement = engine.getRequiredInjurySubstitution();
+      while (engine.state.animations.medical) engine.simulateNextStep(.1, 1);
+      const frozenMinute = engine.state.minute;
+      engine.simulateNextStep(.1, 1);
+      const blocked = engine.state.status === 'paused' && engine.state.pausedReason === 'injury-substitution' &&
+        engine.state.minute === frozenMinute;
+      const team = engine.getTeamState(home.id);
+      const incoming = team.bench.find(id => !engine.state.players[id].appeared);
+      const changed = engine.makeSubstitution(home.id, victim.id, incoming);
+      return requirement && requirement.playerId === victim.id && blocked && changed.valid &&
+        !engine.getRequiredInjurySubstitution();
+    });
+
+    test('La IA sustituye al lesionado por el mejor recambio posicional', () => {
+      const { engine } = createEngine(603);
+      const victim = engine.onField('away').find(player => player.position !== 'GK');
+      const team = engine.state.teams.away;
+      const expected = team.bench.map(id => engine.state.players[id]).filter(player => !player.appeared)
+        .sort((a, b) => engine.getAutomaticSubstitutionScore(b, victim) - engine.getAutomaticSubstitutionScore(a, victim))[0];
+      engine.random = () => .9;
+      engine.injurePlayer(victim);
+      return !victim.onField && expected.onField && team.onField.includes(expected.id) && team.substitutions === 1;
+    });
+
+    test('Los cambios animan la salida lateral y la entrada desde el banquillo', () => {
+      const { engine, home } = createEngine(61);
+      const team = engine.getTeamState(home.id);
+      const outgoingId = team.onField.find(id => engine.state.players[id].position !== 'GK');
+      const incomingId = team.bench.find(id => !engine.state.players[id].appeared);
+      const addedTimeBefore = engine.state.addedTime.firstHalf;
+      const result = engine.makeSubstitution(home.id, outgoingId, incomingId);
+      const incoming = engine.state.players[incomingId];
+      const animation = engine.state.animations.substitutions[0];
+      return result.valid && animation && animation.player.id === outgoingId && animation.toY === 70 &&
+        incoming.onField && incoming.y === 69 && team.bench.includes(outgoingId) &&
+        engine.state.addedTime.firstHalf === addedTimeBefore + 1;
+    });
+
+    test('El cansancio depende de resistencia, posición, presión y ritmo', () => {
+      const { engine } = createEngine(611);
+      Object.values(engine.state.players).forEach(player => { player.fitness = 100; });
+      engine.state.teams.home.tactics.pressure = 'Alta';
+      engine.state.teams.home.tactics.tempo = 'Alto';
+      engine.state.teams.away.tactics.pressure = 'Baja';
+      engine.state.teams.away.tactics.tempo = 'Bajo';
+      engine.updateFitness(90);
+      const average = side => {
+        const players = engine.onField(side).filter(player => player.position !== 'GK');
+        return players.reduce((sum, player) => sum + player.fitness, 0) / players.length;
+      };
+      const homeAverage = average('home');
+      const awayAverage = average('away');
+      const homeKeeper = engine.onField('home').find(player => player.position === 'GK');
+      return homeAverage < awayAverage && homeAverage < 78 && homeAverage > 40 &&
+        homeKeeper.fitness > homeAverage;
+    });
+
+    test('La expulsión del entrenador no bloquea los cambios', () => {
+      const { engine, home } = createEngine(62);
+      engine.state.coachDismissal = { side: 'home', minute: 0, completed: false };
+      engine.maybeDismissCoach();
+      const team = engine.getTeamState(home.id);
+      const outgoingId = team.onField.find(id => engine.state.players[id].position !== 'GK');
+      const incomingId = team.bench.find(id => !engine.state.players[id].appeared);
+      return engine.state.coaches.home.dismissed && engine.makeSubstitution(home.id, outgoingId, incomingId).valid &&
+        engine.state.events.some(event => event.type === 'COACH_RED_CARD');
     });
 
     test('Completa dos partes sin resultado precalculado', () => {
       const { engine } = createEngine(7);
       engine.startMatch();
       let guard = 0;
-      while (!engine.state.complete && guard++ < 1200) {
+      while (!engine.state.complete && guard++ < 2200) {
         engine.simulateNextStep(0.1);
+        const required = engine.getRequiredInjurySubstitution();
+        if (required) {
+          const team = engine.getTeamState(required.teamId);
+          const incoming = team.bench.find(id => !engine.state.players[id].appeared);
+          if (incoming) engine.makeSubstitution(required.teamId, required.playerId, incoming);
+        }
         if (engine.state.phase === 'HALF_TIME') engine.resumeSecondHalf();
       }
-      return engine.state.complete && engine.state.minute === 90 && engine.state.events.some(event => event.type === 'END_MATCH');
+      return engine.state.complete && engine.state.minute === 90 + engine.state.addedTime.secondHalf &&
+        engine.state.events.some(event => event.type === 'ADDED_TIME_FIRST_HALF') &&
+        engine.state.events.some(event => event.type === 'ADDED_TIME_SECOND_HALF') &&
+        engine.state.events.some(event => event.type === 'END_MATCH');
     });
 
     test('Restaura un encuentro vivo serializado', () => {
@@ -205,6 +470,43 @@
       engine.startPass(passer, receiver.id);
       engine.advanceBall(0.1);
       return engine.state.ball.passType === 'lofted' && engine.state.ball.height > 0;
+    });
+
+    test('Los defensas circulan y también buscan el pase largo', () => {
+      const first = createEngine(701).engine;
+      const defender = first.onField('home').find(player => player.position === 'CB');
+      first.givePossession(defender.id);
+      first.random = () => .99;
+      first.startPass(defender);
+      const shortReceiver = first.state.players[first.state.ball.receiverId];
+      const second = createEngine(702).engine;
+      const longDefender = second.onField('home').find(player => player.position === 'CB');
+      second.givePossession(longDefender.id);
+      second.random = () => 0;
+      second.startPass(longDefender);
+      const longReceiver = second.state.players[second.state.ball.receiverId];
+      return ['GK', 'CB', 'RB', 'LB', 'CDM'].includes(shortReceiver.position) &&
+        second.state.ball.passType === 'lofted' && ['ST', 'RW', 'LW', 'CAM'].includes(longReceiver.position);
+    });
+
+    test('Un medio creativo filtra pases interiores y un rematador ataca el área', () => {
+      const { engine } = createEngine(703);
+      const midfielder = engine.onField('home').find(player => ['CM', 'CAM', 'CDM'].includes(player.position));
+      const data = engine.getPlayer(midfielder.id);
+      data.passing = 95;
+      data.dribbling = 90;
+      data.overall = 90;
+      engine.givePossession(midfielder.id);
+      engine.random = () => 0;
+      engine.startPass(midfielder);
+      const receiver = engine.state.players[engine.state.ball.receiverId];
+      const striker = engine.onField('home').find(player => player.position === 'ST');
+      const strikerData = engine.getPlayer(striker.id);
+      strikerData.shooting = 95;
+      strikerData.passing = 50;
+      engine.givePossession(midfielder.id);
+      engine.updateTacticalTargets();
+      return engine.state.ball.passType === 'through' && ['ST', 'CAM', 'CM'].includes(receiver.position) && striker.targetX > 85;
     });
 
     test('El portero puede anticipar y atrapar un centro', () => {
@@ -289,13 +591,13 @@
     test('Un atacante solo delante de portería siempre dispara', () => {
       const { engine } = createEngine(17);
       const striker = engine.onField('home').find(player => player.position === 'ST') || engine.onField('home')[9];
-      striker.x = 90;
+      striker.x = 75;
       striker.y = 34;
       engine.onField('away').filter(player => player.position !== 'GK').forEach((player, index) => {
         player.x = 58 + index * .2;
         player.y = 8 + index * 5;
       });
-      engine.state.ball.x = 90.8;
+      engine.state.ball.x = 75.8;
       engine.state.ball.y = 34;
       engine.givePossession(striker.id);
       engine.advanceBall(.1);

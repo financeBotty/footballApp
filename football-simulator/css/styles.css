@@ -2003,6 +2003,8 @@ input:focus-visible,
 
 .live-narrative .event-goal { border-color: var(--accent-color); color: #a7f3d0; font-weight: 700; }
 .live-narrative .event-red_card { border-color: var(--danger-color); }
+.live-narrative .event-coach_red_card { border-color: #ef4444; color: #fecaca; font-weight: 700; }
+.live-narrative .event-captain_protest { border-color: #f59e0b; color: #fde68a; }
 .live-narrative .event-yellow_card,
 .live-narrative .event-foul { border-color: var(--warning-color); }
 .live-narrative .event-injury { border-color: #c084fc; }
@@ -2114,8 +2116,35 @@ input:focus-visible,
 .live-player-row > span:nth-child(2) { display: grid; min-width: 0; }
 .live-player-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-player-row small { color: var(--text-muted); }
-.live-player-row .fitness { color: #86efac; font-weight: 700; }
-.live-player-row .fitness.low { color: #fca5a5; }
+.live-player-row .fitness {
+  display: grid;
+  grid-template-columns: 58px 30px;
+  align-items: center;
+  gap: .35rem;
+  font-weight: 700;
+}
+
+.fitness-bar {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .2);
+}
+
+.fitness-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #4ade80;
+  transition: width .35s ease, background-color .35s ease;
+}
+
+.live-player-row .fitness em { color: #86efac; font-style: normal; font-size: .72rem; text-align: right; }
+.live-player-row .fitness.medium .fitness-bar i { background: #a3e635; }
+.live-player-row .fitness.low .fitness-bar i { background: #f59e0b; }
+.live-player-row .fitness.low em { color: #fcd34d; }
+.live-player-row .fitness.critical .fitness-bar i { background: #ef4444; }
+.live-player-row .fitness.critical em { color: #fca5a5; }
 
 .live-player-dot {
   display: grid;
