@@ -274,11 +274,74 @@ class TeamManager {
   // Cambiar formación
   setFormation(teamId, formationName) {
     const team = this.getTeam(teamId);
-    if (!team || !DATA.FORMATIONS[formationName]) {
+    const formation = DATA.FORMATIONS[formationName];
+    const defensiveLineSize = Number(String(formationName).split('-')[0]);
+    if (!team || !formation || defensiveLineSize < 3) {
       return false;
     }
     team.formation = formationName;
     return true;
+  }
+
+  // Convierte cualquier sistema en sus tres líneas clásicas y asigna cada
+  // titular al puesto que mejor encaja. La geometría depende de la formación,
+  // no del nombre de la posición natural del futbolista.
+  assignLineupToFormation(teamId, playerIds) {
+    const team = this.getTeam(teamId);
+    const formation = team ? DATA.FORMATIONS[team.formation] : null;
+    if (!team || !formation) return [];
+    const numbers = team.formation.split('-').map(Number);
+    const defenseCount = Math.max(3, numbers[0] || 4);
+    const attackCount = Math.max(1, numbers[numbers.length - 1] || 1);
+    const midfieldCount = 10 - defenseCount - attackCount;
+    const fieldPositions = formation.positions.slice(1);
+    const slots = fieldPositions.map((position, index) => ({
+      position,
+      line: index < defenseCount ? 'def' : index < defenseCount + midfieldCount ? 'mid' : 'att'
+    }));
+    const remaining = playerIds.map(id => this.getPlayer(teamId, id)).filter(player => player && player.position !== 'GK');
+    const goalkeeper = playerIds.map(id => this.getPlayer(teamId, id)).find(player => player && player.position === 'GK');
+    const naturalLine = position => ['CB', 'RB', 'LB'].includes(position) ? 'def' :
+      ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position) ? 'mid' : 'att';
+    const sideAffinity = (playerPosition, slotPosition) => {
+      const left = ['LB', 'LM', 'LW'];
+      const right = ['RB', 'RM', 'RW'];
+      return (left.includes(playerPosition) && left.includes(slotPosition)) ||
+        (right.includes(playerPosition) && right.includes(slotPosition)) ? 18 : 0;
+    };
+    const roleAffinity = (playerPosition, slotPosition) => {
+      const equivalents = { RM: 'RW', RW: 'RM', LM: 'LW', LW: 'LM', CDM: 'CM', CAM: 'CM' };
+      return equivalents[playerPosition] === slotPosition || equivalents[slotPosition] === playerPosition ? 72 : 0;
+    };
+    const assignments = [];
+    slots.forEach((slot, slotIndex) => {
+      const linePlayers = slots.filter(item => item.line === slot.line);
+      const lineIndex = slots.slice(0, slotIndex).filter(item => item.line === slot.line).length;
+      const best = remaining.sort((a, b) => {
+        const score = player => (player.position === slot.position ? 100 : 0) +
+          roleAffinity(player.position, slot.position) +
+          (naturalLine(player.position) === slot.line ? 42 : 0) + sideAffinity(player.position, slot.position) +
+          (Number(player.overall) || 0) * 0.08;
+        return score(b) - score(a);
+      })[0];
+      if (!best) return;
+      remaining.splice(remaining.findIndex(player => player.id === best.id), 1);
+      assignments.push({
+        playerId: best.id,
+        slotPosition: slot.position,
+        line: slot.line,
+        lineIndex,
+        lineCount: linePlayers.length
+      });
+    });
+    if (goalkeeper) assignments.unshift({
+      playerId: goalkeeper.id,
+      slotPosition: 'GK',
+      line: 'gk',
+      lineIndex: 0,
+      lineCount: 1
+    });
+    return assignments;
   }
 
   // Validar alineación
@@ -332,6 +395,23 @@ class TeamManager {
     const attackCount = attackPositions.reduce((sum, pos) => sum + (positionCounts[pos] || 0), 0);
     if (attackCount < 1) {
       return { valid: false, error: 'Se requiere al menos 1 atacante' };
+    }
+
+    const assignments = this.assignLineupToFormation(teamId, playersIds);
+    const naturalLine = position => defensePositions.includes(position) ? 'def' :
+      midfieldPositions.includes(position) ? 'mid' : 'att';
+    const equivalents = { RM: 'RW', RW: 'RM', LM: 'LW', LW: 'LM', CDM: 'CM', CAM: 'CM' };
+    const misplaced = assignments.find(assignment => {
+      const player = this.getPlayer(teamId, assignment.playerId);
+      if (!player || assignment.line === 'gk') return false;
+      return player.position !== assignment.slotPosition &&
+        equivalents[player.position] !== assignment.slotPosition &&
+        equivalents[assignment.slotPosition] !== player.position &&
+        naturalLine(player.position) !== assignment.line;
+    });
+    if (misplaced) {
+      const player = this.getPlayer(teamId, misplaced.playerId);
+      return { valid: false, error: `${player.name} no encaja en el puesto ${misplaced.slotPosition} de la formación ${team.formation}` };
     }
 
     return { valid: true };

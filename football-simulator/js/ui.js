@@ -1047,38 +1047,42 @@ class UIManager {
     const selectedPlayers = Array.from(checkboxes).map(cb => {
       const row = cb.closest('tr');
       return {
+        id: cb.getAttribute('data-player-id'),
         name: row.querySelector('td:nth-child(1)').textContent,
         position: cb.getAttribute('data-position')
       };
     });
-
-    const lineup = {
-      GK: selectedPlayers.filter(p => p.position === 'GK'),
-      DEF: selectedPlayers.filter(p => ['CB', 'RB', 'LB'].includes(p.position)),
-      MID: selectedPlayers.filter(p => ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(p.position)),
-      ATK: selectedPlayers.filter(p => ['RW', 'LW', 'ST'].includes(p.position))
-    };
+    const teamId = this.gameApp.userTeamId;
+    const assignments = this.gameApp.teamManager.assignLineupToFormation(teamId, selectedPlayers.map(player => player.id));
+    const playerById = Object.fromEntries(selectedPlayers.map(player => [player.id, player]));
+    const lineup = { GK: [], DEF: [], MID: [], ATK: [] };
+    assignments.forEach(assignment => {
+      const player = playerById[assignment.playerId];
+      if (!player) return;
+      const lineKey = { gk: 'GK', def: 'DEF', mid: 'MID', att: 'ATK' }[assignment.line];
+      lineup[lineKey].push({ ...player, assignedPosition: assignment.slotPosition });
+    });
 
     let previewHtml = '<div class="lineup-display">';
     
     // GK
     previewHtml += '<div class="lineup-row"><div class="lineup-position">🧤</div>';
-    lineup.GK.forEach(p => previewHtml += `<div class="player-badge">${p.name}</div>`);
+    lineup.GK.forEach(p => previewHtml += `<div class="player-badge">${p.name} · ${p.assignedPosition}</div>`);
     previewHtml += '</div>';
 
     // DEF
     previewHtml += '<div class="lineup-row"><div class="lineup-position">🛡️</div>';
-    lineup.DEF.forEach(p => previewHtml += `<div class="player-badge">${p.name}</div>`);
+    lineup.DEF.forEach(p => previewHtml += `<div class="player-badge">${p.name} · ${p.assignedPosition}</div>`);
     previewHtml += '</div>';
 
     // MID
     previewHtml += '<div class="lineup-row"><div class="lineup-position">⚽</div>';
-    lineup.MID.forEach(p => previewHtml += `<div class="player-badge">${p.name}</div>`);
+    lineup.MID.forEach(p => previewHtml += `<div class="player-badge">${p.name} · ${p.assignedPosition}</div>`);
     previewHtml += '</div>';
 
     // ATK
     previewHtml += '<div class="lineup-row"><div class="lineup-position">⚡</div>';
-    lineup.ATK.forEach(p => previewHtml += `<div class="player-badge">${p.name}</div>`);
+    lineup.ATK.forEach(p => previewHtml += `<div class="player-badge">${p.name} · ${p.assignedPosition}</div>`);
     previewHtml += '</div>';
 
     previewHtml += '</div>';

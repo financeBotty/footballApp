@@ -22,6 +22,7 @@ class LiveMatchEngine {
     const firstOwner = this.random() < 0.5 ? home.onField[8] : away.onField[8];
     const owner = firstOwner || home.onField.find(Boolean) || away.onField.find(Boolean);
     const players = this.createPlayerStates(home, away);
+    this.assignGoalkeeperKits(players);
     const cardStrictness = 1 + Math.floor(this.random() * 10);
     const maxRedCards = cardStrictness === 10 ? 3 : cardStrictness >= 5 ? 2 : 1;
     const kickoffPlayer = players[owner];
@@ -112,6 +113,7 @@ class LiveMatchEngine {
     const designatedCaptain = onField.includes(team.captainId) ? team.players.find(player => player.id === team.captainId) : null;
     const captain = designatedCaptain || onField.map(id => team.players.find(player => player.id === id)).filter(Boolean)
       .sort((a, b) => (Number(b[captainChoice]) || 0) - (Number(a[captainChoice]) || 0))[0];
+    const formationAssignments = this.teamManager.assignLineupToFormation(team.id, onField);
     return {
       teamId: team.id,
       side,
@@ -125,6 +127,7 @@ class LiveMatchEngine {
       tacticalFamiliarity: Number(team.tacticalFamiliarity) || 100,
       captainId: captain ? captain.id : onField[0],
       captainReason: team.captainReason,
+      formationAssignments,
       formation: team.formation
     };
   }
@@ -136,6 +139,7 @@ class LiveMatchEngine {
       team.players.forEach(player => {
         const onField = teamState.onField.includes(player.id);
         const anchor = this.getAnchor(player, teamState, teamState.onField);
+        const formationAssignment = teamState.formationAssignments.find(item => item.playerId === player.id);
         states[player.id] = {
           id: player.id,
           teamId: team.id,
@@ -143,6 +147,8 @@ class LiveMatchEngine {
           name: player.name,
           number: team.players.indexOf(player) + 1,
           position: player.position,
+          assignedPosition: formationAssignment ? formationAssignment.slotPosition : player.position,
+          formationLine: formationAssignment ? formationAssignment.line : null,
           x: anchor.x,
           y: anchor.y,
           baseX: anchor.x,
@@ -174,22 +180,62 @@ class LiveMatchEngine {
     return states;
   }
 
+  getGoalkeeperPalette() {
+    return [
+      { name: 'verde', color: '#22c55e' },
+      { name: 'amarillo', color: '#facc15' },
+      { name: 'blanco', color: '#f8fafc' },
+      { name: 'rojo', color: '#ef4444' },
+      { name: 'azul', color: '#3b82f6' },
+      { name: 'gris', color: '#94a3b8' },
+      { name: 'morado', color: '#a855f7' }
+    ];
+  }
+
+  colorDistance(first, second) {
+    const rgb = color => {
+      const value = String(color || '').replace('#', '');
+      if (!/^[0-9a-f]{6}$/i.test(value)) return [0, 0, 0];
+      return [0, 2, 4].map(index => parseInt(value.slice(index, index + 2), 16));
+    };
+    const a = rgb(first);
+    const b = rgb(second);
+    return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  }
+
+  assignGoalkeeperKits(players) {
+    const teamKitColors = [
+      this.homeTeam.primaryColor || '#38bdf8',
+      this.awayTeam.primaryColor || '#fb7185'
+    ];
+    const palette = this.getGoalkeeperPalette();
+    const blockedNames = new Set(teamKitColors.map(teamColor => [...palette]
+      .sort((a, b) => this.colorDistance(a.color, teamColor) - this.colorDistance(b.color, teamColor))[0].name));
+    let available = palette.filter(option => !blockedNames.has(option.name));
+    if (available.length < 2) available = [...palette];
+    ['home', 'away'].forEach(side => {
+      const index = Math.floor(this.random() * available.length);
+      const selected = available.splice(index, 1)[0] || palette[side === 'home' ? 0 : 1];
+      Object.values(players).filter(player => player.side === side && player.position === 'GK').forEach(player => {
+        player.goalkeeperColor = selected.color;
+        player.goalkeeperColorName = selected.name;
+      });
+    });
+  }
+
   getAnchor(player, teamState, lineupIds) {
     const side = teamState.side;
-    const direction = side === 'home' ? 1 : -1;
-    const line = player.position === 'GK' ? 'gk' :
+    const assignment = (teamState.formationAssignments || []).find(item => item.playerId === player.id);
+    const fallbackLine = player.position === 'GK' ? 'gk' :
       ['CB', 'RB', 'LB'].includes(player.position) ? 'def' :
-      ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(player.position) ? 'mid' : 'att';
-    const lineX = { gk: 6, def: 23, mid: 46, att: 70 }[line];
+        ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(player.position) ? 'mid' : 'att';
+    const line = assignment ? assignment.line : fallbackLine;
+    const lineX = { gk: 6, def: 22, mid: 48, att: 74 }[line];
     const x = side === 'home' ? lineX : 100 - lineX;
-    const team = this.teamManager.getTeam(teamState.teamId);
-    const peers = lineupIds.map(id => team.players.find(p => p.id === id))
-      .filter(p => p && (p.position === 'GK' ? 'gk' :
-        ['CB', 'RB', 'LB'].includes(p.position) ? 'def' :
-        ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(p.position) ? 'mid' : 'att') === line);
-    const index = Math.max(0, peers.findIndex(peer => peer.id === player.id));
-    const y = line === 'gk' ? 34 : (68 / (peers.length + 1)) * (index + 1);
-    return { x: x + (direction * (this.random() - 0.5) * 2), y };
+    const lineIndex = assignment ? assignment.lineIndex : 0;
+    const lineCount = assignment ? assignment.lineCount : 1;
+    const y = line === 'gk' ? 34 : (68 / (lineCount + 1)) * (lineIndex + 1);
+    return { x, y };
   }
 
   startMatch() {
@@ -438,7 +484,7 @@ class LiveMatchEngine {
         const player = this.getPlayer(id);
         const anchor = { x: state.baseX, y: state.baseY };
         const ballInfluence = (ball.x - 50) * 0.32;
-        const defensiveLineShift = ['CB', 'RB', 'LB'].includes(player.position)
+        const defensiveLineShift = state.formationLine === 'def'
           ? teamState.tactics.defensiveLine === 'Alta' ? 6 : teamState.tactics.defensiveLine === 'Baja' ? -5 : 0
           : 0;
         state.targetX = this.clamp(anchor.x + ballInfluence + direction * (mentalShift + defensiveLineShift) + (hasBall ? direction * 6 : 0), 3, 97);
@@ -814,13 +860,26 @@ class LiveMatchEngine {
     const mates = this.onField(owner.side).filter(player => player.id !== owner.id && !player.mustLeave);
     if (!mates.length) return;
     const direction = owner.side === 'home' ? 1 : -1;
-    const passStyle = this.state.teams[owner.side].tactics.passStyle;
+    const teamState = this.state.teams[owner.side];
+    const passStyle = teamState.tactics.passStyle;
+    const strategy = teamState.strategy || teamState.naturalStrategy || 'Posesión';
     const player = this.getPlayer(owner.id);
     let forcedPassType = null;
     let candidates = [...mates];
 
     if (!forcedReceiverId && ['GK', 'CB', 'RB', 'LB'].includes(owner.position)) {
-      const longPassChance = this.clamp(0.06 + player.passing / 320 + (passStyle === 'Directo' ? 0.12 : 0), 0.12, 0.48);
+      const strategyLongChance = {
+        'Posesión': 0.05,
+        'Presión alta': 0.08,
+        'Juego directo': 0.25,
+        'Contraataque': 0.2,
+        'Bloque bajo': 0.13
+      }[strategy] || 0.08;
+      const longPassChance = this.clamp(
+        strategyLongChance + player.passing / 1100 + (passStyle === 'Directo' ? 0.07 : 0) - (passStyle === 'Corto' ? 0.04 : 0),
+        0.04,
+        0.38
+      );
       if (this.random() < longPassChance) {
         const longTargets = mates.filter(mate => ['ST', 'CF', 'RW', 'LW', 'CAM'].includes(mate.position));
         if (longTargets.length) {
@@ -856,7 +915,8 @@ class LiveMatchEngine {
       if (passStyle === 'Directo') return direction * (b.x - a.x);
       return (direction * b.x + this.random() * 20) - (direction * a.x + this.random() * 20);
     });
-    let receiver = forcedReceiverId ? this.state.players[forcedReceiverId] : candidates[Math.floor(this.random() * Math.min(4, candidates.length))];
+    const candidatePoolSize = passStyle === 'Corto' ? 2 : passStyle === 'Directo' ? 4 : 3;
+    let receiver = forcedReceiverId ? this.state.players[forcedReceiverId] : candidates[Math.floor(this.random() * Math.min(candidatePoolSize, candidates.length))];
     if (!receiver) return;
     const inAttackingThird = owner.side === 'home' ? owner.x > 67 : owner.x < 33;
     const isWide = owner.y < 15 || owner.y > 53;
@@ -868,10 +928,25 @@ class LiveMatchEngine {
     }
     const distance = this.distance(owner, receiver);
     const progressiveDistance = direction * (receiver.x - owner.x);
+    const ownerIsAttacker = ['ST', 'CF', 'RW', 'LW'].includes(owner.position);
+    const ownerIsDefender = ['GK', 'CB', 'RB', 'LB'].includes(owner.position);
+    const receiverIsDefender = ['GK', 'CB', 'RB', 'LB'].includes(receiver.position);
+    const receiverIsAttacker = ['ST', 'CF', 'RW', 'LW', 'CAM'].includes(receiver.position);
+    const longForwardChance = {
+      'Posesión': 0.05,
+      'Presión alta': 0.08,
+      'Juego directo': 0.34,
+      'Contraataque': 0.28,
+      'Bloque bajo': 0.12
+    }[strategy] || 0.08;
     let passType = forcedPassType;
     if (shouldCross) passType = 'cross';
+    else if (ownerIsAttacker && receiverIsDefender) passType = 'ground';
+    else if (!passType && ownerIsDefender && receiverIsAttacker && distance > 22 && forcedReceiverId && passStyle === 'Directo') passType = 'lofted';
     else if (!passType) {
-      passType = ((passStyle === 'Directo' && distance > 19) || (distance > 27 && this.random() < 0.42))
+      const canPlayLongForward = progressiveDistance > 12 && distance > 19;
+      const adjustedLongChance = this.clamp(longForwardChance + (passStyle === 'Directo' ? 0.1 : 0) - (passStyle === 'Corto' ? 0.04 : 0), 0.02, 0.48);
+      passType = (canPlayLongForward && this.random() < adjustedLongChance)
         ? 'lofted'
         : progressiveDistance > 13 && this.random() < 0.32 ? 'through' : 'ground';
     }
@@ -1667,6 +1742,8 @@ class LiveMatchEngine {
     incoming.y = 69;
     incoming.baseX = outgoing.baseX;
     incoming.baseY = outgoing.baseY;
+    incoming.assignedPosition = outgoing.assignedPosition;
+    incoming.formationLine = outgoing.formationLine;
     incoming.targetX = outgoing.baseX;
     incoming.targetY = outgoing.baseY;
     teamState.onField = teamState.onField.map(id => id === playerOutId ? playerInId : id);
@@ -1884,6 +1961,17 @@ class LiveMatchEngine {
       teamState.strategy = teamState.strategy || team.strategy;
       teamState.naturalStrategy = teamState.naturalStrategy || team.naturalStrategy;
       teamState.tacticalFamiliarity = Number(teamState.tacticalFamiliarity) || team.tacticalFamiliarity || 100;
+      teamState.formationAssignments = teamManager.assignLineupToFormation(teamState.teamId, teamState.onField);
+      teamState.formationAssignments.forEach(assignment => {
+        const playerState = engine.state.players[assignment.playerId];
+        const player = teamManager.getPlayer(teamState.teamId, assignment.playerId);
+        if (!playerState || !player) return;
+        playerState.assignedPosition = assignment.slotPosition;
+        playerState.formationLine = assignment.line;
+        const anchor = engine.getAnchor(player, teamState, teamState.onField);
+        playerState.baseX = anchor.x;
+        playerState.baseY = anchor.y;
+      });
       if (!teamState.captainId || !engine.state.players[teamState.captainId]?.onField) {
         teamState.captainReason = teamState.captainReason || 'calidad';
         engine.assignNewCaptain(teamState);
@@ -1935,6 +2023,9 @@ class LiveMatchEngine {
       if (typeof player.isPressing !== 'boolean') player.isPressing = false;
       if (typeof player.isCovering !== 'boolean') player.isCovering = false;
     });
+    const goalkeepersNeedKits = Object.values(engine.state.players || {})
+      .filter(player => player.position === 'GK').some(player => !player.goalkeeperColor);
+    if (goalkeepersNeedKits) engine.assignGoalkeeperKits(engine.state.players);
     return engine;
   }
 }

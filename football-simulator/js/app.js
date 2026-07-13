@@ -410,6 +410,7 @@ class FootballSimulator {
           <main class="live-pitch-column">
             <div class="match-controls live-controls live-controls-top">
               <button id="btn-pause" class="btn btn-secondary">${this.isMatchPaused ? 'Reanudar' : 'Pausa'}</button>
+              <button id="btn-normal-speed" class="btn btn-secondary">1×</button>
               <button id="btn-fast-speed" class="btn btn-secondary active">3×</button>
               <button id="btn-super-speed" class="btn btn-secondary">5×</button>
               <button id="btn-skip-first-half" class="btn btn-secondary">Hasta descanso</button>
@@ -608,15 +609,20 @@ class FootballSimulator {
       byId('btn-pause').textContent = this.isMatchPaused ? 'Reanudar' : 'Pausa';
       this.renderLiveMatchState();
     });
+    const selectPlaybackSpeed = (speed, buttonId) => {
+      this.matchPlaybackSpeed = speed;
+      ['btn-normal-speed', 'btn-fast-speed', 'btn-super-speed'].forEach(id => {
+        byId(id).classList.toggle('active', id === buttonId);
+      });
+    };
+    byId('btn-normal-speed').addEventListener('click', () => {
+      selectPlaybackSpeed(1, 'btn-normal-speed');
+    });
     byId('btn-fast-speed').addEventListener('click', () => {
-      this.matchPlaybackSpeed = 3;
-      byId('btn-fast-speed').classList.add('active');
-      byId('btn-super-speed').classList.remove('active');
+      selectPlaybackSpeed(3, 'btn-fast-speed');
     });
     byId('btn-super-speed').addEventListener('click', () => {
-      this.matchPlaybackSpeed = 5;
-      byId('btn-super-speed').classList.add('active');
-      byId('btn-fast-speed').classList.remove('active');
+      selectPlaybackSpeed(5, 'btn-super-speed');
     });
     byId('btn-skip-first-half').addEventListener('click', () => this.skipLiveMatchTo(45));
     byId('btn-skip-full-match').addEventListener('click', () => this.skipLiveMatchTo(90));
@@ -756,10 +762,9 @@ class FootballSimulator {
     const logicStep = 0.1;
     const stepsPerHalf = 45 / logicStep;
     const baseDelay = (this.liveMatchEngine.halfDuration * 60 * 1000) / stepsPerHalf;
-    // La reproducción ofrece únicamente los modos rápidos 3× y 5×.
-    // 3× mantiene una cadencia cercana al ritmo fluido de 5×, pero conserva
-    // una diferencia suficiente para poder leer las jugadas.
-    const playbackFactor = () => this.matchPlaybackSpeed === 3 ? 8.5 : 10;
+    // Las tres velocidades conservan la misma física. Solo cambia la cadencia
+    // de reproducción; 1× mantiene suficiente fluidez para que el balón no se arrastre.
+    const playbackFactor = () => ({ 1: 6.5, 3: 8.5, 5: 10 }[this.matchPlaybackSpeed] || 8.5);
     const tick = () => {
       if (token !== this.matchLoopToken || this.isMatchPaused || !this.liveMatchEngine) return;
       this.liveMatchEngine.simulateNextStep(logicStep, baseDelay / (2 * 1000));

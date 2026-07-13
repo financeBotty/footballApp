@@ -266,7 +266,9 @@ class MatchRenderer {
     }
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.colors[player.side];
+    ctx.fillStyle = player.position === 'GK' && player.goalkeeperColor
+      ? player.goalkeeperColor
+      : this.colors[player.side];
     ctx.fill();
     ctx.strokeStyle = player.yellowCards ? '#fde047' : player.redCards ? '#ef4444' : '#0f172a';
     ctx.lineWidth = player.yellowCards || player.redCards ? 3 : 1.5;
@@ -309,12 +311,18 @@ class MatchRenderer {
       visible.forEach((player, index) => {
         const x = left + 10 + index * ((right - left - 20) / Math.max(1, visible.length - 1));
         const y = pitchBottom + 24;
+        const radius = this.width < 550 ? 5.5 : 7;
         ctx.beginPath();
-        ctx.arc(x, y, this.width < 550 ? 2.4 : 3.2, 0, Math.PI * 2);
-        ctx.fillStyle = this.colors[bench.side];
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = player.position === 'GK' && player.goalkeeperColor
+          ? player.goalkeeperColor
+          : this.colors[bench.side];
         ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
         ctx.fillStyle = '#07111f';
-        ctx.font = `800 ${this.width < 550 ? 4 : 5}px system-ui`;
+        ctx.font = `800 ${this.width < 550 ? 6 : 8}px system-ui`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(player.number), x, y);
@@ -327,16 +335,17 @@ class MatchRenderer {
     if (coach.dismissed) return;
     const ctx = this.ctx;
     const p = this.point(coach.x, coach.y);
+    const radius = this.width < 550 ? 5.5 : 7;
     ctx.save();
     ctx.beginPath();
-    ctx.arc(p.x, p.y, this.width < 550 ? 3.5 : 4.5, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = '#e2e8f0';
     ctx.fill();
     ctx.strokeStyle = this.colors[coach.side];
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.fillStyle = '#0f172a';
-    ctx.font = `900 ${this.width < 550 ? 5 : 6}px system-ui`;
+    ctx.font = `900 ${this.width < 550 ? 6 : 8}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('E', p.x, p.y);

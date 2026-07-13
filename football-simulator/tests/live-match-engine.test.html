@@ -40,6 +40,53 @@
       return snapshot.players.length === 22 && snapshot.ball && snapshot.referee;
     });
 
+    test('Los porteros visten colores distintos y no coinciden con los equipos', () => {
+      const { engine } = createEngine(101);
+      const goalkeepers = Object.values(engine.state.players).filter(player => player.position === 'GK' && player.onField);
+      const allowedNames = ['verde', 'amarillo', 'blanco', 'rojo', 'azul', 'gris', 'morado'];
+      return goalkeepers.length === 2 && goalkeepers[0].goalkeeperColor !== goalkeepers[1].goalkeeperColor &&
+        goalkeepers.every(keeper => allowedNames.includes(keeper.goalkeeperColorName) &&
+          !['azul', 'rojo'].includes(keeper.goalkeeperColorName));
+    });
+
+    test('Todas las formaciones mantienen tres líneas y al menos tres defensas', () => {
+      return Object.keys(DATA.FORMATIONS).every((formationName, index) => {
+        const manager = new TeamManager();
+        const [home, away] = manager.getAllTeams();
+        manager.setFormation(home.id, formationName);
+        manager.autoSelectStartingXI(home.id);
+        manager.autoSelectStartingXI(away.id);
+        const engine = new LiveMatchEngine(home, away, manager, { seed: 100 + index });
+        const numbers = formationName.split('-').map(Number);
+        const expectedDefense = numbers[0];
+        const expectedAttack = numbers[numbers.length - 1];
+        const expectedMidfield = 10 - expectedDefense - expectedAttack;
+        const lines = engine.onField('home').reduce((counts, player) => {
+          counts[player.formationLine] = (counts[player.formationLine] || 0) + 1;
+          return counts;
+        }, {});
+        const xByLine = engine.onField('home').reduce((values, player) => {
+          if (!values[player.formationLine]) values[player.formationLine] = new Set();
+          values[player.formationLine].add(player.baseX);
+          return values;
+        }, {});
+        return expectedDefense >= 3 && lines.gk === 1 && lines.def === expectedDefense &&
+          lines.mid === expectedMidfield && lines.att === expectedAttack &&
+          ['gk', 'def', 'mid', 'att'].every(line => xByLine[line].size === 1);
+      });
+    });
+
+    test('Los titulares ocupan los puestos marcados por la formación', () => {
+      const { engine } = createEngine(110);
+      return ['home', 'away'].every(side => {
+        const team = engine.state.teams[side];
+        return team.formationAssignments.length === 11 && team.formationAssignments.every(assignment => {
+          const player = engine.state.players[assignment.playerId];
+          return player.assignedPosition === assignment.slotPosition && player.formationLine === assignment.line;
+        });
+      });
+    });
+
     test('Aplica instrucciones durante el partido', () => {
       const { engine, home } = createEngine(2);
       const result = engine.applyTactics(home.id, { mentality: 'Ofensiva', pressure: 'Alta', setPiecePreference: 'Disparar' });
@@ -502,6 +549,19 @@
       const longReceiver = second.state.players[second.state.ball.receiverId];
       return ['GK', 'CB', 'RB', 'LB', 'CDM'].includes(shortReceiver.position) &&
         second.state.ball.passType === 'lofted' && ['ST', 'RW', 'LW', 'CAM'].includes(longReceiver.position);
+    });
+
+    test('Un atacante no envía pases largos hacia su propia defensa', () => {
+      const { engine } = createEngine(704);
+      const striker = engine.onField('home').find(player => player.position === 'ST');
+      const defender = engine.onField('home').find(player => player.position === 'CB');
+      striker.x = 82;
+      defender.x = 24;
+      engine.state.teams.home.strategy = 'Juego directo';
+      engine.state.teams.home.tactics.passStyle = 'Directo';
+      engine.givePossession(striker.id);
+      engine.startPass(striker, defender.id);
+      return engine.state.ball.receiverId === defender.id && engine.state.ball.passType === 'ground';
     });
 
     test('Un medio creativo filtra pases interiores y un rematador ataca el área', () => {
