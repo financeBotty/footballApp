@@ -290,14 +290,29 @@
       const start = { x: taker.x, y: taker.y };
       engine.executeRestart();
       const didNotTeleport = engine.state.restart && taker.x === start.x && taker.y === start.y;
+      let largestStep = 0;
+      let previous = { x: taker.x, y: taker.y };
       let guard = 0;
-      while (engine.state.restart && guard++ < 40) {
+      while (engine.state.restart && guard++ < 120) {
         engine.updateTacticalTargets();
-        engine.moveEntities(.5);
+        engine.moveEntities(.1);
+        largestStep = Math.max(largestStep, Math.hypot(taker.x - previous.x, taker.y - previous.y));
+        previous = { x: taker.x, y: taker.y };
         engine.state.restart.wait = 0;
         engine.executeRestart();
       }
-      return prepared && didNotTeleport && !engine.state.restart && ['passing', 'controlled'].includes(engine.state.ball.state);
+      return prepared && didNotTeleport && largestStep < 4 && !engine.state.restart &&
+        ['passing', 'controlled'].includes(engine.state.ball.state);
+    });
+
+    test('Los controles no teletransportan al jugador hasta el balón', () => {
+      const { engine } = createEngine(551);
+      const receiver = engine.onField('home').find(player => player.position !== 'GK');
+      engine.makeBallLoose(receiver.x + 3, receiver.y);
+      const original = { x: receiver.x, y: receiver.y };
+      const controlled = engine.takeControlAtBall(receiver, 5);
+      return controlled && receiver.x === original.x && receiver.y === original.y &&
+        engine.state.ball.ownerId === receiver.id;
     });
 
     test('Añade varios minutos antes del descanso y del final', () => {

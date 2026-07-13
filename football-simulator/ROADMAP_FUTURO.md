@@ -2,7 +2,30 @@
 
 Documento maestro del estado del proyecto. Sustituye las listas de fases dispersas y debe ser la única referencia para decidir qué está terminado y qué queda pendiente.
 
-Última revisión: **13 de julio de 2026**.
+Última revisión: **14 de julio de 2026**.
+
+## Pendientes acordados para mañana — 15 de julio de 2026
+
+1. Adaptación táctica progresiva mediante entrenamiento y partidos.
+2. Roles individuales: central con salida, lateral ofensivo, organizador, falso nueve y delantero referencia.
+3. Instrucciones situacionales: perder tiempo, buscar el empate, defender resultado, atacar una banda o presionar a un rival.
+4. Moral, confianza, rachas y efecto de errores, goles y suplencias.
+5. Movimientos sin balón, coberturas y coordinación posicional más avanzada.
+6. Liderazgo del capitán y elección manual del brazalete.
+7. Entrenamiento individual, nuevas posiciones y riesgo de sobrecarga.
+8. Rehabilitación, recaídas y regreso gradual de lesionados.
+9. Mercado: fichajes, ventas, cesiones, contratos y salarios.
+10. Cantera, juveniles y promoción al primer equipo.
+11. Relaciones con el entrenador y descontento por minutos o rol.
+12. Clima y estado del césped.
+13. VAR para goles, penaltis, rojas y fueras de juego.
+14. Animaciones de barrera, calentamiento, discusiones, pérdidas de tiempo y camilla.
+15. Prórrogas y tandas de penaltis.
+16. Mapas de calor, redes de pase, tiros y estadísticas tácticas.
+17. Más personalidades arbitrales.
+18. Copas y competiciones europeas.
+19. Objetivos de directiva, afición y posibles despidos.
+20. Historial de temporadas, palmarés, récords y rivalidades.
 
 ## Leyenda
 

@@ -539,7 +539,7 @@ class LiveMatchEngine {
         });
       const taker = restart.takerId ? this.state.players[restart.takerId] : null;
       if (taker && taker.onField) {
-        taker.targetX = restart.x;
+        taker.targetX = restart.x - (taker.side === 'home' ? 0.8 : -0.8);
         taker.targetY = restart.y < 34 ? 2 : 66;
       }
     }
@@ -1276,9 +1276,13 @@ class LiveMatchEngine {
       this.state.restart = null;
       return this.resetPossession();
     }
-    if (restart.type === 'throw-in' && this.distance(taker, restart) > 3.2) {
-      taker.targetX = restart.x;
-      taker.targetY = restart.y < 34 ? 2 : 66;
+    const throwInTarget = restart.type === 'throw-in' ? {
+      x: restart.x - (taker.side === 'home' ? 0.8 : -0.8),
+      y: restart.y < 34 ? 2 : 66
+    } : null;
+    if (throwInTarget && this.distance(taker, throwInTarget) > 0.65) {
+      taker.targetX = throwInTarget.x;
+      taker.targetY = throwInTarget.y;
       taker.actionTargetX = taker.targetX;
       taker.actionTargetY = taker.targetY;
       taker.actionTargetUntil = this.state.minute + 0.5;
@@ -1291,7 +1295,8 @@ class LiveMatchEngine {
       const nearby = this.onField(restart.teamSide).filter(player => !player.mustLeave)
         .sort((a, b) => this.distance(a, restart) - this.distance(b, restart));
       const receiver = nearby.find(player => player.id !== taker.id) || nearby[0];
-      this.alignPlayerToBall(taker);
+      taker.targetX = taker.x;
+      taker.targetY = taker.y;
       this.givePossession(taker.id);
       if (receiver && receiver.id !== taker.id) this.startPass(taker, receiver.id);
     } else if (restart.type === 'indirect-free-kick') {
@@ -1371,11 +1376,11 @@ class LiveMatchEngine {
     const keeper = this.onField(defendingSide).find(player => player.position === 'GK');
     const shooterData = this.getPlayer(shooter.id);
     const keeperData = keeper ? this.getPlayer(keeper.id) : null;
-    const goalChance = this.clamp(
-      0.2 + (ball.shotQuality || shooterData.shooting / 100) * 0.48 - (keeperData ? keeperData.goalkeeping / 360 : 0) + (ball.action === 'penalty' ? 0.2 : 0),
-      ball.action === 'penalty' ? 0.58 : 0.13,
-      ball.action === 'penalty' ? 0.86 : 0.7
-    );
+    const shotQuality = ball.shotQuality || shooterData.shooting / 100;
+    const keeperQuality = keeperData ? keeperData.goalkeeping : 50;
+    const goalChance = ball.action === 'penalty'
+      ? this.clamp(0.72 + (shooterData.shooting - 75) / 350 - (keeperQuality - 75) / 500, 0.62, 0.82)
+      : this.clamp(0.08 + shotQuality * 0.34 - keeperQuality / 600, 0.08, 0.42);
     const roll = this.random();
     const postChance = ball.action === 'penalty' ? 0.07 : 0.12;
     const isHeader = ball.action === 'header';
@@ -1566,12 +1571,9 @@ class LiveMatchEngine {
   }
 
   takeControlAtBall(player, maxDistance = 4) {
+    // El receptor conserva su posición real. La interpolación visual acerca la
+    // pelota a su pie en el siguiente fotograma, sin hacer aparecer al jugador.
     if (!player || !player.onField || this.distance(player, this.state.ball) > maxDistance) return false;
-    const ballX = this.state.ball.x;
-    const ballY = this.state.ball.y;
-    this.alignPlayerToBall(player);
-    this.state.ball.x = ballX;
-    this.state.ball.y = ballY;
     return this.givePossession(player.id);
   }
 
