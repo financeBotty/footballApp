@@ -385,7 +385,7 @@ class LiveMatchEngine {
         this.addEvent('ADDED_TIME_FIRST_HALF', `Se añaden ${this.state.addedTime.firstHalf} minutos`, 45);
       }
       if (this.state.minute >= 45 + this.state.addedTime.firstHalf) {
-        this.addEvent('HALF_TIME', 'Descanso', 45, null, true);
+        this.addEvent('HALF_TIME', `Descanso · ${this.getYellowCardSummary()}`, 45, null, true);
         this.startHalfTimeTransition();
       }
     } else {
@@ -1942,7 +1942,10 @@ class LiveMatchEngine {
     const foulX = victim.x;
     const inPenaltyArea = this.isInOpponentPenaltyArea(victim);
     const restartType = inPenaltyArea ? 'penalty' : 'free-kick';
-    this.addEvent('FOUL', `Falta de ${defender.name} sobre ${victim.name}${card ? ` · ${card === 'red' ? 'roja' : 'amarilla'}` : ''}`, null, defender.side);
+    const cardComment = card === 'red' ? ' · 🟥 tarjeta roja' :
+      card === 'yellow' && defender.redCards ? ' · 🟨 segunda amarilla y expulsión' :
+        card === 'yellow' ? ' · 🟨 tarjeta amarilla' : '';
+    this.addEvent('FOUL', `Falta de ${defender.name} sobre ${victim.name}${cardComment}`, null, defender.side);
     if (this.random() < 0.025 + severity * 0.035) this.injurePlayer(victim, defender);
     this.state.ball.ownerId = null;
     this.state.ball.state = 'set-piece';
@@ -2001,6 +2004,17 @@ class LiveMatchEngine {
 
   totalRedCards() {
     return this.state.stats.home.redCards + this.state.stats.away.redCards;
+  }
+
+  getYellowCardSummary() {
+    const sideSummary = side => {
+      const team = this.teamManager.getTeam(this.state.teams[side].teamId);
+      const booked = Object.values(this.state.players)
+        .filter(player => player.side === side && player.yellowCards > 0)
+        .map(player => `${player.name}${player.yellowCards > 1 ? ' (2)' : ''}`);
+      return `${team.shortName}: ${booked.length ? booked.join(', ') : 'sin amarillas'}`;
+    };
+    return `🟨 ${sideSummary('home')} · ${sideSummary('away')}`;
   }
 
   injurePlayer(victim, offender = null) {

@@ -202,11 +202,7 @@ class FootballSimulator {
     const homePreviewTeam = isHome ? team : opponent;
     const awayPreviewTeam = isHome ? opponent : team;
     const startingXI = this.teamManager.getStartingXI(userTeamId);
-
-    let playersHtml = '';
-    startingXI.forEach(player => {
-      playersHtml += `<li>${player.name}${player.id === team.captainId ? ' (C)' : ''} (${player.position})</li>`;
-    });
+    const savedHalfDuration = Number(GameStorage.getSetting('halfDuration', 3));
 
     content.innerHTML = `
       <div class="next-match-container">
@@ -227,14 +223,12 @@ class FootballSimulator {
             </div>
           </div>
 
-          <div class="formation-info">
-            <h4>Formación: ${team.formation}</h4>
-            <div class="starting-xi">
-              <h5>Alineación:</h5>
-              <ul>
-                ${playersHtml}
-              </ul>
+          <div class="formation-info pre-match-lineup">
+            <div class="pre-match-lineup-heading">
+              <div><span>Tu once</span><h4>Alineación titular</h4></div>
+              <strong>${team.formation}</strong>
             </div>
+            ${this.renderPreMatchLineup(team, startingXI)}
           </div>
 
           <section class="pre-match-preparation">
@@ -255,12 +249,10 @@ class FootballSimulator {
             </div>
             <button id="btn-quick-result" class="btn btn-secondary btn-large">Ver resultado</button>
             <div class="simulator-choice">
-              <label for="match-half-duration">
-                Duración por parte
-                <select id="match-half-duration" class="form-control">
-                  ${[1, 3, 5, 10].map(value => `<option value="${value}" ${Number(GameStorage.getSetting('halfDuration', 3)) === value ? 'selected' : ''}>${value} min</option>`).join('')}
-                </select>
-              </label>
+              <span class="duration-label" id="match-duration-label">Duración por parte</span>
+              <div class="match-duration-menu" role="radiogroup" aria-labelledby="match-duration-label">
+                ${[1, 3, 5, 10].map(value => `<button type="button" class="match-duration-option ${savedHalfDuration === value ? 'active' : ''}" data-match-duration="${value}" role="radio" aria-checked="${savedHalfDuration === value}">${value}<small>min</small></button>`).join('')}
+              </div>
               <button id="btn-play-match-large" class="btn btn-primary btn-large">Abrir simulador</button>
             </div>
           </section>
@@ -276,6 +268,34 @@ class FootballSimulator {
     if (quickResultBtn) {
       quickResultBtn.addEventListener('click', () => this.playQuickResult());
     }
+    document.querySelectorAll('.match-duration-option').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.match-duration-option').forEach(option => {
+          const selected = option === button;
+          option.classList.toggle('active', selected);
+          option.setAttribute('aria-checked', String(selected));
+        });
+        GameStorage.setSetting('halfDuration', button.dataset.matchDuration);
+      });
+    });
+  }
+
+  renderPreMatchLineup(team, players) {
+    const assignments = this.teamManager.assignLineupToFormation(team.id, players.map(player => player.id));
+    const yByLine = { gk: 87, def: 68, mid: 43, att: 18 };
+    const playerById = Object.fromEntries(players.map(player => [player.id, player]));
+    const lineup = assignments.map(assignment => {
+      const player = playerById[assignment.playerId];
+      if (!player) return '';
+      const x = ((assignment.lineIndex + 1) / (assignment.lineCount + 1)) * 100;
+      const displayName = player.name.split(' ').slice(-1)[0];
+      const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
+      const captain = player.id === team.captainId ? '<i aria-label="Capitán">C</i>' : '';
+      return `<div class="pitch-player preview-player ${goalkeeperClass}" style="--player-x:${x}%;--player-y:${yByLine[assignment.line]}%" title="${player.name} · ${assignment.slotPosition}">
+        <span class="pitch-shirt">${player.overall}${captain}</span><strong>${displayName}</strong><small>${assignment.slotPosition}</small>
+      </div>`;
+    }).join('');
+    return `<div class="tactical-pitch pre-match-lineup-pitch" aria-label="Alineación ${team.formation} de ${team.name}">${lineup}</div>`;
   }
 
   validateMatchLineup() {
@@ -300,8 +320,8 @@ class FootballSimulator {
     if (!this.validateMatchLineup()) return;
 
     // Mostrar pantalla de simulación
-    const durationSelect = document.getElementById('match-half-duration');
-    const halfDuration = Number(durationSelect ? durationSelect.value : GameStorage.getSetting('halfDuration', 3));
+    const durationOption = document.querySelector('.match-duration-option.active');
+    const halfDuration = Number(durationOption ? durationOption.dataset.matchDuration : GameStorage.getSetting('halfDuration', 3));
     GameStorage.setSetting('halfDuration', String(halfDuration));
     this.showMatchSimulation(nextMatch, null, halfDuration);
   }
@@ -410,6 +430,7 @@ class FootballSimulator {
           <div class="live-clock"><strong id="match-minute">0'</strong><small id="match-phase">Prepartido</small></div>
           <div class="score-team away"><strong id="away-score">0</strong><span>${awayTeam.shortName}<small>${awayKit.kitType}</small></span>${this.ui.renderTeamCrest(awayTeam, 'score-club-crest')}</div>
         </header>
+        <div id="match-break-discipline" class="match-break-discipline" hidden></div>
 
         <div class="live-match-grid">
           <main class="live-pitch-column">
@@ -439,7 +460,6 @@ class FootballSimulator {
               <span>Posesión <strong id="possession">50% · 50%</strong></span>
               <span>Tiros <strong id="shots">0 - 0</strong></span>
               <span>A puerta <strong id="shots-on-target">0 - 0</strong></span>
-              <span>Tarjetas <strong id="cards">0 - 0</strong></span>
               <span>Faltas <strong id="fouls">0 - 0</strong></span>
               <span>F. juego <strong id="offsides">0 - 0</strong></span>
             </div>
@@ -935,9 +955,14 @@ class FootballSimulator {
     set('possession', `${homePossession}% · ${100 - homePossession}%`);
     set('shots', `${state.stats.home.shots} - ${state.stats.away.shots}`);
     set('shots-on-target', `${state.stats.home.shotsOnTarget} - ${state.stats.away.shotsOnTarget}`);
-    set('cards', `${state.stats.home.yellowCards}🟨 ${state.stats.home.redCards}🟥 - ${state.stats.away.yellowCards}🟨 ${state.stats.away.redCards}🟥`);
     set('fouls', `${state.stats.home.fouls} - ${state.stats.away.fouls}`);
     set('offsides', `${state.stats.home.offsides} - ${state.stats.away.offsides}`);
+    const discipline = document.getElementById('match-break-discipline');
+    if (discipline) {
+      const atBreak = ['HALF_TIME_SETUP', 'HALF_TIME'].includes(state.phase);
+      discipline.hidden = !atBreak;
+      discipline.textContent = atBreak ? `Descanso · ${this.liveMatchEngine.getYellowCardSummary()}` : '';
+    }
     const teamState = this.liveMatchEngine.getTeamState(this.userTeamId);
     set('subs-used', teamState.substitutions);
     const teamList = document.getElementById('live-team-list');

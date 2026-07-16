@@ -252,12 +252,53 @@ class UIManager {
       const highlight = isUserTeam ? ' class="user-team"' : '';
       standingsHtml += `
         <li${highlight}>
-          <span class="pos">${this.renderTeamCrest(standingTeam, 'table-club-crest')}${standing.teamName}</span>
+          <span class="pos">${this.renderTeamCrest(standingTeam, 'table-club-crest')}<span>${standing.teamName}</span></span>
           <span class="points">${standing.points}pts</span>
         </li>
       `;
     });
     standingsHtml += '</ol></div>';
+
+    const players = team.players || [];
+    const rankedPlayers = (value, secondary = player => player.overall) => [...players]
+      .sort((a, b) => value(b) - value(a) || secondary(b) - secondary(a) || a.name.localeCompare(b.name))
+      .slice(0, 3);
+    const topScorers = rankedPlayers(player => Number(player.goals) || 0, player => Number(player.assists) || 0);
+    const topAssists = rankedPlayers(player => Number(player.assists) || 0, player => Number(player.goals) || 0);
+    const mostUsed = rankedPlayers(player => Number(player.matchesPlayed) || 0);
+    const discipline = rankedPlayers(player => (Number(player.redCards) || 0) * 3 + (Number(player.yellowCards) || 0))
+      .filter(player => (Number(player.yellowCards) || 0) + (Number(player.redCards) || 0) > 0);
+    const average = field => players.length
+      ? Math.round(players.reduce((sum, player) => sum + (Number(player[field]) || 0), 0) / players.length)
+      : 0;
+    const available = players.filter(player => this.gameApp.teamManager.isPlayerAvailable(player)).length;
+    const userStanding = standings.find(standing => standing.teamId === userTeamId) || team.stats;
+    const played = Number(userStanding.played) || 0;
+    const goalsPerMatch = played ? (Number(userStanding.goalsFor || 0) / played).toFixed(2) : '0.00';
+    const winRate = played ? Math.round(Number(userStanding.wins || 0) / played * 100) : 0;
+    const goalDifference = Number(userStanding.goalDifference ??
+      (Number(userStanding.goalsFor || 0) - Number(userStanding.goalsAgainst || 0)));
+    const leaderList = (title, entries, value) => `
+      <div class="dashboard-leaderboard">
+        <h4>${title}</h4>
+        <ol>${entries.length ? entries.map((player, index) => `
+          <li><span><b>${index + 1}</b><span>${player.name}</span></span><strong>${value(player)}</strong></li>`).join('') : '<li class="empty"><span>Sin registros todavía</span></li>'}</ol>
+      </div>`;
+    const performanceHtml = `
+      <div class="dashboard-kpi-strip" aria-label="Indicadores del equipo">
+        <div class="dashboard-kpi"><span>Goles / partido</span><strong>${goalsPerMatch}</strong></div>
+        <div class="dashboard-kpi"><span>Victorias</span><strong>${winRate}%</strong></div>
+        <div class="dashboard-kpi"><span>Diferencia</span><strong>${goalDifference > 0 ? '+' : ''}${goalDifference}</strong></div>
+        <div class="dashboard-kpi"><span>Fitness medio</span><strong>${average('fitness')}%</strong></div>
+        <div class="dashboard-kpi"><span>Moral media</span><strong>${average('morale')}%</strong></div>
+        <div class="dashboard-kpi"><span>Disponibles</span><strong>${available}/${players.length}</strong></div>
+      </div>
+      <div class="dashboard-leaders">
+        ${leaderList('⚽ Goleadores', topScorers, player => Number(player.goals) || 0)}
+        ${leaderList('↗ Asistencias', topAssists, player => Number(player.assists) || 0)}
+        ${leaderList('▦ Más utilizados', mostUsed, player => `${Number(player.matchesPlayed) || 0} PJ`)}
+        ${leaderList('🟨 Disciplina', discipline, player => `${Number(player.yellowCards) || 0}A · ${Number(player.redCards) || 0}R`)}
+      </div>`;
 
     content.innerHTML = `
       <div class="dashboard-container">
@@ -285,6 +326,11 @@ class UIManager {
           <div class="dashboard-card">
             <h3>Progreso de Temporada</h3>
             <div id="season-progress"></div>
+          </div>
+
+          <div class="dashboard-card dashboard-performance-card">
+            <h3>Rendimiento del equipo</h3>
+            ${performanceHtml}
           </div>
         </div>
       </div>

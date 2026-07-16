@@ -1116,23 +1116,6 @@ label {
   margin-bottom: 1rem;
 }
 
-.starting-xi h5 {
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-}
-
-.starting-xi ul {
-  list-style: none;
-  margin-left: 0;
-  columns: 2;
-}
-
-.starting-xi li {
-  color: var(--text-secondary);
-  padding: 0.25rem 0;
-  line-height: 1.8;
-}
-
 #btn-play-match-large {
   width: 100%;
 }
@@ -1533,9 +1516,6 @@ label {
     grid-template-columns: 1fr;
   }
 
-  .starting-xi ul {
-    columns: 1;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1578,9 +1558,6 @@ label {
     font-size: 1rem;
   }
 
-  .starting-xi ul {
-    columns: 1;
-  }
 }
 
 /* ============================================
@@ -1659,11 +1636,11 @@ label {
 .theme-preview b { display: block; background: #334155; }
 .theme-choice-classic .theme-preview { background: linear-gradient(135deg, #0f172a, #1e293b); }
 .theme-choice-classic .theme-preview i { background: #3b82f6; border-radius: 5px; }
-.theme-choice-90s .theme-preview { border: 3px outset #f5f5e5; border-radius: 0; background: #bfc1b2; }
+.theme-choice-90s .theme-preview { border: 3px outset #eaf4ff; border-radius: 0; background: #174f93; }
 .theme-choice-90s .theme-preview i { color: #ffe349; background: #124aa5; }
 .theme-choice-90s .theme-preview b { background: #71766f; }
-.theme-choice-snes .theme-preview { border: 3px solid #25183f; border-radius: 0; background: #ddd5c6; box-shadow: inset -3px -3px #90869e; }
-.theme-choice-snes .theme-preview i { color: #fff; background: #684aa8; box-shadow: 3px 3px #25183f; }
+.theme-choice-snes .theme-preview { border: 3px solid #071b3d; border-radius: 0; background: #c9d8ee; box-shadow: inset -3px -3px #8298b8; }
+.theme-choice-snes .theme-preview i { color: #fff; background: #1552a3; box-shadow: 3px 3px #071b3d; }
 .theme-choice-snes .theme-preview b:nth-of-type(1) { background: #37b6a4; }
 .theme-choice-snes .theme-preview b:nth-of-type(2) { background: #e84c79; }
 .theme-choice-snes .theme-preview b:nth-of-type(3) { background: #e6b83e; }
@@ -1674,31 +1651,31 @@ label {
 .theme-classic [class$="-crest"] { filter: drop-shadow(0 4px 8px rgba(0,0,0,.28)); }
 .theme-classic .team-crest-stage { border-radius: 8px; background: rgba(15, 23, 42, .38); }
 .theme-classic .dashboard-club { color: var(--text-primary); }
-.theme-retro-90s .theme-choice { color: #101820; background: #d4d5c7; border: 3px outset #f5f5e5; border-radius: 0; }
+.theme-retro-90s .theme-choice { color: #101820; background: #c6d5e7; border: 3px outset #eaf4ff; border-radius: 0; }
 .theme-retro-90s .theme-choice small { color: #4d544f; }
-.theme-retro-90s .theme-choice:has(input:checked) { border-color: #343a37 #f8f8e9 #f8f8e9 #343a37; background: #f1f1df; box-shadow: inset 2px 2px #777; }
+.theme-retro-90s .theme-choice:has(input:checked) { border-color: #203c5e #eaf4ff #eaf4ff #203c5e; background: #dce9f8; box-shadow: inset 2px 2px #607891; }
 
 /* Tema deportivo de consola 16-bit, original y sin recursos externos. */
 .theme-snes {
-  --primary-color: #4a2d79;
-  --secondary-color: #7c5bbb;
+  --primary-color: #123f8c;
+  --secondary-color: #2563c7;
   --accent-color: #34b7a5;
   --danger-color: #df3e69;
   --warning-color: #f2c84b;
-  --dark-bg: #211637;
-  --dark-card: #392957;
-  --dark-border: #171024;
+  --dark-bg: #071a3a;
+  --dark-card: #0d2b59;
+  --dark-border: #06142e;
   --text-primary: #fff8dc;
-  --text-secondary: #e0d8c7;
-  --text-muted: #b9adc8;
-  --surface-1: #302148;
-  --surface-2: #463263;
-  --surface-3: #5b437b;
+  --text-secondary: #d7e4f5;
+  --text-muted: #9eb5d2;
+  --surface-1: #0b2550;
+  --surface-2: #12376f;
+  --surface-3: #1b4b94;
   font-family: "Courier New", Courier, monospace;
-  background-color: #211637;
+  background-color: #071a3a;
   background-image:
-    linear-gradient(45deg, rgba(124,91,187,.12) 25%, transparent 25%, transparent 75%, rgba(124,91,187,.12) 75%),
-    linear-gradient(45deg, rgba(124,91,187,.12) 25%, transparent 25%, transparent 75%, rgba(124,91,187,.12) 75%);
+    linear-gradient(45deg, rgba(37,99,199,.14) 25%, transparent 25%, transparent 75%, rgba(37,99,199,.14) 75%),
+    linear-gradient(45deg, rgba(37,99,199,.14) 25%, transparent 25%, transparent 75%, rgba(37,99,199,.14) 75%);
   background-position: 0 0, 8px 8px;
   background-size: 16px 16px;
 }
@@ -1709,7 +1686,7 @@ label {
 .theme-snes h3,
 .theme-snes h4,
 .theme-snes h5 { font-family: "Courier New", Courier, monospace; font-weight: 900; letter-spacing: .025em; }
-.theme-snes h2 { color: #fff8dc; text-transform: uppercase; text-shadow: 3px 3px #171024; }
+.theme-snes h2 { color: #fff8dc; text-transform: uppercase; text-shadow: 3px 3px #06142e; }
 .theme-snes :focus-visible { outline: 3px solid #f2c84b !important; outline-offset: 3px; }
 .theme-snes img { image-rendering: pixelated; }
 .theme-snes #match-canvas { image-rendering: auto; }
@@ -1717,14 +1694,14 @@ label {
 .theme-snes .navbar {
   padding: 8px 14px;
   gap: 12px;
-  background: #684aa8;
-  border: 4px solid #171024;
-  border-top-color: #a88adb;
-  border-left-color: #a88adb;
+  background: #1552a3;
+  border: 4px solid #06142e;
+  border-top-color: #4b86d9;
+  border-left-color: #4b86d9;
   border-radius: 0;
-  box-shadow: 5px 5px 0 #100a19;
+  box-shadow: 5px 5px 0 #020b1b;
 }
-.theme-snes .navbar-brand { color: #fff8dc; font-size: 1rem; text-shadow: 2px 2px #25183f; }
+.theme-snes .navbar-brand { color: #fff8dc; font-size: 1rem; text-shadow: 2px 2px #071b3d; }
 .theme-snes .navbar-menu { gap: 5px; }
 .theme-snes .nav-btn,
 .theme-snes .btn,
@@ -1734,55 +1711,55 @@ label {
 .theme-snes .coach-action,
 .theme-snes .lineup-toolbar button {
   padding: 8px 12px;
-  color: #25183f;
+  color: #071b3d;
   font-family: "Courier New", Courier, monospace;
   font-size: .76rem;
   font-weight: 900;
   text-transform: uppercase;
-  background: #ddd5c6;
-  border: 3px solid #25183f;
+  background: #c9d8ee;
+  border: 3px solid #071b3d;
   border-radius: 0;
-  box-shadow: inset 3px 3px #fff8dc, inset -3px -3px #90869e, 3px 3px #100a19;
+  box-shadow: inset 3px 3px #f4f8ff, inset -3px -3px #8298b8, 3px 3px #020b1b;
   transform: none;
   transition: none;
 }
 .theme-snes .nav-btn:hover,
 .theme-snes .btn:hover,
 .theme-snes .filter-chip:hover,
-.theme-snes .matchday-btn:hover { color: #fff; background: #37a997; transform: none; box-shadow: inset 3px 3px #6dd7c7, inset -3px -3px #1c7569, 3px 3px #100a19; }
+.theme-snes .matchday-btn:hover { color: #fff; background: #2878cc; transform: none; box-shadow: inset 3px 3px #63a7ed, inset -3px -3px #1552a3, 3px 3px #020b1b; }
 .theme-snes .nav-btn.active,
 .theme-snes .btn.active,
 .theme-snes .filter-chip.active,
-.theme-snes .matchday-btn.active { color: #fff8dc; background: #df3e69; box-shadow: inset 3px 3px #f57c9d, inset -3px -3px #8d213f, 3px 3px #100a19; }
-.theme-snes .btn-primary { color: #fff8dc; background: #684aa8; }
+.theme-snes .matchday-btn.active { color: #fff8dc; background: #174fbd; box-shadow: inset 3px 3px #4b86d9, inset -3px -3px #0b3268, 3px 3px #020b1b; }
+.theme-snes .btn-primary { color: #fff8dc; background: #1552a3; }
 .theme-snes .btn-primary::before { content: "▶ "; color: #f2c84b; }
 .theme-snes .btn-danger { color: #fff8dc; background: #b52f55; }
 .theme-snes .form-control,
 .theme-snes input,
 .theme-snes select {
-  color: #25183f;
+  color: #071b3d;
   background: #fff8dc;
-  border: 3px solid #25183f;
+  border: 3px solid #071b3d;
   border-radius: 0;
   font-family: "Courier New", Courier, monospace;
-  box-shadow: inset 3px 3px #a69dae;
+  box-shadow: inset 3px 3px #9eb5d2;
 }
 
 .theme-snes .club-crest,
-.theme-snes [class$="-crest"] { filter: saturate(1.25) contrast(1.15) drop-shadow(4px 4px 0 #171024); }
-.theme-snes .team-crest-stage { background: #2b1d45; border: 4px solid #171024; box-shadow: inset 4px 4px #4e3970; }
+.theme-snes [class$="-crest"] { filter: saturate(1.25) contrast(1.15) drop-shadow(4px 4px 0 #06142e); }
+.theme-snes .team-crest-stage { background: #09234c; border: 4px solid #06142e; box-shadow: inset 4px 4px #174b91; }
 .theme-snes .team-card-crest { width: 82px; height: 96px; }
-.theme-snes .retro-app-badge { display: inline-block; padding: 5px 9px; color: #25183f; background: #f2c84b; border: 3px solid #171024; box-shadow: 4px 4px #100a19; font-weight: 900; }
+.theme-snes .retro-app-badge { display: inline-block; padding: 5px 9px; color: #071b3d; background: #f2c84b; border: 3px solid #06142e; box-shadow: 4px 4px #020b1b; font-weight: 900; }
 .theme-snes .edition-mark { font-size: 0; }
 .theme-snes .edition-mark::after { content: "16-BIT"; font-size: .88rem; }
 .theme-snes .welcome-header {
   padding: 26px 16px;
-  background: #684aa8;
-  border: 5px solid #171024;
-  box-shadow: inset 5px 5px #9b7bd0, inset -5px -5px #3b245f, 6px 6px #100a19;
+  background: #1552a3;
+  border: 5px solid #06142e;
+  box-shadow: inset 5px 5px #4c82ce, inset -5px -5px #0b3268, 6px 6px #020b1b;
 }
-.theme-snes .welcome-header h1 { margin-top: 8px; color: #fff8dc; background: none; -webkit-text-fill-color: currentColor; text-transform: uppercase; text-shadow: 4px 4px #25183f; }
-.theme-snes .welcome-header p { color: #f2c84b; text-shadow: 2px 2px #25183f; }
+.theme-snes .welcome-header h1 { margin-top: 8px; color: #fff8dc; background: none; -webkit-text-fill-color: currentColor; text-transform: uppercase; text-shadow: 4px 4px #071b3d; }
+.theme-snes .welcome-header p { color: #f2c84b; text-shadow: 2px 2px #071b3d; }
 
 .theme-snes :where(
   .welcome-content, .save-slot, .team-card, .dashboard-card,
@@ -1792,13 +1769,13 @@ label {
   .pre-match-preparation, .match-mode-selection, .match-result-container,
   .result-display, .post-match-card, .stats-section
 ) {
-  border: 4px solid #171024;
+  border: 4px solid #06142e;
   border-radius: 0;
-  box-shadow: inset 4px 4px rgba(255,255,255,.09), inset -4px -4px rgba(0,0,0,.25), 5px 5px #100a19;
+  box-shadow: inset 4px 4px rgba(255,255,255,.09), inset -4px -4px rgba(0,0,0,.25), 5px 5px #020b1b;
 }
-.theme-snes :where(.save-slot, .team-card, .dashboard-card, .settings-section) { background: #ddd5c6; color: #25183f; }
-.theme-snes :where(.save-slot, .team-card, .dashboard-card, .settings-section) :where(p, small, dt, dd, label) { color: #4b4055; }
-.theme-snes .theme-choice strong { color: #25183f; }
+.theme-snes :where(.save-slot, .team-card, .dashboard-card, .settings-section) { background: #c9d8ee; color: #071b3d; }
+.theme-snes :where(.save-slot, .team-card, .dashboard-card, .settings-section) :where(p, small, dt, dd, label) { color: #344861; }
+.theme-snes .theme-choice strong { color: #071b3d; }
 .theme-snes .save-slot-heading,
 .theme-snes .dashboard-card > h3,
 .theme-snes .standings-preview > h3,
@@ -1807,32 +1784,32 @@ label {
   margin: -1px -1px 12px;
   padding: 6px 9px;
   color: #fff8dc;
-  background: #684aa8;
-  border-bottom: 3px solid #171024;
+  background: #1552a3;
+  border-bottom: 3px solid #06142e;
   text-transform: uppercase;
 }
 .theme-snes .dashboard-card { padding: 0 12px 12px; }
 .theme-snes .dashboard-club,
-.theme-snes .team-card .team-name { color: #25183f; }
+.theme-snes .team-card .team-name { color: #071b3d; }
 .theme-snes .team-card { text-align: center; }
-.theme-snes .team-card:hover { border-color: #f2c84b; transform: translate(-2px,-2px); box-shadow: inset 4px 4px rgba(255,255,255,.15), inset -4px -4px rgba(0,0,0,.2), 7px 7px #100a19; }
-.theme-snes .team-short { display: inline-block; padding: 2px 8px; color: #fff8dc; background: #df3e69; border: 3px solid #25183f; }
+.theme-snes .team-card:hover { border-color: #f2c84b; transform: translate(-2px,-2px); box-shadow: inset 4px 4px rgba(255,255,255,.15), inset -4px -4px rgba(0,0,0,.2), 7px 7px #020b1b; }
+.theme-snes .team-short { display: inline-block; padding: 2px 8px; color: #fff8dc; background: #174fbd; border: 3px solid #071b3d; }
 .theme-snes .team-overall { color: #187a6d; }
 .theme-snes .team-kits { justify-content: center; }
-.theme-snes .team-kits span { border-radius: 0; border: 3px solid #25183f; box-shadow: 2px 2px #100a19; }
+.theme-snes .team-kits span { border-radius: 0; border: 3px solid #071b3d; box-shadow: 2px 2px #020b1b; }
 .theme-snes .eyebrow,
 .theme-snes .season-kicker { color: #f2c84b; font-family: "Courier New", monospace; }
 
-.theme-snes .standings-table { border-collapse: collapse; color: #25183f; background: #ddd5c6; font-family: "Courier New", monospace; }
-.theme-snes .standings-table thead { color: #fff8dc; background: #684aa8; }
+.theme-snes .standings-table { border-collapse: collapse; color: #071b3d; background: #c9d8ee; font-family: "Courier New", monospace; }
+.theme-snes .standings-table thead { color: #fff8dc; background: #1552a3; }
 .theme-snes .standings-table th,
-.theme-snes .standings-table td { border: 2px solid #25183f; }
-.theme-snes .standings-table tbody tr.user-team td { color: #25183f; background: #62caba; }
-.theme-snes .fixture-row { border: 3px solid #171024; border-radius: 0; background: #302148; }
+.theme-snes .standings-table td { border: 2px solid #071b3d; }
+.theme-snes .standings-table tbody tr.user-team td { color: #071b3d; background: #7fb4ec; }
+.theme-snes .fixture-row { border: 3px solid #06142e; border-radius: 0; background: #0b2550; }
 .theme-snes .fixture-team { display: flex; align-items: center; }
 .theme-snes .fixture-team.home { justify-content: flex-end; }
-.theme-snes .fixture-score { padding: 4px 8px; color: #25183f; background: #f2c84b; border: 3px solid #171024; box-shadow: 2px 2px #100a19; }
-.theme-snes .progress-bar { height: 20px; padding: 2px; border: 3px solid #25183f; border-radius: 0; background: #90869e; }
+.theme-snes .fixture-score { padding: 4px 8px; color: #071b3d; background: #f2c84b; border: 3px solid #06142e; box-shadow: 2px 2px #020b1b; }
+.theme-snes .progress-bar { height: 20px; padding: 2px; border: 3px solid #071b3d; border-radius: 0; background: #8298b8; }
 .theme-snes .progress-fill { border-radius: 0; background: repeating-linear-gradient(90deg, #37b6a4 0 8px, #208b7c 8px 11px); }
 .theme-snes .squad-player-card,
 .theme-snes .role-grid label,
@@ -1840,22 +1817,22 @@ label {
 .theme-snes .position-pill,
 .theme-snes .selection-mark,
 .theme-snes .tactics-save-bar { border-radius: 0; }
-.theme-snes .squad-player-card.is-selected { outline: 3px solid #f2c84b; background: #4a3470; }
+.theme-snes .squad-player-card.is-selected { outline: 3px solid #f2c84b; background: #174f93; }
 
-.theme-snes .live-scoreboard { color: #fff8dc; background: #684aa8; border: 5px solid #171024; border-radius: 0; box-shadow: inset 4px 4px #9b7bd0, inset -4px -4px #3b245f, 5px 5px #100a19; }
-.theme-snes .score-team strong { min-width: 44px; padding: 3px 7px; color: #25183f !important; background: #f2c84b; border: 3px solid #171024; box-shadow: 2px 2px #100a19; }
-.theme-snes .live-clock { padding: 4px 12px; background: #25183f; border: 3px solid #a88adb; }
-.theme-snes .pitch-frame { border: 5px solid #171024; border-radius: 0; box-shadow: 5px 5px #100a19; }
+.theme-snes .live-scoreboard { color: #fff8dc; background: #1552a3; border: 5px solid #06142e; border-radius: 0; box-shadow: inset 4px 4px #4c82ce, inset -4px -4px #0b3268, 5px 5px #020b1b; }
+.theme-snes .score-team strong { min-width: 44px; padding: 3px 7px; color: #071b3d !important; background: #f2c84b; border: 3px solid #06142e; box-shadow: 2px 2px #020b1b; }
+.theme-snes .live-clock { padding: 4px 12px; background: #071b3d; border: 3px solid #4b86d9; }
+.theme-snes .pitch-frame { border: 5px solid #06142e; border-radius: 0; box-shadow: 5px 5px #020b1b; }
 .theme-snes .live-match-grid,
 .theme-snes .coach-console,
 .theme-snes .speed-control { border-radius: 0; }
-.theme-snes #narrative-log { color: #fff8dc; background: #171024; border: 4px solid #684aa8; border-radius: 0; font-family: "Courier New", monospace; }
-.theme-snes #narrative-log .event { border-left: 0; border-bottom: 2px dotted #684aa8; }
-.theme-snes .live-stats-strip { gap: 2px; background: #171024; }
-.theme-snes .live-stat { border-radius: 0; background: #392957; }
-.theme-snes .result-display { color: #fff8dc; background: #684aa8; }
+.theme-snes #narrative-log { color: #fff8dc; background: #06142e; border: 4px solid #1552a3; border-radius: 0; font-family: "Courier New", monospace; }
+.theme-snes #narrative-log .event { border-left: 0; border-bottom: 2px dotted #1552a3; }
+.theme-snes .live-stats-strip { gap: 2px; background: #06142e; }
+.theme-snes .live-stat { border-radius: 0; background: #0d2b59; }
+.theme-snes .result-display { color: #fff8dc; background: #1552a3; }
 .theme-snes .team-result h3 { color: #fff8dc; }
-.theme-snes .final-score { color: #25183f; background: #f2c84b; border: 4px solid #171024; box-shadow: 3px 3px #100a19; }
+.theme-snes .final-score { color: #071b3d; background: #f2c84b; border: 4px solid #06142e; box-shadow: 3px 3px #020b1b; }
 
 @media (max-width: 800px) {
   .theme-picker { grid-template-columns: 1fr; }
@@ -3045,14 +3022,14 @@ input:focus-visible,
   min-height: 66px;
   padding: 7px 14px;
   gap: 14px;
-  color: #101820;
-  background: #bfc1b2;
+  color: #fff;
+  background: #174f93;
   border: 3px solid;
-  border-color: #f7f8e6 #343a37 #343a37 #f7f8e6;
+  border-color: #8db7e8 #071e39 #071e39 #8db7e8;
   border-radius: 0;
   box-shadow: 0 3px 0 #000;
 }
-.theme-retro-90s .navbar-brand { color: #101820; font-size: 1rem; text-shadow: 1px 1px #f6f6e8; }
+.theme-retro-90s .navbar-brand { color: #fff; font-size: 1rem; text-shadow: 1px 1px #071e39; }
 .theme-retro-90s .navbar-menu { gap: 4px; }
 .theme-retro-90s .nav-btn,
 .theme-retro-90s .btn,
@@ -3068,9 +3045,9 @@ input:focus-visible,
   font-size: .78rem;
   font-weight: 800;
   text-transform: uppercase;
-  background: #c7c8b8;
+  background: #b8cbe4;
   border: 2px solid;
-  border-color: #fafae9 #343a37 #343a37 #fafae9;
+  border-color: #edf6ff #203c5e #203c5e #edf6ff;
   border-radius: 0;
   box-shadow: 1px 1px 0 #000;
   transform: none;
@@ -3093,12 +3070,12 @@ input:focus-visible,
 .theme-retro-90s .btn-primary { color: #fff; background: #124aa5; }
 .theme-retro-90s .btn-danger { color: #fff; background: #a91f25; }
 .theme-retro-90s .btn[disabled],
-.theme-retro-90s button[disabled] { color: #73776f; background: #aeb0a4; text-shadow: 1px 1px #e9eadf; }
+.theme-retro-90s button[disabled] { color: #526579; background: #9aaabd; text-shadow: 1px 1px #eaf4ff; }
 .theme-retro-90s .form-control,
 .theme-retro-90s input,
 .theme-retro-90s select {
   color: #101820;
-  background: #e3e4d5;
+  background: #d7e5f5;
   border: 2px solid;
   border-color: #343a37 #f8f8e9 #f8f8e9 #343a37;
   border-radius: 0;
@@ -3138,7 +3115,7 @@ input:focus-visible,
 }
 .theme-retro-90s :where(.save-slot, .team-card, .dashboard-card, .settings-section) {
   color: #101820;
-  background: #c7c8b8;
+  background: #b8cbe4;
 }
 .theme-retro-90s :where(.save-slot, .team-card, .dashboard-card, .settings-section) :where(p, small, dt, dd, label) { color: #26303a; }
 .theme-retro-90s .team-card { position: relative; padding: 12px; text-align: center; }
@@ -3180,7 +3157,7 @@ input:focus-visible,
 .theme-retro-90s .progress-bar { height: 18px; padding: 2px; border: 2px inset #fff; border-radius: 0; background: #303834; }
 .theme-retro-90s .progress-fill { border-radius: 0; background: repeating-linear-gradient(90deg, #1cb85f 0 7px, #0f8844 7px 9px); }
 .theme-retro-90s .table-scroll { border: 3px inset #eceede; border-radius: 0; }
-.theme-retro-90s .standings-table { border-collapse: collapse; color: #101820; background: #d4d5c7; font-family: "Courier New", monospace; }
+.theme-retro-90s .standings-table { border-collapse: collapse; color: #101820; background: #c6d5e7; font-family: "Courier New", monospace; }
 .theme-retro-90s .standings-table thead { color: #fff; background: #123d78; }
 .theme-retro-90s .standings-table th,
 .theme-retro-90s .standings-table td { border: 1px solid #59605a; }
@@ -3261,9 +3238,9 @@ input:focus-visible,
   --alt-panel-link: #073f91;
 }
 .theme-snes {
-  --alt-panel-text: #25183f;
-  --alt-panel-muted: #554a61;
-  --alt-panel-link: #4a2d79;
+  --alt-panel-text: #071b3d;
+  --alt-panel-muted: #344861;
+  --alt-panel-link: #123f8c;
 }
 
 :is(.theme-retro-90s, .theme-snes)
@@ -3317,10 +3294,10 @@ input:focus-visible,
   color: #fff8dc;
 }
 .theme-snes .save-slot-heading small { color: #f2c84b; }
-.theme-snes .dashboard-card .season-kicker { color: #4a2d79; }
+.theme-snes .dashboard-card .season-kicker { color: #123f8c; }
 .theme-snes .standings-preview li.user-team,
 .theme-snes .standings-preview li.user-team .points {
-  color: #25183f;
+  color: #071b3d;
   background: #62caba;
 }
 .theme-snes .save-match-live { color: #7b2949; }
@@ -3412,11 +3389,11 @@ input:focus-visible,
 .theme-retro-90s .tactics-options-menu .tactic-option {
   min-height: 58px;
   color: #101820;
-  background: #c7c8b8 !important;
+  background: #b8cbe4 !important;
 }
 
 .theme-retro-90s .tactics-options-menu .tactic-option:hover {
-  background: #d8dac9 !important;
+  background: #d7e5f5 !important;
 }
 
 .theme-retro-90s .tactics-options-menu .tactic-option label { color: #26303a; }
@@ -3429,26 +3406,26 @@ input:focus-visible,
 }
 
 .theme-snes .tactics-options-menu {
-  border: 3px solid #171024;
-  background: #25183f;
+  border: 3px solid #06142e;
+  background: #071b3d;
 }
 
 .theme-snes .tactics-options-menu .tactic-option {
   min-height: 62px;
-  background: #ddd5c6 !important;
+  background: #c9d8ee !important;
 }
 
 .theme-snes .tactics-options-menu .tactic-option:hover {
   background: #eee7d9 !important;
 }
 
-.theme-snes .tactics-options-menu .tactic-option label { color: #4b4055; }
+.theme-snes .tactics-options-menu .tactic-option label { color: #344861; }
 .theme-snes .tactics-options-menu select.form-control {
   color: #fff8dc;
-  background-color: #684aa8;
-  border: 2px solid #25183f;
+  background-color: #1552a3;
+  border: 2px solid #071b3d;
   border-radius: 0;
-  box-shadow: 2px 2px #100a19;
+  box-shadow: 2px 2px #020b1b;
 }
 
 @media (max-width: 700px) {
@@ -3461,6 +3438,468 @@ input:focus-visible,
     width: 100%;
     max-width: 176px;
   }
+}
+
+/* Rendimiento del equipo: indicadores y rankings en una única superficie. */
+.dashboard-performance-card { grid-column: 1 / -1; }
+
+.dashboard-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 1.15rem;
+  border-top: 1px solid var(--dark-border);
+  border-bottom: 1px solid var(--dark-border);
+}
+
+.dashboard-kpi {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  min-height: 76px;
+  padding: .7rem .85rem;
+  border-right: 1px solid var(--dark-border);
+}
+.dashboard-kpi:last-child { border-right: 0; }
+.dashboard-kpi span {
+  color: var(--text-muted);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.dashboard-kpi strong {
+  color: var(--text-primary);
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  line-height: 1.15;
+}
+
+.dashboard-leaders {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.dashboard-leaderboard { min-width: 0; }
+.dashboard-leaderboard h4 {
+  margin-bottom: .45rem;
+  color: var(--text-secondary);
+  font-size: .75rem;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+.dashboard-leaderboard ol { margin: 0; list-style: none; }
+.dashboard-leaderboard li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  min-width: 0;
+  padding: .42rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, .15);
+  color: var(--text-secondary);
+  font-size: .76rem;
+}
+.dashboard-leaderboard li:last-child { border-bottom: 0; }
+.dashboard-leaderboard li > span {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: .4rem;
+}
+.dashboard-leaderboard li > span > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+.dashboard-leaderboard li b {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, .15);
+  font-size: .62rem;
+}
+.dashboard-leaderboard li strong {
+  flex: 0 0 auto;
+  color: var(--text-primary);
+  font-size: .76rem;
+}
+.dashboard-leaderboard li.empty { color: var(--text-muted); }
+
+:is(.theme-retro-90s, .theme-snes) .dashboard-kpi span,
+:is(.theme-retro-90s, .theme-snes) .dashboard-leaderboard li.empty { color: var(--alt-panel-muted); }
+:is(.theme-retro-90s, .theme-snes) .dashboard-kpi strong,
+:is(.theme-retro-90s, .theme-snes) .dashboard-leaderboard h4,
+:is(.theme-retro-90s, .theme-snes) .dashboard-leaderboard li,
+:is(.theme-retro-90s, .theme-snes) .dashboard-leaderboard li strong { color: var(--alt-panel-text); }
+:is(.theme-retro-90s, .theme-snes) .dashboard-leaderboard li b {
+  border-radius: 0;
+  color: #fff;
+  background: var(--primary-color);
+}
+
+@media (max-width: 900px) {
+  .dashboard-kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dashboard-kpi:nth-child(3) { border-right: 0; }
+  .dashboard-kpi:nth-child(n+4) { border-top: 1px solid var(--dark-border); }
+  .dashboard-leaders { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .dashboard-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-kpi:nth-child(3) { border-right: 1px solid var(--dark-border); }
+  .dashboard-kpi:nth-child(2n) { border-right: 0; }
+  .dashboard-kpi:nth-child(n+3) { border-top: 1px solid var(--dark-border); }
+  .dashboard-leaders { grid-template-columns: 1fr; }
+}
+
+/* Dashboard: las identidades largas pueden ocupar varias líneas sin empujar
+   fuera de la cuadrícula ni solaparse con el rival o los puntos. */
+.next-match-info,
+.match-preview,
+.team-vs,
+.team-vs .team-name,
+.match-club,
+.standings-preview,
+.standings-preview li,
+.standings-preview .pos {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.team-vs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.team-vs .team-name { overflow: hidden; }
+.match-club {
+  display: grid;
+  justify-items: center;
+  gap: .35rem;
+  width: 100%;
+  white-space: normal !important;
+}
+
+.match-club > span:last-child,
+.next-match-info h3,
+.standings-preview .pos {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.match-club > span:last-child {
+  max-width: 100%;
+  line-height: 1.12;
+}
+
+.standings-preview li { gap: .65rem; }
+.standings-preview .pos {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  line-height: 1.2;
+}
+.standings-preview .pos > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.standings-preview .points { flex: 0 0 auto; }
+
+/* Preparación del partido como navegación y elección directa, sin desplegable
+   ni cajas de formulario. */
+.pre-match-preparation,
+.match-mode-selection {
+  padding: 1rem 0;
+  border: 0;
+  border-top: 1px solid var(--dark-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.match-mode-selection { border-color: var(--dark-border); }
+.duration-label {
+  color: var(--text-muted);
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.match-duration-menu {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(42px, 1fr));
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--dark-border);
+}
+
+.match-duration-option {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: .18rem;
+  min-height: 42px;
+  padding: .5rem .35rem;
+  border: 0;
+  background: var(--surface-1, var(--dark-card));
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+}
+
+.match-duration-option small {
+  color: var(--text-muted);
+  font-size: .58rem;
+  font-weight: 700;
+}
+
+.match-duration-option:hover { background: var(--surface-2, var(--dark-border)); }
+.match-duration-option.active {
+  background: var(--secondary-color);
+  color: #fff;
+}
+.match-duration-option.active small { color: rgba(255, 255, 255, .78); }
+
+:is(.theme-retro-90s, .theme-snes) .pre-match-preparation,
+:is(.theme-retro-90s, .theme-snes) .match-mode-selection {
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+:is(.theme-retro-90s, .theme-snes) .match-duration-menu { border-radius: 0; }
+:is(.theme-retro-90s, .theme-snes) .match-duration-option {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.theme-retro-90s .match-duration-option { color: #071e39; background: #b8cbe4; }
+.theme-retro-90s .match-duration-option.active { color: #fff; background: #124aa5; }
+.theme-snes .match-duration-option { color: #071b3d; background: #c9d8ee; }
+.theme-snes .match-duration-option.active { color: #fff8dc; background: #1552a3; }
+
+@media (max-width: 430px) {
+  .team-vs { gap: .35rem; }
+  .match-club .club-crest { width: 28px; height: 33px; }
+  .match-club > span:last-child { font-size: .7rem; }
+}
+
+/* Nombres largos del universo filosófico: el texto cede y parte línea dentro
+   de la tarjeta, nunca fuerza el ancho del dashboard. */
+.dashboard-card,
+.dashboard-card .team-info,
+.dashboard-club {
+  min-width: 0;
+}
+
+.dashboard-card { overflow: hidden; }
+.dashboard-club { align-items: center; }
+.dashboard-club strong {
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(.9rem, 2vw, 1.12rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.dashboard-club-crest { flex: 0 0 auto; }
+
+/* La previa reutiliza el lenguaje visual del editor de alineaciones. */
+.formation-info.pre-match-lineup {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.pre-match-lineup-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .65rem;
+}
+
+.pre-match-lineup-heading span {
+  color: var(--text-muted);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.pre-match-lineup-heading h4 { margin: .12rem 0 0; }
+.pre-match-lineup-heading > strong {
+  padding: .4rem .7rem;
+  border-radius: 999px;
+  color: #bfdbfe;
+  background: rgba(96, 165, 250, .12);
+  font-size: .8rem;
+}
+
+.pre-match-lineup-pitch {
+  width: min(620px, 100%);
+  min-height: 480px;
+  margin: 0 auto;
+}
+
+.preview-player { cursor: default; }
+.preview-player .pitch-shirt { position: relative; }
+.preview-player .pitch-shirt i {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  color: #172033;
+  background: #facc15;
+  font: 900 .58rem/1 sans-serif;
+}
+.preview-player:hover .pitch-shirt { transform: none; filter: none; }
+
+/* Simulador abierto: una sola superficie de trabajo. Se conservan el campo y
+   los controles, pero se retiran las cajas decorativas que los encapsulaban. */
+.live-scoreboard {
+  border: 0;
+  border-bottom: 1px solid var(--dark-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.match-break-discipline {
+  margin: -.15rem 0 .75rem;
+  padding: .55rem .25rem;
+  border-bottom: 1px solid rgba(250, 204, 21, .3);
+  color: #fde68a;
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.match-break-discipline[hidden] { display: none; }
+
+.speed-control {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.live-stats-strip {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  border: 0;
+  border-top: 1px solid var(--dark-border);
+  border-bottom: 1px solid var(--dark-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.live-stats-strip span {
+  border-right: 1px solid var(--dark-border);
+  background: transparent;
+}
+.live-stats-strip span:last-child { border-right: 0; }
+
+.coach-console {
+  overflow: visible;
+  border: 0;
+  border-left: 1px solid var(--dark-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.coach-heading {
+  padding: .45rem 1rem .75rem;
+  border-bottom: 1px solid var(--dark-border);
+  background: transparent;
+}
+
+.coach-primary-actions { background: transparent; border-bottom: 1px solid var(--dark-border); }
+.coach-action { background: transparent; }
+.coach-narrative-always { padding: .85rem 0 .85rem 1rem; }
+.sidebar-narrative #narrative-log {
+  padding-right: .35rem;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+.live-narrative .event {
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Los skins cambian colores y tipografía, no recuperan las cajas retiradas. */
+:is(.theme-retro-90s, .theme-snes) .live-scoreboard {
+  min-height: 70px;
+  border: 0;
+  border-bottom: 2px solid currentColor;
+  background: transparent;
+  box-shadow: none;
+}
+:is(.theme-retro-90s, .theme-snes) .live-clock {
+  border: 0;
+  background: transparent;
+}
+:is(.theme-retro-90s, .theme-snes) .coach-console,
+:is(.theme-retro-90s, .theme-snes) .speed-control {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:is(.theme-retro-90s, .theme-snes) .live-stats-strip {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+}
+.theme-retro-90s .score-team strong {
+  color: #ffe349 !important;
+  background: transparent;
+  border: 0;
+}
+.theme-snes .score-team strong {
+  color: #f2c84b !important;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+@media (max-width: 980px) {
+  .coach-console {
+    padding-top: .75rem;
+    border-left: 0;
+    border-top: 1px solid var(--dark-border);
+  }
+  .coach-narrative-always { padding-left: 0; }
+}
+
+@media (max-width: 700px) {
+  .pre-match-lineup-pitch { min-height: 420px; }
+}
+
+@media (max-width: 600px) {
+  .live-stats-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live-stats-strip span:nth-child(n) { border-top: 0; }
+  .live-stats-strip span:nth-child(n+3) { border-top: 1px solid var(--dark-border); }
+  .live-stats-strip span:nth-child(2n) { border-right: 0; }
+  .pre-match-lineup-pitch { min-height: 380px; }
 }
 
 @media (max-width: 420px) {
