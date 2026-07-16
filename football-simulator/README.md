@@ -300,7 +300,7 @@ Para verificar el funcionamiento:
 
 La prueba automatizada se ejecuta abriendo `tests/league-engine.test.html`. Debe mostrar **10/10 pruebas superadas**. No usa servidor, librerías ni instalación previa.
 
-La Fase 7 y su ampliación espacial se verifican abriendo `tests/live-match-engine.test.html`. Debe mostrar **95/95 pruebas superadas** y cubre campo, tácticas, sustituciones, colisiones, tiros, definición de ocasiones claras, penaltis, fueras de juego, pausas por incidencias, disciplina, lesiones, separación, transiciones, pases elevados, continuidad física del balón, porteros, persistencia y finalización.
+La Fase 7 y su ampliación espacial se verifican abriendo `tests/live-match-engine.test.html`. Debe mostrar **99/99 pruebas superadas** y cubre campo, tácticas, sustituciones, colisiones, tiros, definición de ocasiones claras, penaltis con frecuencia del 10% en simulación directa y rápida, fueras de juego, pausas por incidencias, disciplina, lesiones, separación, transiciones, pases elevados, continuidad física del balón, porteros, persistencia y finalización.
 
 Disponibilidad, sanciones, entrenamiento, progreso, sugerencias de alineación, afinidad de roles, temas visuales, contraste, escudos de club y validación de backups se verifican en `tests/phase6-release.test.html`. Debe mostrar **16/16 pruebas superadas**.
 

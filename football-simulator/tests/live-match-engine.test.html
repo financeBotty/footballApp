@@ -16,6 +16,7 @@
   <ol id="results"></ol>
   <script src="../js/data.js"></script>
   <script src="../js/team-manager.js"></script>
+  <script src="../js/match-engine.js"></script>
   <script src="../js/live-match-engine.js"></script>
   <script src="../js/match-renderer.js"></script>
   <script>
@@ -460,7 +461,61 @@
       victim.x = 90;
       victim.y = 34;
       engine.commitFoul(defender, victim);
-      return engine.state.restart && engine.state.restart.type === 'penalty';
+      return engine.state.restart && engine.state.restart.type === 'penalty' &&
+        engine.state.restart.x === 88.5 && engine.state.restart.y === 34 &&
+        engine.state.stats.home.penalties === 1 &&
+        engine.state.events.some(event => event.type === 'PENALTY_AWARDED');
+    });
+
+    test('El plan de penaltis se activa exactamente en el 10% de semillas', () => {
+      const { engine } = createEngine(1);
+      let planned = 0;
+      for (let seed = 1; seed <= 1000; seed++) {
+        engine.seed = seed;
+        if (engine.createPenaltyPlan()) planned++;
+      }
+      return planned === 100;
+    });
+
+    test('El penalti planificado exige presión real en el área y solo se concede una vez', () => {
+      const { engine } = createEngine(10);
+      const attacker = engine.onField('home').find(item => item.position === 'ST') || engine.onField('home')[8];
+      const defender = engine.onField('away').find(item => item.position !== 'GK');
+      attacker.x = 90;
+      attacker.y = 34;
+      defender.x = 88;
+      defender.y = 34;
+      engine.state.minute = engine.state.penaltyPlan.minute;
+      const awarded = engine.maybeAwardScheduledPenalty(attacker);
+      const repeated = engine.maybeAwardScheduledPenalty(attacker);
+      const awards = engine.state.events.filter(event => event.type === 'PENALTY_AWARDED');
+      return awarded && !repeated && engine.state.restart?.type === 'penalty' && awards.length === 1;
+    });
+
+    test('El resultado rápido también sortea, narra y resuelve penaltis', () => {
+      const manager = new TeamManager();
+      manager.getAllTeams().slice(0, 2).forEach(team => manager.autoSelectStartingXI(team.id));
+      const [home, away] = manager.getAllTeams();
+      const originalRandom = Math.random;
+      Math.random = () => 0.05;
+      const engine = new MatchEngine(home, away, manager);
+      const planned = engine.matchState.penaltyPlan;
+      const resolved = engine.generatePenalty(true, 30);
+      Math.random = originalRandom;
+      return planned && resolved && engine.matchState.stats.home.penalties === 1 &&
+        engine.matchState.stats.home.penaltiesScored === 1 &&
+        engine.matchState.events.some(event => event.type === 'PENALTY_AWARDED') &&
+        engine.matchState.events.some(event => event.type === 'PENALTY');
+    });
+
+    test('Una falta junto al banderín no se considera penalti', () => {
+      const { engine } = createEngine(55);
+      const defender = engine.onField('away').find(item => item.position !== 'GK');
+      const victim = engine.onField('home').find(item => item.position === 'ST') || engine.onField('home')[8];
+      victim.x = 90;
+      victim.y = 4;
+      engine.commitFoul(defender, victim);
+      return engine.state.restart?.type === 'free-kick' && engine.state.stats.home.penalties === 0;
     });
 
     test('Detecta fuera de juego y concede falta indirecta', () => {

@@ -24,7 +24,9 @@ class MatchEngine {
           corners: 0,
           offsides: 0,
           passes: 0,
-          tackles: 0
+          tackles: 0,
+          penalties: 0,
+          penaltiesScored: 0
         },
         away: {
           shots: 0,
@@ -36,7 +38,9 @@ class MatchEngine {
           corners: 0,
           offsides: 0,
           passes: 0,
-          tackles: 0
+          tackles: 0,
+          penalties: 0,
+          penaltiesScored: 0
         }
       },
       events: [],
@@ -48,6 +52,12 @@ class MatchEngine {
       },
       seed: this.generateMatchSeed()
     };
+
+    this.matchState.penaltyPlan = Math.random() < 0.1 ? {
+      minute: 12 + Math.floor(Math.random() * 64),
+      isHome: Math.random() < 0.5,
+      completed: false
+    } : null;
 
     this.initializePlayerStats();
   }
@@ -199,6 +209,11 @@ class MatchEngine {
   // Simular evento en un minuto (mejorado Fase 3)
   simulateMinute(minute) {
     this.matchState.minute = minute;
+
+    if (this.matchState.penaltyPlan && !this.matchState.penaltyPlan.completed && minute >= this.matchState.penaltyPlan.minute) {
+      this.generatePenalty(this.matchState.penaltyPlan.isHome, minute);
+      this.matchState.penaltyPlan.completed = true;
+    }
 
     // Actualizar fitness y estadísticas de jugadores
     const homeXI = this.teamManager.getStartingXI(this.homeTeam.id);
@@ -372,7 +387,7 @@ class MatchEngine {
   }
 
   // Anotar gol
-  scoreGoal(isHome, minute, scorer, goalkeeper) {
+  scoreGoal(isHome, minute, scorer, goalkeeper, allowAssist = true) {
     if (isHome) {
       this.matchState.homeGoals++;
     } else {
@@ -385,7 +400,7 @@ class MatchEngine {
     const XI = this.teamManager.getStartingXI(isHome ? this.homeTeam.id : this.awayTeam.id);
     const passers = XI.filter(p => p.id !== scorer.id && p.passing > 70);
 
-    if (passers.length > 0) {
+    if (allowAssist && passers.length > 0) {
       const assister = passers[Math.floor(Math.random() * passers.length)];
       if (assister) {
         this.matchState.playerStats[assister.id].assists++;
@@ -394,6 +409,40 @@ class MatchEngine {
     } else {
       this.recordEvent(isHome, 'GOAL', minute, scorer.name);
     }
+  }
+
+  generatePenalty(isHome, minute) {
+    const shootingTeam = isHome ? this.homeTeam : this.awayTeam;
+    const defendingTeam = isHome ? this.awayTeam : this.homeTeam;
+    const taker = this.teamManager.getStartingXI(shootingTeam.id)
+      .filter(player => this.matchState.playerStats[player.id]?.onPitch && player.position !== 'GK')
+      .sort((a, b) => (b.shooting + b.overall * .35) - (a.shooting + a.overall * .35))[0];
+    const keeper = this.teamManager.getStartingXI(defendingTeam.id)
+      .find(player => player.position === 'GK' && this.matchState.playerStats[player.id]?.onPitch);
+    if (!taker || !keeper) return false;
+    const side = isHome ? 'home' : 'away';
+    this.matchState.stats[side].penalties++;
+    this.matchState.stats[side].shots++;
+    this.matchState.playerStats[taker.id].shots++;
+    this.recordEvent(isHome, 'PENALTY_AWARDED', minute, shootingTeam.name);
+    this.recordEvent(isHome, 'PENALTY', minute, taker.name);
+    const goalChance = Math.max(.62, Math.min(.82,
+      .72 + (taker.shooting - 75) / 350 - (keeper.goalkeeping - 75) / 500));
+    const roll = Math.random();
+    if (roll < goalChance) {
+      this.matchState.stats[side].shotsOnTarget++;
+      this.matchState.stats[side].penaltiesScored++;
+      this.scoreGoal(isHome, minute, taker, keeper, false);
+    } else if (roll < goalChance + .08) {
+      this.recordEvent(isHome, 'POST', minute, `${taker.name} envía el penalti al poste`);
+    } else {
+      const defendingSide = isHome ? 'away' : 'home';
+      this.matchState.stats[side].shotsOnTarget++;
+      this.matchState.stats[defendingSide].saves++;
+      this.matchState.playerStats[keeper.id].saves++;
+      this.recordEvent(!isHome, 'SAVE', minute, `${keeper.name} detiene el penalti`);
+    }
+    return true;
   }
 
   // Generar evento menor (mejorado Fase 3)
@@ -545,6 +594,9 @@ class MatchEngine {
       'SHOT_ON_TARGET': `${minute}' ¡Tiro a puerta! ${details}`,
       'SAVE': `${minute}' ¡Parada! ${details} despeja`,
       'GOAL': `${minute}' ⚽ ¡GOOOOOL! ${details}`,
+      'PENALTY_AWARDED': `${minute}' ¡Penalti para ${details}!`,
+      'PENALTY': `${minute}' ${details} se prepara para lanzar el penalti`,
+      'POST': `${minute}' ${details}`,
       'FOUL': `${minute}' Falta cometida por ${details}`,
       'YELLOW_CARD': `${minute}' 🟨 Tarjeta amarilla a ${details}`,
       'RED_CARD': `${minute}' 🔴 Tarjeta roja a ${details}`,

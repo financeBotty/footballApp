@@ -2357,6 +2357,8 @@ input:focus-visible,
 .live-narrative .event-foul { border-color: var(--warning-color); }
 .live-narrative .event-injury { border-color: #c084fc; }
 .live-narrative .event-offside { border-color: #facc15; color: #fef08a; }
+.live-narrative .event-penalty_awarded,
+.live-narrative .event-penalty { border-color: #f2c84b; color: #fff3a6; font-weight: 800; }
 
 .coach-console {
   position: sticky;

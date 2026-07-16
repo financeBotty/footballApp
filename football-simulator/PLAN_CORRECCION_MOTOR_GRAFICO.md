@@ -8,7 +8,7 @@ Eliminar movimientos incoherentes, teletransportes y diferencias entre el estado
 
 - Intervención completada: bloques 1 a 9.
 - Posesión, porteros, reinicios, movimiento, fuera de juego, Canvas, transiciones y reloj migrados al nuevo flujo.
-- Verificación esperada: 95/95 pruebas del motor, 10/10 de liga y 16/16 de regresión y presentación en Chromium headless aislado.
+- Verificación esperada: 99/99 pruebas del motor, 10/10 de liga y 16/16 de regresión y presentación en Chromium headless aislado.
 - Cierre visual: escritorio 1440×1100 y móvil 390×844 sin desbordamiento horizontal, con Canvas, marcador y velocidades visibles.
 - Velocidades verificadas sobre el mismo partido: 49/143/237 revisiones en 1×/3×/5×, sin errores de consola ni excepciones de página.
 - Continuidad por frame: máximos de jugador 1,03/1,63/2,10 y de balón 2,30/3,92/4,85 unidades en 1×/3×/5×.

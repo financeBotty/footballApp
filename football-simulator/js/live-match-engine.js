@@ -86,6 +86,7 @@ class LiveMatchEngine {
         home: { side: 'home', x: 35, y: 73.5, targetX: 35, targetY: 73.5, location: 'bench', dismissed: false, nextMoveAt: 1 },
         away: { side: 'away', x: 65, y: 73.5, targetX: 65, targetY: 73.5, location: 'bench', dismissed: false, nextMoveAt: 1 }
       },
+      penaltyPlan: this.createPenaltyPlan(),
       coachDismissal: this.random() < 0.1 ? {
         side: this.random() < 0.5 ? 'home' : 'away',
         minute: 18 + Math.floor(this.random() * 68),
@@ -103,8 +104,38 @@ class LiveMatchEngine {
     return {
       shots: 0, shotsOnTarget: 0, saves: 0, fouls: 0,
       yellowCards: 0, redCards: 0, corners: 0, offsides: 0,
-      throwIns: 0, passes: 0, tackles: 0, possessionTicks: 0
+      throwIns: 0, passes: 0, tackles: 0, possessionTicks: 0,
+      penalties: 0, penaltiesScored: 0
     };
+  }
+
+  createPenaltyPlan() {
+    const normalizedSeed = Math.abs(Math.trunc(this.seed)) || 1;
+    if (normalizedSeed % 10 !== 0) return null;
+    return {
+      probability: 0.1,
+      minute: 12 + (Math.floor(normalizedSeed / 10) % 64),
+      awarded: false
+    };
+  }
+
+  isInOpponentPenaltyArea(player) {
+    if (!player) return false;
+    const insideWidth = player.y >= 13.8 && player.y <= 54.2;
+    const insideDepth = player.side === 'home' ? player.x > 84 : player.x < 16;
+    return insideWidth && insideDepth;
+  }
+
+  maybeAwardScheduledPenalty(attacker) {
+    const plan = this.state.penaltyPlan;
+    if (!plan || plan.awarded || this.state.minute < plan.minute || !this.isInOpponentPenaltyArea(attacker)) return false;
+    const defender = this.onField(attacker.side === 'home' ? 'away' : 'home')
+      .filter(player => !player.mustLeave && player.position !== 'GK')
+      .sort((a, b) => this.distance(a, attacker) - this.distance(b, attacker))[0];
+    if (!defender || this.distance(defender, attacker) > 5.2) return false;
+    plan.awarded = true;
+    this.commitFoul(defender, attacker);
+    return true;
   }
 
   createTeamState(team, side, kit = null) {
@@ -1255,6 +1286,10 @@ class LiveMatchEngine {
       return;
     }
 
+    // El 10% se decide una sola vez al crear el partido, pero solo se cobra
+    // cuando hay una acción real bajo presión dentro del área rival.
+    if (this.maybeAwardScheduledPenalty(owner)) return;
+
     // Una ocasión manifiesta prevalece sobre cualquier instrucción de pase o
     // ritmo: delante de portería y sin defensor cercano, el jugador remata.
     if (this.hasClearScoringChance(owner)) {
@@ -1850,9 +1885,15 @@ class LiveMatchEngine {
     const defenderData = this.getPlayer(defender.id);
     const attackerData = this.getPlayer(attacker.id);
     const pressure = this.getTeamState(defender.teamId).tactics.pressure;
-    const attackerInBox = attacker.side === 'home' ? attacker.x > 84 : attacker.x < 16;
+    const attackerInBox = this.isInOpponentPenaltyArea(attacker);
     const baseFoulChance = 0.14 + (pressure === 'Alta' ? 0.09 : 0) + (100 - defender.fitness) / 350;
-    const foulChance = this.clamp(baseFoulChance * (attackerInBox ? 0.52 : 1), 0.055, 0.42);
+    // Las faltas en el área se reservan al sorteo por partido. Fuera de ella
+    // se mantiene la frecuencia normal de infracciones.
+    const plannedPenalty = attackerInBox && this.state.penaltyPlan && !this.state.penaltyPlan.awarded &&
+      this.state.minute >= this.state.penaltyPlan.minute;
+    const foulChance = attackerInBox
+      ? (plannedPenalty ? 1 : 0)
+      : this.clamp(baseFoulChance, 0.055, 0.42);
     if (this.random() < foulChance) {
       this.commitFoul(defender, attacker);
       return;
@@ -1899,20 +1940,28 @@ class LiveMatchEngine {
     else if (cardRoll < probabilities.red + probabilities.yellow) card = 'yellow';
     if (card && !this.giveCard(defender, card)) card = null;
     const foulX = victim.x;
-    const inPenaltyArea = victim.side === 'home' ? foulX > 84 : foulX < 16;
+    const inPenaltyArea = this.isInOpponentPenaltyArea(victim);
     const restartType = inPenaltyArea ? 'penalty' : 'free-kick';
     this.addEvent('FOUL', `Falta de ${defender.name} sobre ${victim.name}${card ? ` · ${card === 'red' ? 'roja' : 'amarilla'}` : ''}`, null, defender.side);
     if (this.random() < 0.025 + severity * 0.035) this.injurePlayer(victim, defender);
     this.state.ball.ownerId = null;
     this.state.ball.state = 'set-piece';
-    this.state.ball.x = victim.x;
-    this.state.ball.y = victim.y;
+    const restartX = inPenaltyArea ? (victim.side === 'home' ? 88.5 : 11.5) : victim.x;
+    const restartY = inPenaltyArea ? 34 : victim.y;
+    this.state.ball.x = restartX;
+    this.state.ball.y = restartY;
     this.state.phase = 'SET_PIECE';
     // La colocación de la falta debe verse, pero no sentirse como una pausa.
-    this.state.restart = { type: restartType, teamSide: victim.side, x: victim.x, y: victim.y, wait: 0.2 };
+    this.state.restart = { type: restartType, teamSide: victim.side, x: restartX, y: restartY, wait: 0.2 };
     this.state.referee.targetX = victim.x;
     this.state.referee.targetY = victim.y + 3;
-    if (restartType === 'penalty') this.maybeCaptainProtest(defender.side, 'el penalti');
+    if (restartType === 'penalty') {
+      if (this.state.penaltyPlan) this.state.penaltyPlan.awarded = true;
+      this.state.stats[victim.side].penalties++;
+      const teamName = this.teamManager.getTeam(this.state.teams[victim.side].teamId).name;
+      this.addEvent('PENALTY_AWARDED', `¡Penalti para ${teamName}!`, null, victim.side);
+      this.maybeCaptainProtest(defender.side, 'el penalti');
+    }
   }
 
   giveCard(playerState, card) {
@@ -2176,6 +2225,7 @@ class LiveMatchEngine {
     const isHeader = ball.action === 'header';
     if (roll < goalChance) {
       this.state.stats[shooter.side].shotsOnTarget++;
+      if (ball.action === 'penalty') this.state.stats[shooter.side].penaltiesScored++;
       this.state.score[shooter.side]++;
       shooter.goals++;
       shooter.confidence = this.clamp(shooter.confidence + 10, 0, 100);
@@ -2796,11 +2846,14 @@ class LiveMatchEngine {
       if (!coach.location) coach.location = coach.y > 71 ? 'bench' : 'technical-area';
     });
     if (typeof engine.state.coachDismissal === 'undefined') engine.state.coachDismissal = null;
+    if (typeof engine.state.penaltyPlan === 'undefined') engine.state.penaltyPlan = engine.createPenaltyPlan();
     if (!engine.state.addedTime) engine.state.addedTime = { firstHalf: 3, secondHalf: 5 };
     if (!Number.isFinite(engine.state.addedTime.firstHalf)) engine.state.addedTime.firstHalf = 3;
     if (!Number.isFinite(engine.state.addedTime.secondHalf)) engine.state.addedTime.secondHalf = 5;
     ['home', 'away'].forEach(side => {
       if (!Number.isFinite(engine.state.stats[side].throwIns)) engine.state.stats[side].throwIns = 0;
+      if (!Number.isFinite(engine.state.stats[side].penalties)) engine.state.stats[side].penalties = 0;
+      if (!Number.isFinite(engine.state.stats[side].penaltiesScored)) engine.state.stats[side].penaltiesScored = 0;
     });
     const migratedKits = engine.selectMatchKits();
     ['home', 'away'].forEach(side => {

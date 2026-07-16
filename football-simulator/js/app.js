@@ -1103,7 +1103,7 @@ class FootballSimulator {
     const reportPlayers = Array.isArray(report.players) ? report.players : [];
     const mvp = reportPlayers.length ? [...reportPlayers].sort((a, b) => b.rating - a.rating)[0] : null;
     const keyEvents = Array.isArray(report.events)
-      ? report.events.filter(event => ['GOAL', 'POST', 'SAVE', 'PENALTY', 'OFFSIDE', 'RED_CARD', 'INJURY', 'KEEPER_CLAIM'].includes(event.type)).slice(-18)
+      ? report.events.filter(event => ['GOAL', 'POST', 'SAVE', 'PENALTY_AWARDED', 'PENALTY', 'OFFSIDE', 'RED_CARD', 'INJURY', 'KEEPER_CLAIM'].includes(event.type)).slice(-18)
       : [];
     let result = '';
 
@@ -1138,7 +1138,7 @@ class FootballSimulator {
           <div><strong>${homePossession}%</strong><span>Posesión</span><strong>${awayPossession}%</strong></div>
           ${[
             ['Tiros', 'shots'], ['A puerta', 'shotsOnTarget'], ['Pases', 'passes'],
-            ['Entradas', 'tackles'], ['Faltas', 'fouls'], ['Fueras de juego', 'offsides'],
+            ['Entradas', 'tackles'], ['Faltas', 'fouls'], ['Penaltis', 'penalties'], ['Fueras de juego', 'offsides'],
             ['Saques de banda', 'throwIns']
           ].map(([label, key]) => `
             <div><strong>${stats.home[key] || 0}</strong><span>${label}</span><strong>${stats.away[key] || 0}</strong></div>
