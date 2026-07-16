@@ -9,13 +9,20 @@ class MatchRenderer {
     this.ctx = canvas.getContext('2d');
     this.frameId = null;
     this.resizeObserver = null;
-    this.colors = { home: '#38bdf8', away: '#fb7185', referee: '#050505' };
+    this.colors = {
+      home: engine.state?.teams?.home?.kitColor || '#0ea5e9',
+      away: engine.state?.teams?.away?.kitColor || '#f43f5e',
+      referee: '#050505'
+    };
     this.visualPlayers = {};
     this.visualBall = null;
     this.visualReferee = null;
     this.previousBallState = null;
     this.previousBallOwnerId = null;
     this.previousPhase = null;
+    this.playbackSpeed = 1;
+    this.logicStep = 0.05;
+    this.lastFrameTime = null;
     this.start();
   }
 
@@ -25,17 +32,55 @@ class MatchRenderer {
       this.resizeObserver = new ResizeObserver(() => this.resize());
       this.resizeObserver.observe(this.canvas.parentElement || this.canvas);
     }
-    const draw = () => {
-      this.render(this.engine.getVisualSnapshot());
+    const draw = timestamp => {
+      const deltaMs = this.lastFrameTime === null ? 16.7 : Math.min(80, Math.max(4, timestamp - this.lastFrameTime));
+      this.lastFrameTime = timestamp;
+      this.render(this.engine.getVisualSnapshot(), deltaMs);
       this.frameId = requestAnimationFrame(draw);
     };
-    draw();
+    this.frameId = requestAnimationFrame(draw);
   }
 
   stop() {
     if (this.frameId) cancelAnimationFrame(this.frameId);
     if (this.resizeObserver) this.resizeObserver.disconnect();
     this.frameId = null;
+    this.lastFrameTime = null;
+  }
+
+  setPlaybackSpeed(speed, logicStep = this.logicStep) {
+    this.playbackSpeed = [1, 3, 5].includes(Number(speed)) ? Number(speed) : 1;
+    this.logicStep = Number(logicStep) > 0 ? Number(logicStep) : 0.05;
+  }
+
+  interpolationAlpha(deltaMs, smoothingRatio = 0.65) {
+    const timing = this.engine.getPlaybackTiming(this.playbackSpeed, this.logicStep);
+    const visibleTickMs = timing.tickDelayMs;
+    const smoothingMs = Math.max(18, visibleTickMs * smoothingRatio);
+    return 1 - Math.exp(-deltaMs / smoothingMs);
+  }
+
+  controlledBallPosition(snapshot) {
+    if (snapshot.ball.state !== 'controlled' || !snapshot.ball.ownerId) return null;
+    const owner = snapshot.players.find(player => player.id === snapshot.ball.ownerId);
+    const visualOwner = owner ? this.visualPlayers[owner.id] : null;
+    if (!owner || !visualOwner) return null;
+    return {
+      x: Math.max(2, Math.min(98, visualOwner.x + (owner.side === 'home' ? 0.8 : -0.8))),
+      y: Math.max(2, Math.min(66, visualOwner.y))
+    };
+  }
+
+  moveVisualTowards(current, target, alpha, maxStep) {
+    const dx = target.x - current.x;
+    const dy = target.y - current.y;
+    const distance = Math.hypot(dx, dy);
+    if (!distance) return { x: target.x, y: target.y };
+    const factor = Math.min(alpha, maxStep / distance, 1);
+    return {
+      x: current.x + dx * factor,
+      y: current.y + dy * factor
+    };
   }
 
   resize() {
@@ -61,45 +106,85 @@ class MatchRenderer {
     };
   }
 
-  render(snapshot) {
+  render(snapshot, deltaMs = 16.7) {
     if (!this.ctx || !this.width) return;
+    const snapshotAlpha = this.interpolationAlpha(deltaMs);
+    const frameRatio = Math.max(.25, Math.min(4, deltaMs / 16.7));
+    // El motor puede resolver más de una acción entre dos frames a 3×/5×.
+    // Limitar el recorrido visual por frame evita que un cambio de dueño, un
+    // saque o una recolocación táctica se conviertan en un teletransporte.
+    const playerMaxStep = (.8 + this.playbackSpeed * .22) * frameRatio;
+    const ballMaxStep = (snapshot.ball.state === 'controlled'
+      ? 1.8 + this.playbackSpeed * .35
+      : 2.4 + this.playbackSpeed * .4) * frameRatio;
+    const treatedPlayerId = snapshot.animations.medical ? snapshot.animations.medical.playerId : null;
+    const activePlayerIds = new Set(snapshot.players.map(player => player.id));
+    Object.keys(this.visualPlayers).forEach(id => {
+      if (!activePlayerIds.has(id)) delete this.visualPlayers[id];
+    });
+    const renderedPlayers = snapshot.players.filter(player => player.id !== treatedPlayerId).map(player => {
+      const visual = this.visualPlayers[player.id] || { x: player.x, y: player.y };
+      const next = this.moveVisualTowards(visual, player, snapshotAlpha, playerMaxStep);
+      visual.x = next.x;
+      visual.y = next.y;
+      this.visualPlayers[player.id] = visual;
+      return { ...player, x: visual.x, y: visual.y };
+    });
+    this.visualBall = this.visualBall || { x: snapshot.ball.x, y: snapshot.ball.y, height: Number(snapshot.ball.height) || 0 };
+    const controlledPosition = this.controlledBallPosition(snapshot);
+    if (controlledPosition) {
+      // Mientras está controlado, jugador y balón deben pertenecer al mismo
+      // fotograma visual. Si el motor resolvió un pase entre frames, el límite
+      // de recorrido conserva visualmente el trayecto hasta el nuevo dueño.
+      const next = this.moveVisualTowards(this.visualBall, controlledPosition, snapshotAlpha, ballMaxStep);
+      this.visualBall.x = next.x;
+      this.visualBall.y = next.y;
+      this.visualBall.height += (0 - this.visualBall.height) * snapshotAlpha;
+    } else {
+      const next = this.moveVisualTowards(this.visualBall, snapshot.ball, snapshotAlpha, ballMaxStep);
+      this.visualBall.x = next.x;
+      this.visualBall.y = next.y;
+      this.visualBall.height += ((Number(snapshot.ball.height) || 0) - this.visualBall.height) * snapshotAlpha;
+    }
+    this.visualReferee = this.visualReferee || { x: snapshot.referee.x, y: snapshot.referee.y };
+    const refereeNext = this.moveVisualTowards(this.visualReferee, snapshot.referee, snapshotAlpha, playerMaxStep * 1.15);
+    this.visualReferee.x = refereeNext.x;
+    this.visualReferee.y = refereeNext.y;
+
+    // Todas las capas se dibujan a partir del mismo estado visual interpolado.
+    // A velocidades altas un pase entero puede resolverse entre dos frames. Si
+    // el balón visual aún está llegando, se conserva como pase y no se pinta
+    // posesión anticipada sobre el receptor.
+    const renderedBall = { ...snapshot.ball, ...this.visualBall };
+    let visualBallOwnerId = snapshot.ball.ownerId;
+    if (snapshot.ball.state === 'controlled' && snapshot.ball.ownerId) {
+      const visualOwner = renderedPlayers.find(player => player.id === snapshot.ball.ownerId);
+      if (visualOwner) {
+        const ownerBallX = Math.max(2, Math.min(98, visualOwner.x + (visualOwner.side === 'home' ? .8 : -.8)));
+        const ownerBallY = Math.max(2, Math.min(66, visualOwner.y));
+        if (Math.hypot(renderedBall.x - ownerBallX, renderedBall.y - ownerBallY) > 3) {
+          renderedBall.state = 'passing';
+          renderedBall.passType = 'ground';
+          renderedBall.targetX = ownerBallX;
+          renderedBall.targetY = ownerBallY;
+          visualBallOwnerId = null;
+        }
+      }
+    }
     this.drawPitch();
     this.drawBenches(snapshot.benches, snapshot.animations);
-    this.drawDefensiveLines(snapshot.players);
+    this.drawDefensiveLines(renderedPlayers);
     if (Number.isFinite(snapshot.ball.offsideLineX)) this.drawOffsideLine(snapshot.ball.offsideLineX);
-    if (['passing', 'shooting'].includes(snapshot.ball.state)) this.drawBallTrajectory(snapshot.ball);
-    const keeperHasJustSaved = snapshot.ball.heldByKeeper && this.previousBallState === 'shooting';
-    const treatedPlayerId = snapshot.animations.medical ? snapshot.animations.medical.playerId : null;
-    snapshot.players.filter(player => player.id !== treatedPlayerId).forEach(player => {
-      const mustSnapToBall = keeperHasJustSaved && snapshot.ball.ownerId === player.id;
-      const visual = mustSnapToBall
-        ? { x: player.x, y: player.y }
-        : this.visualPlayers[player.id] || { x: player.x, y: player.y };
-      if (!mustSnapToBall) {
-        visual.x += (player.x - visual.x) * 0.12;
-        visual.y += (player.y - visual.y) * 0.12;
-      }
-      this.visualPlayers[player.id] = visual;
-      this.drawPlayer({ ...player, x: visual.x, y: visual.y }, snapshot.ball.ownerId === player.id);
+    if (['passing', 'shooting'].includes(renderedBall.state)) this.drawBallTrajectory(renderedBall);
+    renderedPlayers.forEach(player => {
+      this.drawPlayer(player, visualBallOwnerId === player.id);
     });
-    const snapBall =
-      (snapshot.phase === 'KICK_OFF' && this.previousPhase !== 'KICK_OFF') ||
-      (snapshot.ball.ownerId && this.previousBallState === 'shooting') ||
-      (snapshot.ball.ownerId && snapshot.ball.ownerId !== this.previousBallOwnerId);
-    if (snapBall) this.visualBall = { x: snapshot.ball.x, y: snapshot.ball.y };
-    this.visualBall = this.visualBall || { x: snapshot.ball.x, y: snapshot.ball.y };
-    const ballInterpolation = ['passing', 'shooting'].includes(snapshot.ball.state) ? 0.62 : 0.34;
-    this.visualBall.x += (snapshot.ball.x - this.visualBall.x) * ballInterpolation;
-    this.visualBall.y += (snapshot.ball.y - this.visualBall.y) * ballInterpolation;
-    this.visualReferee = this.visualReferee || { x: snapshot.referee.x, y: snapshot.referee.y };
-    this.visualReferee.x += (snapshot.referee.x - this.visualReferee.x) * 0.1;
-    this.visualReferee.y += (snapshot.referee.y - this.visualReferee.y) * 0.1;
     snapshot.animations.substitutions.forEach(animation => this.drawPlayer(animation.player, false, true));
     if (snapshot.animations.medical) this.drawMedicalAnimation(snapshot.animations.medical);
     snapshot.coaches.forEach(coach => this.drawCoach(coach));
     this.drawReferee(this.visualReferee);
-    this.drawBall({ ...snapshot.ball, x: this.visualBall.x, y: this.visualBall.y });
-    if (snapshot.phase === 'SET_PIECE') this.drawSetPieceMarker(snapshot.ball);
+    this.drawBall(renderedBall);
+    if (snapshot.phase === 'SET_PIECE') this.drawSetPieceMarker(renderedBall);
     this.previousBallState = snapshot.ball.state;
     this.previousBallOwnerId = snapshot.ball.ownerId;
     this.previousPhase = snapshot.phase;
@@ -108,17 +193,15 @@ class MatchRenderer {
   drawPitch() {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
-    const gradient = ctx.createLinearGradient(0, 0, this.width, 0);
-    gradient.addColorStop(0, '#15803d');
-    gradient.addColorStop(0.5, '#16a34a');
-    gradient.addColorStop(1, '#15803d');
-    ctx.fillStyle = gradient;
+    // Verde plano y franjas discretas: lectura de gestor táctico clásico sin
+    // introducir efectos que puedan confundirse con el movimiento del balón.
+    ctx.fillStyle = '#14733b';
     ctx.fillRect(0, 0, this.width, this.height);
 
     const stripes = 10;
     for (let i = 0; i < stripes; i++) {
       if (i % 2 === 0) {
-        ctx.fillStyle = 'rgba(255,255,255,.035)';
+        ctx.fillStyle = 'rgba(255,255,210,.045)';
         ctx.fillRect((this.width / stripes) * i, 0, this.width / stripes, this.height);
       }
     }
@@ -163,7 +246,8 @@ class MatchRenderer {
 
   drawDefensiveLines(players) {
     ['home', 'away'].forEach(side => {
-      const defenders = players.filter(player => player.side === side && ['CB', 'RB', 'LB'].includes(player.position));
+      const defenders = players.filter(player => player.side === side &&
+        (player.formationLine === 'def' || (!player.formationLine && ['CB', 'RB', 'LB'].includes(player.position))));
       if (!defenders.length) return;
       const lineX = defenders.reduce((sum, player) => sum + player.x, 0) / defenders.length;
       const top = this.point(lineX, 5);

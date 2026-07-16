@@ -204,6 +204,16 @@ class LeagueEngine {
     this.teamManager.getAllTeams().forEach(team => {
       if (team.id !== this.controlledTeamId) this.teamManager.chooseAITrainingPlan(team.id);
     });
+    matches.forEach(match => {
+      [[match.homeTeam, match.homeGoals, match.awayGoals], [match.awayTeam, match.awayGoals, match.homeGoals]].forEach(([teamId, goalsFor, goalsAgainst]) => {
+        const team = this.teamManager.getTeam(teamId);
+        if (!team) return;
+        const result = goalsFor > goalsAgainst ? 'V' : goalsFor < goalsAgainst ? 'D' : 'E';
+        team.form = [...(team.form || []), result].slice(-5);
+        const moraleChange = result === 'V' ? 3 : result === 'D' ? -3 : 0;
+        team.players.forEach(player => { player.morale = Math.max(20, Math.min(100, (Number(player.morale) || 75) + moraleChange)); });
+      });
+    });
     this.teamManager.processCompletedMatchday(matchday);
     this.processedDevelopmentMatchdays.push(matchday);
     return true;

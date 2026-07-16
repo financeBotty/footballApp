@@ -160,7 +160,9 @@ const DEFAULT_TACTICS = {
   tempo: 'Medio',                 // 'Bajo', 'Medio', 'Alto'
   width: 'Equilibrada',           // 'Estrecha', 'Equilibrada', 'Amplia'
   passStyle: 'Mixto',             // 'Corto', 'Mixto', 'Directo'
-  defensiveLine: 'Media'          // 'Baja', 'Media', 'Alta'
+  defensiveLine: 'Media',         // 'Baja', 'Media', 'Alta'
+  situationalInstruction: 'Normal',
+  pressTargetId: null
 };
 
 // Identidades tácticas. Cada plantilla recibe de inicio la que mejor encaja
@@ -188,6 +190,19 @@ const TACTICAL_STRATEGIES = {
   }
 };
 
+// Cada club tiene una primera equipación exclusiva y una alternativa de alto
+// contraste. El motor decide cuál usa el visitante en cada enfrentamiento.
+const TEAM_KITS = {
+  'club-atletico': { primaryColor: '#0ea5e9', alternateColor: '#fef08a', crest: 'assets/crests/club-atletico.svg' },
+  'elite-united': { primaryColor: '#7c3aed', alternateColor: '#facc15', crest: 'assets/crests/elite-united.svg' },
+  'real-victoria': { primaryColor: '#f8fafc', alternateColor: '#111827', crest: 'assets/crests/real-victoria.svg' },
+  'sport-juvenil': { primaryColor: '#22c55e', alternateColor: '#f8fafc', crest: 'assets/crests/sport-juvenil.svg' },
+  'dynamo-central': { primaryColor: '#ef4444', alternateColor: '#1d4ed8', crest: 'assets/crests/dynamo-central.svg' },
+  'phoenix-power': { primaryColor: '#f97316', alternateColor: '#0f172a', crest: 'assets/crests/phoenix-power.svg' },
+  'titan-forces': { primaryColor: '#334155', alternateColor: '#f8fafc', crest: 'assets/crests/titan-forces.svg' },
+  'noble-lions': { primaryColor: '#eab308', alternateColor: '#1e3a8a', crest: 'assets/crests/noble-lions.svg' }
+};
+
 // Datos de equipos (8 equipos)
 const TEAMS = [
   {
@@ -195,6 +210,7 @@ const TEAMS = [
     name: 'Club Atlántico',
     shortName: 'ATL',
     overall: 78,
+    ...TEAM_KITS['club-atletico'],
     budget: 50000000,
     formation: '4-3-3',
     tactics: { ...DEFAULT_TACTICS }
@@ -204,6 +220,7 @@ const TEAMS = [
     name: 'Elite United',
     shortName: 'ELI',
     overall: 82,
+    ...TEAM_KITS['elite-united'],
     budget: 65000000,
     formation: '4-2-3-1',
     tactics: { ...DEFAULT_TACTICS }
@@ -213,6 +230,7 @@ const TEAMS = [
     name: 'Real Victoria',
     shortName: 'RVT',
     overall: 75,
+    ...TEAM_KITS['real-victoria'],
     budget: 45000000,
     formation: '4-4-2',
     tactics: { ...DEFAULT_TACTICS }
@@ -222,6 +240,7 @@ const TEAMS = [
     name: 'Sport Juvenil',
     shortName: 'SPJ',
     overall: 71,
+    ...TEAM_KITS['sport-juvenil'],
     budget: 35000000,
     formation: '4-3-3',
     tactics: { ...DEFAULT_TACTICS }
@@ -231,6 +250,7 @@ const TEAMS = [
     name: 'Dynamo Central',
     shortName: 'DYN',
     overall: 76,
+    ...TEAM_KITS['dynamo-central'],
     budget: 48000000,
     formation: '5-3-2',
     tactics: { ...DEFAULT_TACTICS }
@@ -240,6 +260,7 @@ const TEAMS = [
     name: 'Phoenix Power',
     shortName: 'PHX',
     overall: 79,
+    ...TEAM_KITS['phoenix-power'],
     budget: 55000000,
     formation: '4-3-3',
     tactics: { ...DEFAULT_TACTICS }
@@ -249,6 +270,7 @@ const TEAMS = [
     name: 'Titan Forces',
     shortName: 'TIT',
     overall: 73,
+    ...TEAM_KITS['titan-forces'],
     budget: 40000000,
     formation: '3-5-2',
     tactics: { ...DEFAULT_TACTICS }
@@ -258,6 +280,7 @@ const TEAMS = [
     name: 'Noble Lions',
     shortName: 'NLN',
     overall: 77,
+    ...TEAM_KITS['noble-lions'],
     budget: 52000000,
     formation: '4-4-2',
     tactics: { ...DEFAULT_TACTICS }
@@ -298,6 +321,7 @@ const DATA = {
   FORMATIONS,
   DEFAULT_TACTICS,
   TACTICAL_STRATEGIES,
+  TEAM_KITS,
   TEAMS,
   VALID_POSITIONS,
   POSITIONS_BY_LINE,

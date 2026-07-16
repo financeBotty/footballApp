@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 112" role="img" aria-labelledby="title">
+  <title>Escudo de Club Atlántico</title>
+  <path fill="#fef08a" stroke="#07111b" stroke-width="5" d="M48 4 88 18v36c0 26-16 44-40 54C24 98 8 80 8 54V18z"/>
+  <path fill="#0ea5e9" d="M13 22 48 10l35 12v31c0 20-11 36-35 48-24-12-35-28-35-48z"/>
+  <path fill="none" stroke="#fef08a" stroke-width="6" d="M17 65c11-13 20 13 31 0s20 13 31 0"/>
+  <circle cx="48" cy="39" r="15" fill="#fef08a" stroke="#07111b" stroke-width="3"/>
+  <path fill="#07111b" d="m48 24 4 11 11 4-11 4-4 11-4-11-11-4 11-4z"/>
+</svg>

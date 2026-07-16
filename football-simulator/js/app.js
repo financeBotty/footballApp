@@ -14,7 +14,7 @@ class FootballSimulator {
     this.matchTimer = null;
     this.matchLoopToken = 0;
     this.isMatchPaused = false;
-    this.matchPlaybackSpeed = 3;
+    this.matchPlaybackSpeed = 1;
     this.matchEventCursor = 0;
     this.matchFinalized = false;
     this.gameState = {
@@ -109,7 +109,6 @@ class FootballSimulator {
         break;
       case 'squad':
         this.ui.showSquad();
-        this.attachSquadListeners();
         break;
       case 'tactics':
         this.ui.showTactics();
@@ -173,15 +172,15 @@ class FootballSimulator {
 
     navBar.innerHTML = `
       <nav class="navbar">
-        <div class="navbar-brand">${team.name}</div>
+        <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Plantilla</button>
+          <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="tactics">Tácticas</button>
-          <button class="nav-btn active" data-screen="next-match">Próximo Partido</button>
+          <button class="nav-btn active" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn" data-screen="stats">Estadísticas</button>
-          <button class="nav-btn" data-screen="settings">Configuración</button>
+          <button class="nav-btn" data-screen="stats">Datos</button>
+          <button class="nav-btn" data-screen="settings">Ajustes</button>
         </div>
       </nav>
     `;
@@ -200,6 +199,8 @@ class FootballSimulator {
       nextMatch.homeTeam === userTeamId ? nextMatch.awayTeam : nextMatch.homeTeam
     );
     const isHome = nextMatch.homeTeam === userTeamId;
+    const homePreviewTeam = isHome ? team : opponent;
+    const awayPreviewTeam = isHome ? opponent : team;
     const startingXI = this.teamManager.getStartingXI(userTeamId);
 
     let playersHtml = '';
@@ -214,12 +215,14 @@ class FootballSimulator {
         <div class="match-preview-large">
           <div class="match-teams">
             <div class="team-section">
-              <h3>${isHome ? team.name : opponent.name}</h3>
+              ${this.ui.renderTeamCrest(homePreviewTeam, 'match-preview-crest')}
+              <h3>${homePreviewTeam.name}</h3>
               <p class="team-label">${isHome ? 'LOCAL' : 'VISITANTE'}</p>
             </div>
             <div class="vs-container">vs</div>
             <div class="team-section">
-              <h3>${isHome ? opponent.name : team.name}</h3>
+              ${this.ui.renderTeamCrest(awayPreviewTeam, 'match-preview-crest')}
+              <h3>${awayPreviewTeam.name}</h3>
               <p class="team-label">${isHome ? 'VISITANTE' : 'LOCAL'}</p>
             </div>
           </div>
@@ -391,28 +394,33 @@ class FootballSimulator {
         });
     this.matchEventCursor = 0;
     this.isMatchPaused = restoredEngine ? true : false;
-    this.matchPlaybackSpeed = 3;
+    this.matchPlaybackSpeed = 1;
     this.matchFinalized = false;
     this.pendingSubstitutions = [];
 
     const userState = this.liveMatchEngine.getTeamState(this.userTeamId);
     const userTeam = this.teamManager.getTeam(this.userTeamId);
+    const homeKit = this.liveMatchEngine.state.teams.home;
+    const awayKit = this.liveMatchEngine.state.teams.away;
 
     content.innerHTML = `
-      <div class="live-match-shell">
+      <div class="live-match-shell" style="--home-kit:${homeKit.kitColor};--away-kit:${awayKit.kitColor}">
         <header class="live-scoreboard">
-          <div class="score-team home"><span>${homeTeam.shortName}</span><strong id="home-score">0</strong></div>
+          <div class="score-team home">${this.ui.renderTeamCrest(homeTeam, 'score-club-crest')}<span>${homeTeam.shortName}<small>local</small></span><strong id="home-score">0</strong></div>
           <div class="live-clock"><strong id="match-minute">0'</strong><small id="match-phase">Prepartido</small></div>
-          <div class="score-team away"><strong id="away-score">0</strong><span>${awayTeam.shortName}</span></div>
+          <div class="score-team away"><strong id="away-score">0</strong><span>${awayTeam.shortName}<small>${awayKit.kitType}</small></span>${this.ui.renderTeamCrest(awayTeam, 'score-club-crest')}</div>
         </header>
 
         <div class="live-match-grid">
           <main class="live-pitch-column">
             <div class="match-controls live-controls live-controls-top">
               <button id="btn-pause" class="btn btn-secondary">${this.isMatchPaused ? 'Reanudar' : 'Pausa'}</button>
-              <button id="btn-normal-speed" class="btn btn-secondary">1×</button>
-              <button id="btn-fast-speed" class="btn btn-secondary active">3×</button>
-              <button id="btn-super-speed" class="btn btn-secondary">5×</button>
+              <div class="speed-control" role="group" aria-label="Velocidad de reproducción">
+                <span>Velocidad</span>
+                <button id="btn-normal-speed" class="btn btn-secondary ${this.matchPlaybackSpeed === 1 ? 'active' : ''}" aria-pressed="${this.matchPlaybackSpeed === 1}">1×</button>
+                <button id="btn-fast-speed" class="btn btn-secondary ${this.matchPlaybackSpeed === 3 ? 'active' : ''}" aria-pressed="${this.matchPlaybackSpeed === 3}">3×</button>
+                <button id="btn-super-speed" class="btn btn-secondary ${this.matchPlaybackSpeed === 5 ? 'active' : ''}" aria-pressed="${this.matchPlaybackSpeed === 5}">5×</button>
+              </div>
               <button id="btn-skip-first-half" class="btn btn-secondary">Hasta descanso</button>
               <button id="btn-skip-full-match" class="btn btn-secondary">Hasta final</button>
               <button id="btn-save-exit-match" class="btn btn-secondary">Salir al menú</button>
@@ -428,7 +436,7 @@ class FootballSimulator {
               <span><i class="legend-flight"></i> Balón elevado</span>
             </div>
             <div class="live-stats-strip">
-              <span>Posesión <strong id="possession">50 - 50</strong></span>
+              <span>Posesión <strong id="possession">50% · 50%</strong></span>
               <span>Tiros <strong id="shots">0 - 0</strong></span>
               <span>A puerta <strong id="shots-on-target">0 - 0</strong></span>
               <span>Tarjetas <strong id="cards">0 - 0</strong></span>
@@ -443,32 +451,34 @@ class FootballSimulator {
               <strong>${userTeam.name}</strong>
               <small><span id="subs-used">${userState.substitutions}</span>/5 cambios</small>
             </div>
-            <div class="coach-tabs" role="tablist">
-              <button class="coach-tab active" data-coach-tab="narrative">Narración</button>
-              <button class="coach-tab" data-coach-tab="tactics">Táctica</button>
-              <button class="coach-tab" data-coach-tab="team">Equipo</button>
-              <button class="coach-tab" data-coach-tab="changes">Cambios</button>
+            <div class="coach-primary-actions">
+              <button class="coach-action" data-coach-tab="tactics"><span>◆</span><strong>Táctica</strong><small>Ajustar el plan</small></button>
+              <button class="coach-action" data-coach-tab="changes"><span>⇄</span><strong>Hacer cambios</strong><small>Elegir jugador</small></button>
             </div>
-            <div class="coach-panel active" data-coach-panel="narrative">
+            <div class="coach-narrative-always">
               <section class="match-narrative live-narrative sidebar-narrative">
-                <h4>Narración</h4>
+                <div class="coach-section-title"><h4>Narración</h4><span>En directo</span></div>
                 <div id="narrative-log" aria-live="polite"></div>
               </section>
             </div>
-            <div class="coach-panel" data-coach-panel="tactics">
-              ${this.renderLiveTactics(userState.tactics, userState)}
-              <button id="btn-apply-live-tactics" class="btn btn-primary">Aplicar instrucciones</button>
-            </div>
-            <div class="coach-panel" data-coach-panel="team">
-              <div id="live-team-list">${this.renderLiveTeamList()}</div>
-            </div>
-            <div class="coach-panel" data-coach-panel="changes">
-              <label>Sale<select id="sub-player-out" class="form-control">${this.renderSubstitutionOptions(true)}</select></label>
-              <label>Entra<select id="sub-player-in" class="form-control">${this.renderSubstitutionOptions(false)}</select></label>
-              <button id="btn-queue-substitution" class="btn btn-secondary">Añadir a la lista</button>
-              <div id="queued-substitutions" class="queued-substitutions">${this.renderQueuedSubstitutions()}</div>
-              <button id="btn-make-substitution" class="btn btn-primary" disabled>Confirmar cambios</button>
-              <p id="substitution-feedback" class="coach-feedback"></p>
+            <div class="coach-drawer" id="coach-drawer" aria-hidden="true">
+              <div class="coach-drawer-bar"><strong id="coach-drawer-title">Decisiones</strong><button type="button" id="btn-close-coach-drawer" aria-label="Cerrar panel">×</button></div>
+              <div class="coach-panel" data-coach-panel="tactics">
+                ${this.renderLiveTactics(userState.tactics, userState)}
+                <button id="btn-apply-live-tactics" class="btn btn-primary">Aplicar instrucciones</button>
+              </div>
+              <div class="coach-panel" data-coach-panel="changes">
+                <p class="change-flow-help">Elige sobre el once quién debe salir. Te recomendaremos los mejores reemplazos.</p>
+                <div id="live-team-list" class="live-change-team">${this.renderLiveTeamList()}</div>
+                <div class="change-selector-grid">
+                  <label>Sale<select id="sub-player-out" class="form-control">${this.renderSubstitutionOptions(true)}</select></label>
+                  <label>Entra<select id="sub-player-in" class="form-control">${this.renderSubstitutionOptions(false)}</select></label>
+                </div>
+                <button id="btn-queue-substitution" class="btn btn-secondary">Preparar cambio</button>
+                <div id="queued-substitutions" class="queued-substitutions">${this.renderQueuedSubstitutions()}</div>
+                <button id="btn-make-substitution" class="btn btn-primary" disabled>Confirmar cambios</button>
+                <p id="substitution-feedback" class="coach-feedback"></p>
+              </div>
             </div>
           </aside>
         </div>
@@ -498,6 +508,11 @@ class FootballSimulator {
       ${select('live-pass-style', 'Pase', ['Corto', 'Mixto', 'Directo'], tactics.passStyle)}
       ${select('live-defensive-line', 'Línea defensiva', ['Baja', 'Media', 'Alta'], tactics.defensiveLine)}
       ${select('live-set-piece', 'Balón parado', ['Disparar', 'Centrar', 'Corto'], tactics.setPiecePreference || 'Centrar')}
+      ${select('live-situational', 'Instrucción', ['Normal', 'Perder tiempo', 'Buscar el empate', 'Defender resultado', 'Atacar izquierda', 'Atacar derecha', 'Presionar rival'], tactics.situationalInstruction || 'Normal')}
+      <label>Rival a presionar<select id="live-press-target" class="form-control">
+        <option value="">Automático</option>
+        ${this.liveMatchEngine.onField(teamState.side === 'home' ? 'away' : 'home').filter(player => player.position !== 'GK').map(player => `<option value="${player.id}" ${tactics.pressTargetId === player.id ? 'selected' : ''}>${player.name} · ${player.position}</option>`).join('')}
+      </select></label>
     `;
   }
 
@@ -511,8 +526,8 @@ class FootballSimulator {
       const fitnessLevel = fitness < 40 ? 'critical' : fitness < 65 ? 'low' : fitness < 80 ? 'medium' : 'high';
       return `
         <button type="button" class="live-player-row" data-player-id="${state.id}" title="Preparar cambio de ${state.name}">
-          <span class="live-player-dot ${state.side}">${state.number}</span>
-          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${state.position}</small></span>
+          <span class="live-player-dot ${state.side}" style="background:${teamState.kitColor}">${state.number}</span>
+          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${state.position} · ${state.role || 'Sin rol'} · confianza ${Math.round(state.confidence || 50)}</small></span>
           <span class="fitness ${fitnessLevel}" aria-label="Cansancio: ${fitness}%">
             <span class="fitness-bar"><i style="width:${fitness}%"></i></span>
             <em>${fitness}%</em>
@@ -612,8 +627,13 @@ class FootballSimulator {
     const selectPlaybackSpeed = (speed, buttonId) => {
       this.matchPlaybackSpeed = speed;
       ['btn-normal-speed', 'btn-fast-speed', 'btn-super-speed'].forEach(id => {
-        byId(id).classList.toggle('active', id === buttonId);
+        const button = byId(id);
+        const active = id === buttonId;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
       });
+      if (this.matchRenderer) this.matchRenderer.setPlaybackSpeed(speed, this.getLivePlaybackTiming(speed).logicStep);
+      if (!this.isMatchPaused) this.startLiveMatchLoop();
     };
     byId('btn-normal-speed').addEventListener('click', () => {
       selectPlaybackSpeed(1, 'btn-normal-speed');
@@ -631,6 +651,7 @@ class FootballSimulator {
     byId('btn-queue-substitution').addEventListener('click', () => this.queueLiveSubstitution());
     byId('btn-make-substitution').addEventListener('click', () => this.applyLiveSubstitution());
     byId('sub-player-out').addEventListener('change', () => this.updateSubstitutionRecommendations());
+    byId('btn-close-coach-drawer').addEventListener('click', () => this.closeCoachDrawer());
 
     byId('coach-console').addEventListener('click', event => {
       const playerRow = event.target.closest('.live-player-row[data-player-id]');
@@ -639,7 +660,7 @@ class FootballSimulator {
       if (removeButton) this.removeQueuedSubstitution(Number(removeButton.dataset.removeQueuedSub));
     });
 
-    document.querySelectorAll('.coach-tab').forEach(button => {
+    document.querySelectorAll('.coach-action').forEach(button => {
       button.addEventListener('click', () => this.activateCoachTab(button.dataset.coachTab));
     });
   }
@@ -659,12 +680,26 @@ class FootballSimulator {
   }
 
   activateCoachTab(tabName) {
-    document.querySelectorAll('.coach-tab').forEach(tab => {
+    const drawer = document.getElementById('coach-drawer');
+    if (!drawer) return;
+    document.querySelectorAll('.coach-action').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.coachTab === tabName);
     });
     document.querySelectorAll('.coach-panel').forEach(panel => {
       panel.classList.toggle('active', panel.dataset.coachPanel === tabName);
     });
+    drawer.classList.add('open');
+    drawer.setAttribute('aria-hidden', 'false');
+    const title = document.getElementById('coach-drawer-title');
+    if (title) title.textContent = tabName === 'changes' ? 'Cambios' : 'Plan táctico';
+  }
+
+  closeCoachDrawer() {
+    const drawer = document.getElementById('coach-drawer');
+    if (!drawer) return;
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    document.querySelectorAll('.coach-action').forEach(tab => tab.classList.remove('active'));
   }
 
   selectPlayerForSubstitution(playerId) {
@@ -755,22 +790,40 @@ class FootballSimulator {
     if (incoming) incoming.innerHTML = this.renderSubstitutionOptions(false);
   }
 
+  getLivePlaybackTiming(speed = this.matchPlaybackSpeed, logicStep = 0.05) {
+    if (this.liveMatchEngine?.getPlaybackTiming) return this.liveMatchEngine.getPlaybackTiming(speed, logicStep);
+    return { speed: 1, logicStep, baseTickMs: 200, tickDelayMs: 200, animationSeconds: 0.2 };
+  }
+
   startLiveMatchLoop() {
     this.stopLiveMatchLoop();
     this.isMatchPaused = false;
     const token = ++this.matchLoopToken;
-    const logicStep = 0.1;
-    const stepsPerHalf = 45 / logicStep;
-    const baseDelay = (this.liveMatchEngine.halfDuration * 60 * 1000) / stepsPerHalf;
-    // Las tres velocidades conservan la misma física. Solo cambia la cadencia
-    // de reproducción; 1× mantiene suficiente fluidez para que el balón no se arrastre.
-    const playbackFactor = () => ({ 1: 6.5, 3: 8.5, 5: 10 }[this.matchPlaybackSpeed] || 8.5);
-    const tick = () => {
+    const logicStep = 0.05;
+    let lastTimestamp = null;
+    let accumulatorMs = 0;
+    if (this.matchRenderer) this.matchRenderer.setPlaybackSpeed(this.matchPlaybackSpeed, logicStep);
+    const frame = timestamp => {
       if (token !== this.matchLoopToken || this.isMatchPaused || !this.liveMatchEngine) return;
-      this.liveMatchEngine.simulateNextStep(logicStep, baseDelay / (2 * 1000));
-      this.processLiveMatchEvents();
-      this.renderLiveMatchState();
-      this.persistLiveMatch();
+      const timing = this.getLivePlaybackTiming(this.matchPlaybackSpeed, logicStep);
+      if (lastTimestamp === null) lastTimestamp = timestamp;
+      const elapsedMs = Math.min(250, Math.max(0, timestamp - lastTimestamp));
+      lastTimestamp = timestamp;
+      accumulatorMs += elapsedMs * timing.speed * timing.playbackBoost;
+      let simulatedSteps = 0;
+      while (accumulatorMs >= timing.baseTickMs && simulatedSteps < 6) {
+        this.liveMatchEngine.simulateNextStep(logicStep, timing.animationSeconds);
+        accumulatorMs -= timing.baseTickMs;
+        simulatedSteps++;
+        if (this.liveMatchEngine.state.complete || this.liveMatchEngine.state.status === 'paused') break;
+      }
+      // Una pestaña bloqueada no debe descargar después una ráfaga de lógica.
+      if (simulatedSteps === 6) accumulatorMs = Math.min(accumulatorMs, timing.baseTickMs);
+      if (simulatedSteps) {
+        this.processLiveMatchEvents();
+        this.renderLiveMatchState();
+        this.persistLiveMatch();
+      }
       if (this.liveMatchEngine.state.complete) {
         this.finalizeLiveMatch();
         return;
@@ -782,14 +835,14 @@ class FootballSimulator {
         return;
       }
       if (this.isMatchPaused) return;
-      this.matchTimer = setTimeout(tick, baseDelay / playbackFactor());
+      this.matchTimer = requestAnimationFrame(frame);
     };
-    this.matchTimer = setTimeout(tick, baseDelay / playbackFactor());
+    this.matchTimer = requestAnimationFrame(frame);
   }
 
   stopLiveMatchLoop() {
     this.matchLoopToken++;
-    if (this.matchTimer) clearTimeout(this.matchTimer);
+    if (this.matchTimer) cancelAnimationFrame(this.matchTimer);
     this.matchTimer = null;
   }
 
@@ -833,18 +886,23 @@ class FootballSimulator {
     let requiresAttention = false;
     events.forEach(event => {
       if (narrative) {
-        const line = document.createElement('p');
-        line.className = `event event-${event.type.toLowerCase()} ${event.side || ''}`;
-        line.textContent = event.narration;
-        narrative.appendChild(line);
+        const eventKey = `${event.type}|${event.side || ''}|${event.narration}`;
+        const previousKey = narrative.firstElementChild?.dataset.eventKey;
+        if (eventKey !== previousKey) {
+          const line = document.createElement('p');
+          line.className = `event event-${event.type.toLowerCase()} ${event.side || ''}`;
+          line.dataset.eventKey = eventKey;
+          line.textContent = event.narration;
+          narrative.prepend(line);
+        }
       }
       if (event.requiresAttention) {
         this.isMatchPaused = true;
         requiresAttention = true;
       }
     });
-    if (narrative) narrative.scrollTop = narrative.scrollHeight;
-    if (requiresAttention) this.activateCoachTab('narrative');
+    if (narrative) narrative.scrollTop = 0;
+    if (requiresAttention) this.closeCoachDrawer();
     const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
     if (requiredChange) {
       this.selectPlayerForSubstitution(requiredChange.playerId);
@@ -874,7 +932,7 @@ class FootballSimulator {
     set('match-phase', `${this.livePhaseLabel(state.phase)} · Árbitro ${state.referee.cardStrictness}/10`);
     const totalPossession = state.stats.home.possessionTicks + state.stats.away.possessionTicks;
     const homePossession = totalPossession ? Math.round(state.stats.home.possessionTicks / totalPossession * 100) : 50;
-    set('possession', `${homePossession} - ${100 - homePossession}`);
+    set('possession', `${homePossession}% · ${100 - homePossession}%`);
     set('shots', `${state.stats.home.shots} - ${state.stats.away.shots}`);
     set('shots-on-target', `${state.stats.home.shotsOnTarget} - ${state.stats.away.shotsOnTarget}`);
     set('cards', `${state.stats.home.yellowCards}🟨 ${state.stats.home.redCards}🟥 - ${state.stats.away.yellowCards}🟨 ${state.stats.away.redCards}🟥`);
@@ -891,6 +949,7 @@ class FootballSimulator {
       KICK_OFF: 'Saque inicial', BUILD_UP: 'En juego', TRANSITION: 'Transición',
       ATTACK: 'Ataque', LOOSE_BALL: 'Balón dividido', SET_PIECE: 'Balón parado',
       GOAL_CELEBRATION: 'Celebración del gol', KICK_OFF_SETUP: 'Preparando el saque',
+      HALF_TIME_SETUP: 'Jugadores al descanso',
       HALF_TIME: 'Descanso', FULL_TIME: 'Final'
     }[phase] || 'En juego';
   }
@@ -914,7 +973,9 @@ class FootballSimulator {
       width: document.getElementById('live-width').value,
       passStyle: document.getElementById('live-pass-style').value,
       defensiveLine: document.getElementById('live-defensive-line').value,
-      setPiecePreference: document.getElementById('live-set-piece').value
+      setPiecePreference: document.getElementById('live-set-piece').value,
+      situationalInstruction: document.getElementById('live-situational').value,
+      pressTargetId: document.getElementById('live-press-target').value || null
     };
     const result = this.liveMatchEngine.applyTactics(this.userTeamId, changes);
     if (result.valid) {
@@ -951,6 +1012,16 @@ class FootballSimulator {
       this.processLiveMatchEvents();
       this.renderLiveMatchState();
       this.persistLiveMatch(true);
+      const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
+      if (!requiredChange && !this.liveMatchEngine.state.complete) {
+        if (this.liveMatchEngine.state.phase === 'HALF_TIME') this.liveMatchEngine.resumeSecondHalf();
+        this.isMatchPaused = false;
+        const pauseBtn = document.getElementById('btn-pause');
+        if (pauseBtn) pauseBtn.textContent = 'Pausa';
+        this.closeCoachDrawer();
+        feedback.textContent += ' · Partido reanudado';
+        this.startLiveMatchLoop();
+      }
     }
   }
 
@@ -1026,6 +1097,9 @@ class FootballSimulator {
     const summary = this.leagueEngine.getSeasonSummary();
     const report = match.data || {};
     const stats = report.stats || null;
+    const totalPossession = stats ? (stats.home.possessionTicks || 0) + (stats.away.possessionTicks || 0) : 0;
+    const homePossession = totalPossession ? Math.round((stats.home.possessionTicks || 0) / totalPossession * 100) : 50;
+    const awayPossession = 100 - homePossession;
     const reportPlayers = Array.isArray(report.players) ? report.players : [];
     const mvp = reportPlayers.length ? [...reportPlayers].sort((a, b) => b.rating - a.rating)[0] : null;
     const keyEvents = Array.isArray(report.events)
@@ -1061,6 +1135,7 @@ class FootballSimulator {
       <section class="post-match-card">
         <h3>Estadísticas del partido</h3>
         <div class="post-match-stats">
+          <div><strong>${homePossession}%</strong><span>Posesión</span><strong>${awayPossession}%</strong></div>
           ${[
             ['Tiros', 'shots'], ['A puerta', 'shotsOnTarget'], ['Pases', 'passes'],
             ['Entradas', 'tackles'], ['Faltas', 'fouls'], ['Fueras de juego', 'offsides'],
@@ -1100,11 +1175,13 @@ class FootballSimulator {
         <div class="result-display">
           <div class="result-teams">
             <div class="team-result">
+              ${this.ui.renderTeamCrest(homeTeam, 'result-club-crest')}
               <h3>${homeTeam.name}</h3>
               <p class="final-score">${homeGoals}</p>
             </div>
             <div class="result-status ${result.toLowerCase()}">${result}</div>
             <div class="team-result">
+              ${this.ui.renderTeamCrest(awayTeam, 'result-club-crest')}
               <h3>${awayTeam.name}</h3>
               <p class="final-score">${awayGoals}</p>
             </div>
@@ -1150,15 +1227,15 @@ class FootballSimulator {
 
     navBar.innerHTML = `
       <nav class="navbar">
-        <div class="navbar-brand">${team.name}</div>
+        <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Plantilla</button>
+          <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="tactics">Tácticas</button>
-          <button class="nav-btn" data-screen="next-match">Próximo Partido</button>
+          <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn active" data-screen="stats">Estadísticas</button>
-          <button class="nav-btn" data-screen="settings">Configuración</button>
+          <button class="nav-btn active" data-screen="stats">Datos</button>
+          <button class="nav-btn" data-screen="settings">Ajustes</button>
         </div>
       </nav>
     `;
@@ -1318,31 +1395,6 @@ class FootballSimulator {
     this.showWelcomeScreen();
   }
 
-  // Ordenar y refrescar plantilla
-  sortAndRefreshSquad(sortBy) {
-    const userTeamId = this.userTeamId;
-    const team = this.teamManager.getTeam(userTeamId);
-    team.players = this.teamManager.sortPlayers(userTeamId, sortBy);
-    this.ui.showSquad();
-  }
-
-  // Agregar listeners de plantilla
-  attachSquadListeners() {
-    const checkboxes = document.querySelectorAll('.player-select');
-    checkboxes.forEach(cb => {
-      cb.addEventListener('change', this.updateSelectedCount.bind(this));
-    });
-  }
-
-  // Actualizar contador de jugadores seleccionados
-  updateSelectedCount() {
-    const checkboxes = document.querySelectorAll('.player-select');
-    const selected = Array.from(checkboxes).filter(cb => cb.checked).length;
-    const counter = document.getElementById('selected-count');
-    if (counter) {
-      counter.textContent = selected;
-    }
-  }
 }
 
 // Inicializar cuando el DOM esté listo

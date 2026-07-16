@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 112" role="img" aria-labelledby="title">
+  <title>Escudo de Titan Forces</title>
+  <path fill="#334155" stroke="#f8fafc" stroke-width="5" d="M48 4 88 20v43c0 21-15 36-40 45C23 99 8 84 8 63V20z"/>
+  <path fill="#f8fafc" d="M23 29h50v11H23zm7 14h36v9H30zm5 12h26v35H35z"/>
+  <path fill="#334155" d="M43 55h10v35H43z"/>
+  <path fill="#f8fafc" d="M24 90h48v9H24z"/>
+  <path fill="#334155" stroke="#f8fafc" stroke-width="3" d="M30 18 48 8l18 10-5 9H35z"/>
+</svg>

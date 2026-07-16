@@ -3,10 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Football Simulator - Gestor de Fútbol</title>
+  <meta name="theme-color" content="#08162b">
+  <title>Football Simulator 96 - Gestor de Fútbol</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body class="theme-retro-90s">
+  <script>
+    (() => {
+      try {
+        const selected = localStorage.getItem('fs_setting_visualTheme') || localStorage.getItem('fs_visualTheme') || '90s';
+        const themes = { classic: 'theme-classic', '90s': 'theme-retro-90s', snes: 'theme-snes' };
+        document.body.className = themes[selected] || themes['90s'];
+      } catch (error) {
+        // Si el navegador bloquea localStorage, UIManager conservará el tema 90s.
+      }
+    })();
+  </script>
   <div id="app">
     <div id="navigation"></div>
     <div id="main-content"></div>

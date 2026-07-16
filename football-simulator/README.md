@@ -15,6 +15,7 @@ La aplicación funciona completamente sin necesidad de servidor ni dependencias 
 
 ✅ **Selección de Equipo**
 - 8 equipos ficticios con características únicas
+- 8 escudos SVG originales basados en los colores de cada club
 - Información de overall, presupuesto y descripción
 
 ✅ **Dashboard Principal**
@@ -59,8 +60,9 @@ La aplicación funciona completamente sin necesidad de servidor ni dependencias 
 
 ✅ **Interfaz Responsive**
 - Diseño adaptable para escritorio, tablet y móvil
-- Tema oscuro inspirado en aplicaciones deportivas modernas
+- Tres estilos intercambiables desde Configuración: Classic, gestor PC de los 90 y SNES/16-bit
 - Navegación intuitiva
+- Sin música ni reproducción de audio
 
 ### Fase 4 - Simulación Completa de Liga (COMPLETADA)
 
@@ -296,11 +298,11 @@ Para verificar el funcionamiento:
 4. **Prueba navegación** - Todas las secciones deben ser accesibles
 5. **Abre consola (F12)** - No debería haber errores en rojo
 
-La prueba automatizada se ejecuta abriendo `tests/league-engine.test.html`. Debe mostrar **9/9 pruebas superadas**. No usa servidor, librerías ni instalación previa.
+La prueba automatizada se ejecuta abriendo `tests/league-engine.test.html`. Debe mostrar **10/10 pruebas superadas**. No usa servidor, librerías ni instalación previa.
 
-La Fase 7 y su ampliación espacial se verifican abriendo `tests/live-match-engine.test.html`. Debe mostrar **22/22 pruebas superadas** y cubre campo, tácticas, sustituciones, colisiones, tiros, definición de ocasiones claras, penaltis, fueras de juego, pausas por incidencias, disciplina, lesiones, separación, transiciones, pases elevados, continuidad física del balón, porteros y finalización.
+La Fase 7 y su ampliación espacial se verifican abriendo `tests/live-match-engine.test.html`. Debe mostrar **95/95 pruebas superadas** y cubre campo, tácticas, sustituciones, colisiones, tiros, definición de ocasiones claras, penaltis, fueras de juego, pausas por incidencias, disciplina, lesiones, separación, transiciones, pases elevados, continuidad física del balón, porteros, persistencia y finalización.
 
-Disponibilidad, sanciones, entrenamiento, progreso y validación de backups se verifican en `tests/phase6-release.test.html`. Debe mostrar **9/9 pruebas superadas**.
+Disponibilidad, sanciones, entrenamiento, progreso, sugerencias de alineación, afinidad de roles, temas visuales, contraste, escudos de club y validación de backups se verifican en `tests/phase6-release.test.html`. Debe mostrar **16/16 pruebas superadas**.
 
 Recorrido final recomendado:
 

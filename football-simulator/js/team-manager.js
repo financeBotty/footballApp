@@ -10,10 +10,15 @@ class TeamManager {
 
   initializeAvailabilityData() {
     this.teams.forEach(team => {
+      this.initializeTeamKits(team);
+      this.initializeReserveSquad(team);
       this.initializeTacticalIdentity(team);
       this.initializeCaptain(team);
+      team.tactics.situationalInstruction = team.tactics.situationalInstruction || 'Normal';
+      if (typeof team.tactics.pressTargetId === 'undefined') team.tactics.pressTargetId = null;
       team.trainingPlan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
       team.players.forEach(player => {
+        this.initializePlayerRole(player);
         if (player.injury) {
           const weeks = Number.isFinite(Number(player.injury.weeksRemaining))
             ? Number(player.injury.weeksRemaining)
@@ -29,6 +34,128 @@ class TeamManager {
         player.trainingProgress = player.trainingProgress || {};
       });
     });
+  }
+
+  initializeTeamKits(team) {
+    const fallbackPalette = [
+      ['#0ea5e9', '#fef08a'], ['#7c3aed', '#facc15'], ['#f8fafc', '#111827'], ['#22c55e', '#f8fafc'],
+      ['#ef4444', '#1d4ed8'], ['#f97316', '#0f172a'], ['#334155', '#f8fafc'], ['#eab308', '#1e3a8a']
+    ];
+    const index = Math.max(0, this.teams.indexOf(team));
+    const configured = DATA.TEAM_KITS?.[team.id];
+    const fallback = fallbackPalette[index % fallbackPalette.length];
+    team.primaryColor = configured?.primaryColor || team.primaryColor || fallback[0];
+    team.alternateColor = configured?.alternateColor || team.alternateColor || fallback[1];
+    team.crest = configured?.crest || team.crest || '';
+  }
+
+  initializeReserveSquad(team) {
+    if (!Array.isArray(team.reservePlayers)) {
+      const positions = ['GK', 'RB', 'CB', 'LB', 'CDM', 'CM', 'RW', 'ST'];
+      team.reservePlayers = positions.map((position, index) => {
+        const player = DATA.generatePlayer(`${team.id}_filial_${index + 1}`, DATA.getRandomName(), 16 + (index % 5), position, 57 + (index % 9));
+        player.fitness = 100;
+        player.morale = 72;
+        player.isAcademyPlayer = true;
+        return player;
+      });
+    }
+    team.reservePromotions = team.reservePromotions || { matchday: 0, count: 0 };
+    team.reservePlayers.forEach(player => {
+      this.initializePlayerRole(player);
+      player.trainingProgress = player.trainingProgress || {};
+      player.suspensionMatches = Math.max(0, Number(player.suspensionMatches) || 0);
+      player.yellowCardAccumulation = Math.max(0, Number(player.yellowCardAccumulation) || 0);
+    });
+  }
+
+  getAvailableRoles(position) {
+    if (position === 'GK') return ['Portero clásico', 'Portero líbero'];
+    if (position === 'CB') return ['Central marcador', 'Central con salida'];
+    if (['RB', 'LB'].includes(position)) return ['Lateral equilibrado', 'Lateral ofensivo', 'Lateral defensivo'];
+    if (['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position)) return ['Organizador', 'Box to box', 'Mediocentro defensivo'];
+    if (['RW', 'LW'].includes(position)) return ['Extremo', 'Delantero interior'];
+    return ['Delantero referencia', 'Falso nueve', 'Delantero móvil'];
+  }
+
+  getRoleSuitability(player, role) {
+    if (!player || !this.getAvailableRoles(player.position).includes(role)) return 0;
+    const profiles = {
+      'Portero clásico': { goalkeeping: .62, physical: .14, passing: .08, overall: .16 },
+      'Portero líbero': { goalkeeping: .4, passing: .24, pace: .16, dribbling: .07, overall: .13 },
+      'Central marcador': { defending: .43, physical: .27, pace: .14, overall: .16 },
+      'Central con salida': { defending: .28, passing: .3, dribbling: .11, physical: .12, overall: .19 },
+      'Lateral equilibrado': { defending: .25, passing: .17, pace: .2, stamina: .15, physical: .08, overall: .15 },
+      'Lateral ofensivo': { pace: .24, passing: .2, dribbling: .22, stamina: .13, defending: .07, overall: .14 },
+      'Lateral defensivo': { defending: .4, physical: .2, pace: .12, passing: .08, overall: .2 },
+      'Organizador': { passing: .4, dribbling: .18, overall: .17, stamina: .1, shooting: .06, defending: .09 },
+      'Box to box': { stamina: .23, physical: .17, passing: .17, defending: .14, pace: .12, overall: .17 },
+      'Mediocentro defensivo': { defending: .36, physical: .2, passing: .14, stamina: .12, overall: .18 },
+      'Extremo': { pace: .28, dribbling: .28, passing: .13, shooting: .12, overall: .19 },
+      'Delantero interior': { shooting: .27, dribbling: .24, pace: .15, passing: .12, overall: .22 },
+      'Delantero referencia': { shooting: .34, physical: .23, dribbling: .09, pace: .09, overall: .25 },
+      'Falso nueve': { passing: .23, dribbling: .23, shooting: .19, overall: .23, pace: .12 },
+      'Delantero móvil': { pace: .25, dribbling: .22, shooting: .22, stamina: .1, overall: .21 }
+    };
+    const profile = profiles[role];
+    if (!profile) return 0;
+    const score = Object.entries(profile).reduce((sum, [attribute, weight]) =>
+      sum + (Number(player[attribute]) || Number(player.overall) || 50) * weight, 0);
+    return Math.round(Math.max(1, Math.min(99, score)));
+  }
+
+  getReplacementSuitability(teamId, outgoingId, candidateId, lineupIds = null) {
+    const team = this.getTeam(teamId);
+    const outgoing = this.getPlayer(teamId, outgoingId);
+    const candidate = this.getPlayer(teamId, candidateId);
+    if (!team || !outgoing || !candidate || outgoing.id === candidate.id || !this.isPlayerAvailable(candidate)) return 0;
+    const ids = Array.isArray(lineupIds) && lineupIds.length ? lineupIds : team.startingXI;
+    const assignment = this.assignLineupToFormation(teamId, ids).find(item => item.playerId === outgoingId);
+    const targetPosition = assignment?.slotPosition || outgoing.position;
+    const line = position => position === 'GK' ? 'gk' : ['CB', 'RB', 'LB'].includes(position) ? 'def' :
+      ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position) ? 'mid' : 'att';
+    if (targetPosition === 'GK' || candidate.position === 'GK') {
+      if (targetPosition !== candidate.position) return 0;
+    }
+    const equivalents = {
+      RM: ['RW', 'CM'], RW: ['RM', 'ST'], LM: ['LW', 'CM'], LW: ['LM', 'ST'],
+      CDM: ['CM', 'CB'], CM: ['CDM', 'CAM', 'RM', 'LM'], CAM: ['CM', 'ST'],
+      RB: ['LB', 'CB', 'RM'], LB: ['RB', 'CB', 'LM'], CB: ['CDM', 'RB', 'LB'], ST: ['RW', 'LW', 'CAM']
+    };
+    const positionFit = candidate.position === targetPosition ? 100 :
+      (equivalents[targetPosition] || []).includes(candidate.position) ? 82 :
+        line(candidate.position) === line(targetPosition) ? 64 : 34;
+    const score = positionFit * .56 + (Number(candidate.overall) || 0) * .24 +
+      (Number(candidate.fitness) || 0) * .12 + (Number(candidate.morale) || 0) * .08;
+    return Math.round(Math.max(0, Math.min(99, score)));
+  }
+
+  initializePlayerRole(player) {
+    const roles = this.getAvailableRoles(player.position);
+    if (!roles.includes(player.role)) player.role = roles[0];
+  }
+
+  setPlayerRole(teamId, playerId, role) {
+    const player = this.getPlayer(teamId, playerId);
+    if (!player || !this.getAvailableRoles(player.position).includes(role)) return false;
+    player.role = role;
+    return true;
+  }
+
+  promoteReservePlayer(teamId, playerId, matchday) {
+    const team = this.getTeam(teamId);
+    if (!team) return { valid: false, error: 'Equipo no encontrado' };
+    const day = Math.max(1, Number(matchday) || 1);
+    if (team.reservePromotions.matchday !== day) team.reservePromotions = { matchday: day, count: 0 };
+    if (team.reservePromotions.count >= 3) return { valid: false, error: 'Ya has subido tres jugadores esta jornada' };
+    const index = team.reservePlayers.findIndex(player => player.id === playerId);
+    if (index < 0) return { valid: false, error: 'Jugador del filial no encontrado' };
+    const [player] = team.reservePlayers.splice(index, 1);
+    player.promotedMatchday = day;
+    player.trainingProgress = player.trainingProgress || {};
+    team.players.push(player);
+    team.reservePromotions.count++;
+    return { valid: true, player, remaining: 3 - team.reservePromotions.count };
   }
 
   initializeCaptain(team) {
@@ -54,6 +181,12 @@ class TeamManager {
     if (isNewIdentity) {
       team.tactics = { ...team.tactics, ...DATA.TACTICAL_STRATEGIES[team.strategy] };
     }
+    team.strategyExperience = team.strategyExperience || {};
+    Object.keys(DATA.TACTICAL_STRATEGIES).forEach(strategy => {
+      if (!Number.isFinite(team.strategyExperience[strategy])) {
+        team.strategyExperience[strategy] = strategy === naturalStrategy ? 100 : this.getBaseStrategyFamiliarity(team, strategy, scores);
+      }
+    });
     team.tacticalFamiliarity = this.getStrategyFamiliarity(team, team.strategy, scores);
   }
 
@@ -83,11 +216,16 @@ class TeamManager {
     };
   }
 
-  getStrategyFamiliarity(team, strategy, scores = null) {
+  getBaseStrategyFamiliarity(team, strategy, scores = null) {
     const strategyScores = scores || this.calculateStrategyScores(team);
     const best = Math.max(...Object.values(strategyScores));
     if (strategy === team.naturalStrategy) return 100;
     return Math.max(58, Math.min(88, Math.round(82 + ((strategyScores[strategy] || 50) - best) * 1.5)));
+  }
+
+  getStrategyFamiliarity(team, strategy, scores = null) {
+    const stored = team.strategyExperience && Number(team.strategyExperience[strategy]);
+    return Number.isFinite(stored) ? Math.max(0, Math.min(100, stored)) : this.getBaseStrategyFamiliarity(team, strategy, scores);
   }
 
   applyStrategy(teamId, strategy) {
@@ -192,6 +330,10 @@ class TeamManager {
   processCompletedMatchday(matchday) {
     this.teams.forEach(team => {
       this.applyTrainingPlan(team, matchday);
+      const plan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
+      const strategyGain = 2 + (plan.focus === 'tactical' ? 4 : plan.focus === 'balanced' ? 2 : 0) + (plan.intensity === 'high' ? 1 : 0);
+      team.strategyExperience[team.strategy] = Math.min(100, this.getStrategyFamiliarity(team, team.strategy) + strategyGain);
+      team.tacticalFamiliarity = team.strategyExperience[team.strategy];
       team.players.forEach(player => {
         if (player.injury && player.injury.createdMatchday !== matchday) {
           const remaining = Math.max(0, Number(player.injury.weeksRemaining ?? player.injury.matchesRemaining) - 1);

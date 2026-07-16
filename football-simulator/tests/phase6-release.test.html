@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pruebas - Fase 6 y cierre</title>
+  <link rel="stylesheet" href="../css/styles.css">
   <style>
     body { max-width: 860px; margin: 2rem auto; padding: 0 1rem; font: 16px system-ui; background: #0f172a; color: #f1f5f9; }
     li { margin: .5rem 0; padding: .75rem; border-radius: .4rem; background: #1e293b; }
@@ -18,6 +19,7 @@
   <script src="../js/storage.js"></script>
   <script src="../js/team-manager.js"></script>
   <script src="../js/league-engine.js"></script>
+  <script src="../js/ui.js"></script>
   <script>
     const results = [];
     const test = (name, assertion) => {
@@ -40,6 +42,54 @@
       const { manager, team } = create();
       return team.trainingPlan.focus === 'balanced' && team.players.every(player =>
         manager.getPlayerAvailability(player).available && player.suspensionMatches === 0);
+    });
+
+    test('Los ocho clubes tienen un escudo SVG propio', () => {
+      const { manager } = create();
+      const crests = manager.getAllTeams().map(team => team.crest);
+      return crests.length === 8 && new Set(crests).size === 8 &&
+        crests.every(crest => /^assets\/crests\/[a-z0-9-]+\.svg$/.test(crest));
+    });
+
+    test('Permite alternar y conservar los tres estilos visuales', () => {
+      const ui = new UIManager();
+      const original = GameStorage.getSetting('visualTheme', '90s');
+      const valid = ['classic', '90s', 'snes'].every(theme => {
+        const selected = ui.applyVisualTheme(theme);
+        return selected === theme && document.documentElement.dataset.visualTheme === theme &&
+          document.body.classList.contains(theme === '90s' ? 'theme-retro-90s' : `theme-${theme}`) &&
+          GameStorage.getSetting('visualTheme') === theme;
+      });
+      ui.applyVisualTheme(original);
+      return valid;
+    });
+
+    test('Los textos de tarjetas claras mantienen contraste AA en 90s y SNES', () => {
+      const ui = new UIManager();
+      const original = GameStorage.getSetting('visualTheme', '90s');
+      const host = document.createElement('article');
+      host.className = 'dashboard-card';
+      host.innerHTML = '<div class="team-info"><p>Posición: <strong>#1</strong></p></div>';
+      document.body.appendChild(host);
+      const channels = value => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+      const luminance = value => {
+        const rgb = channels(value).map(channel => channel / 255)
+          .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
+        return .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2];
+      };
+      const ratio = (foreground, background) => {
+        const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+        return (values[0] + .05) / (values[1] + .05);
+      };
+      const valid = ['90s', 'snes'].every(theme => {
+        ui.applyVisualTheme(theme, false);
+        const card = getComputedStyle(host);
+        const text = getComputedStyle(host.querySelector('strong'));
+        return ratio(text.color, card.backgroundColor) >= 4.5;
+      });
+      host.remove();
+      ui.applyVisualTheme(original, false);
+      return valid;
     });
 
     test('Impide alinear a un futbolista lesionado', () => {
@@ -113,6 +163,82 @@
     test('Rechaza archivos de backup inválidos', () => {
       const invalid = GameStorage.validateImport({ format: 'football-simulator-save', values: { GAME_STATE: '{}' } });
       return !invalid.valid && !!invalid.error;
+    });
+
+    test('Los filtros de Alineación ocultan las líneas no seleccionadas', () => {
+      const host = document.createElement('div');
+      host.innerHTML = `
+        <button class="filter-chip active" data-squad-filter="DEF"></button>
+        <button class="squad-player-card" data-player-line="GK"></button>
+        <button class="squad-player-card" data-player-line="DEF"></button>`;
+      document.body.appendChild(host);
+      const ui = new UIManager();
+      ui.filterSquadPlayerCards();
+      const cards = host.querySelectorAll('.squad-player-card');
+      const valid = cards[0].hidden && !cards[1].hidden && cards[0].classList.contains('is-filtered-out');
+      host.remove();
+      return valid;
+    });
+
+    test('Alineación cambia un titular por un suplente en dos clics', () => {
+      const { manager, team } = create();
+      const ui = new UIManager();
+      ui.gameApp = { userTeamId: team.id, teamManager: manager };
+      ui.squadSelection = new Set(team.startingXI);
+      ui.updateLineupWorkspace = () => {};
+      const outgoing = team.players.find(player => player.position !== 'GK' && ui.squadSelection.has(player.id) &&
+        team.players.some(candidate => !ui.squadSelection.has(candidate.id) && candidate.position === player.position));
+      const incoming = team.players.find(player => !ui.squadSelection.has(player.id) && player.position === outgoing.position);
+      ui.toggleSquadPlayer(outgoing.id);
+      const marked = ui.lineupReplacementId === outgoing.id && ui.squadSelection.size === 11;
+      ui.toggleSquadPlayer(incoming.id);
+      return marked && ui.squadSelection.size === 11 && !ui.squadSelection.has(outgoing.id) &&
+        ui.squadSelection.has(incoming.id) && !ui.lineupReplacementId;
+    });
+
+    test('Alineación destaca y ordena los tres cambios con mejor encaje', () => {
+      const { manager, team } = create();
+      const ui = new UIManager();
+      ui.gameApp = { userTeamId: team.id, teamManager: manager };
+      ui.squadSelection = new Set(team.startingXI);
+      const outgoing = team.players.find(player => player.position !== 'GK' && ui.squadSelection.has(player.id) &&
+        team.players.some(candidate => !ui.squadSelection.has(candidate.id) && candidate.position === player.position));
+      ui.lineupReplacementId = outgoing.id;
+      const host = document.createElement('div');
+      host.innerHTML = `<span id="lineup-replacement-help"></span>${team.players.map(player =>
+        `<button class="squad-player-card" data-player-id="${player.id}"><em class="replacement-suggestion"></em></button>`).join('')}`;
+      document.body.appendChild(host);
+      ui.updateLineupReplacementSuggestions(team);
+      const ranked = ['is-suggestion-best', 'is-suggestion-good', 'is-suggestion-option']
+        .map(className => host.querySelector(`.${className}`));
+      const scores = ranked.map(card => Number(card?.dataset.replacementScore));
+      const valid = ranked.every(Boolean) && scores[0] >= scores[1] && scores[1] >= scores[2] &&
+        ranked.every(card => card.querySelector('.replacement-suggestion').textContent.includes('%'));
+      host.remove();
+      return valid;
+    });
+
+    test('Los roles muestran un porcentaje calculado y actualizan su dificultad', () => {
+      const { manager, team } = create();
+      const player = team.players.find(item => item.position === 'CB');
+      player.defending = 95;
+      player.physical = 92;
+      player.passing = 52;
+      const marker = manager.getRoleSuitability(player, 'Central marcador');
+      const distributor = manager.getRoleSuitability(player, 'Central con salida');
+      const ui = new UIManager();
+      const host = document.createElement('div');
+      host.innerHTML = `<select class="player-role-select" data-player-id="${player.id}">
+        <option data-suitability="${marker}">Central marcador</option>
+        <option data-suitability="${distributor}">Central con salida</option>
+      </select><small data-role-suitability="${player.id}"></small>`;
+      document.body.appendChild(host);
+      const select = host.querySelector('select');
+      ui.updateRoleSuitability(select);
+      const valid = marker > distributor && marker <= 99 && marker > 0 &&
+        host.querySelector('small').textContent.includes(`${marker}%`);
+      host.remove();
+      return valid;
     });
 
     const list = document.getElementById('results');

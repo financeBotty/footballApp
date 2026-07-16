@@ -34,6 +34,7 @@
     const league = new LeagueEngine(teams);
     league.generateSchedule();
     teams.getAllTeams().forEach(team => teams.autoSelectStartingXI(team.id));
+    const initialMorale = new Map(teams.getAllTeams().map(team => [team.id, team.players[0].morale]));
 
     test('Genera 56 partidos y 14 jornadas', () =>
       league.schedule.length === 56 && league.totalMatchdays === 14);
@@ -62,6 +63,16 @@
       return league.getMatchdayMatches(1).every(match => match.played) &&
         league.getStandings().every(row => row.played === 1);
     });
+    test('La jornada registra la racha y ajusta la moral por el resultado', () =>
+      teams.getAllTeams().every(team => {
+        const match = league.getMatchdayMatches(1).find(item => item.homeTeam === team.id || item.awayTeam === team.id);
+        const ownGoals = match.homeTeam === team.id ? match.homeGoals : match.awayGoals;
+        const rivalGoals = match.homeTeam === team.id ? match.awayGoals : match.homeGoals;
+        const expected = ownGoals > rivalGoals ? 'V' : ownGoals < rivalGoals ? 'D' : 'E';
+        const delta = expected === 'V' ? 3 : expected === 'D' ? -3 : 0;
+        return team.form.length === 1 && team.form[0] === expected &&
+          team.players[0].morale === Math.max(20, Math.min(100, initialMorale.get(team.id) + delta));
+      }));
     test('No permite registrar dos veces el mismo encuentro', () => {
       const match = league.getMatchdayMatches(1)[0];
       return league.recordResult(match.id, 9, 9) === false;
