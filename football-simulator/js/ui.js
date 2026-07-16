@@ -115,7 +115,7 @@ class UIManager {
       <div class="welcome-container">
         <div class="welcome-header">
           <div class="retro-app-badge" aria-hidden="true"><span>FS/</span><span class="edition-mark">96</span></div>
-          <h1>Football Simulator</h1>
+          <h1>Football Cultureta</h1>
           <p>Gestor de fútbol · Edición 1996</p>
         </div>
         
@@ -466,9 +466,9 @@ class UIManager {
         </section>
 
         <div class="tactics-section-heading"><span class="eyebrow">Instrucciones colectivas</span><h3>Comportamiento del equipo</h3></div>
-        <div class="tactics-grid">
+        <div class="tactics-grid tactics-options-menu" role="group" aria-label="Instrucciones colectivas">
           <div class="tactic-option">
-            <label>Mentalidad</label>
+            <label for="tactics-mentality">Mentalidad</label>
             <select id="tactics-mentality" class="form-control">
               <option value="Muy Defensiva" ${tactics.mentality === 'Muy Defensiva' ? 'selected' : ''}>Muy Defensiva</option>
               <option value="Defensiva" ${tactics.mentality === 'Defensiva' ? 'selected' : ''}>Defensiva</option>
@@ -479,7 +479,7 @@ class UIManager {
           </div>
 
           <div class="tactic-option">
-            <label>Presión</label>
+            <label for="tactics-pressure">Presión</label>
             <select id="tactics-pressure" class="form-control">
               <option value="Baja" ${tactics.pressure === 'Baja' ? 'selected' : ''}>Baja</option>
               <option value="Media" ${tactics.pressure === 'Media' ? 'selected' : ''}>Media</option>
@@ -488,7 +488,7 @@ class UIManager {
           </div>
 
           <div class="tactic-option">
-            <label>Ritmo</label>
+            <label for="tactics-tempo">Ritmo</label>
             <select id="tactics-tempo" class="form-control">
               <option value="Bajo" ${tactics.tempo === 'Bajo' ? 'selected' : ''}>Bajo</option>
               <option value="Medio" ${tactics.tempo === 'Medio' ? 'selected' : ''}>Medio</option>
@@ -497,7 +497,7 @@ class UIManager {
           </div>
 
           <div class="tactic-option">
-            <label>Anchura</label>
+            <label for="tactics-width">Anchura</label>
             <select id="tactics-width" class="form-control">
               <option value="Estrecha" ${tactics.width === 'Estrecha' ? 'selected' : ''}>Estrecha</option>
               <option value="Equilibrada" ${tactics.width === 'Equilibrada' ? 'selected' : ''}>Equilibrada</option>
@@ -506,7 +506,7 @@ class UIManager {
           </div>
 
           <div class="tactic-option">
-            <label>Estilo de Pase</label>
+            <label for="tactics-passStyle">Estilo de Pase</label>
             <select id="tactics-passStyle" class="form-control">
               <option value="Corto" ${tactics.passStyle === 'Corto' ? 'selected' : ''}>Corto</option>
               <option value="Mixto" ${tactics.passStyle === 'Mixto' ? 'selected' : ''}>Mixto</option>
@@ -515,7 +515,7 @@ class UIManager {
           </div>
 
           <div class="tactic-option">
-            <label>Línea Defensiva</label>
+            <label for="tactics-defensiveLine">Línea Defensiva</label>
             <select id="tactics-defensiveLine" class="form-control">
               <option value="Baja" ${tactics.defensiveLine === 'Baja' ? 'selected' : ''}>Baja</option>
               <option value="Media" ${tactics.defensiveLine === 'Media' ? 'selected' : ''}>Media</option>
@@ -523,7 +523,7 @@ class UIManager {
             </select>
           </div>
           <div class="tactic-option">
-            <label>Instrucción situacional</label>
+            <label for="tactics-situational">Instrucción situacional</label>
             <select id="tactics-situational" class="form-control">
               ${['Normal', 'Perder tiempo', 'Buscar el empate', 'Defender resultado', 'Atacar izquierda', 'Atacar derecha', 'Presionar rival'].map(value => `<option value="${value}" ${tactics.situationalInstruction === value ? 'selected' : ''}>${value}</option>`).join('')}
             </select>
@@ -558,7 +558,7 @@ class UIManager {
         </details>
 
         <details class="tactics-detail-section">
-          <summary><span><span class="eyebrow">Desarrollo</span><strong>Filial</strong></span><span>${promotionCount}/3 promociones</span></summary>
+          <summary><span><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><strong>${team.reserveName || 'Filial'}</strong></span><span>${promotionCount}/3 promociones</span></summary>
           <div class="medical-report tactics-reserves">
             ${team.reservePlayers.length ? team.reservePlayers.map(player => `<div class="medical-item available"><strong>${player.name} · ${player.age} años · ${player.position} · ${player.overall}</strong><button class="btn btn-secondary btn-promote-reserve" data-player-id="${player.id}" ${promotionCount >= 3 ? 'disabled' : ''}>Subir</button></div>`).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}
           </div>
@@ -815,7 +815,7 @@ class UIManager {
 
         <div class="settings-section">
           <h3>Información</h3>
-          <p>Football Simulator v1.2</p>
+          <p>Football Cultureta v1.2</p>
           <p>Simulador de fútbol tipo manager simplificado.</p>
         </div>
 

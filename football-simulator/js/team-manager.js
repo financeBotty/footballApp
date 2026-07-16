@@ -10,6 +10,7 @@ class TeamManager {
 
   initializeAvailabilityData() {
     this.teams.forEach(team => {
+      this.initializeTeamIdentity(team);
       this.initializeTeamKits(team);
       this.initializeReserveSquad(team);
       this.initializeTacticalIdentity(team);
@@ -36,6 +37,31 @@ class TeamManager {
     });
   }
 
+  initializeTeamIdentity(team) {
+    const identity = DATA.PHILOSOPHICAL_IDENTITIES?.[team.id];
+    if (!identity) return;
+    team.name = identity.name;
+    team.shortName = identity.shortName;
+    team.current = identity.current;
+    team.reserveName = identity.reserveName;
+    (team.players || []).forEach(player => this.initializeThematicPlayerName(team, player));
+    (team.reservePlayers || []).forEach(player => this.initializeThematicPlayerName(team, player));
+  }
+
+  initializeThematicPlayerName(team, player) {
+    const firstTeamPrefix = `${team.id}_`;
+    const reservePrefix = `${team.id}_filial_`;
+    if (player.id.startsWith(reservePrefix)) {
+      const index = Number(player.id.slice(reservePrefix.length)) - 1;
+      if (Number.isInteger(index) && index >= 0) player.name = DATA.getReservePlayerName(team.id, index);
+      return;
+    }
+    if (!player.id.startsWith(firstTeamPrefix)) return;
+    const suffix = player.id.slice(firstTeamPrefix.length);
+    if (!/^\d{3}$/.test(suffix)) return;
+    player.name = DATA.getTeamPlayerName(team.id, Number(suffix) - 1);
+  }
+
   initializeTeamKits(team) {
     const fallbackPalette = [
       ['#0ea5e9', '#fef08a'], ['#7c3aed', '#facc15'], ['#f8fafc', '#111827'], ['#22c55e', '#f8fafc'],
@@ -53,7 +79,7 @@ class TeamManager {
     if (!Array.isArray(team.reservePlayers)) {
       const positions = ['GK', 'RB', 'CB', 'LB', 'CDM', 'CM', 'RW', 'ST'];
       team.reservePlayers = positions.map((position, index) => {
-        const player = DATA.generatePlayer(`${team.id}_filial_${index + 1}`, DATA.getRandomName(), 16 + (index % 5), position, 57 + (index % 9));
+        const player = DATA.generatePlayer(`${team.id}_filial_${index + 1}`, DATA.getReservePlayerName(team.id, index), 16 + (index % 5), position, 57 + (index % 9));
         player.fitness = 100;
         player.morale = 72;
         player.isAcademyPlayer = true;

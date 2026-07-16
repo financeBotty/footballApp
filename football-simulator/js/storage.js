@@ -195,7 +195,7 @@ class GameStorage {
 
   static validateImport(data) {
     if (!data || !['football-simulator-save', 'football-simulator-backup'].includes(data.format)) {
-      return { valid: false, error: 'El archivo no es un backup de Football Simulator' };
+      return { valid: false, error: 'El archivo no es un backup de Football Cultureta' };
     }
     const saves = data.format === 'football-simulator-save' ? [data] : data.slots;
     if (!Array.isArray(saves) || !saves.length) return { valid: false, error: 'El backup no contiene partidas' };

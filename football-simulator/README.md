@@ -1,8 +1,8 @@
-# Football Simulator - Gestor de Fútbol
+# Football Cultureta
 
 ## 📋 Descripción
 
-Football Simulator es un simulador de fútbol tipo manager completamente funcional en navegador. Permite crear un equipo, gestionar la plantilla, definir tácticas y simular partidos en una liga de 8 equipos ficticios.
+Football Cultureta es un simulador de fútbol tipo manager completamente funcional en navegador. Permite crear un equipo, gestionar la plantilla, definir tácticas y simular partidos en una liga de 8 equipos ficticios.
 
 La aplicación funciona completamente sin necesidad de servidor ni dependencias externas. Se abre directamente desde el archivo `index.html` en cualquier navegador moderno.
 
@@ -223,7 +223,7 @@ Cada jugador contiene:
 ```javascript
 {
   id: "club-atletico_001",
-  name: "Daniel Romero",
+  name: "Zenón de Citio",
   age: 24,
   position: "ST",
   overall: 78,
@@ -253,16 +253,18 @@ Posiciones válidas:
 
 ## ⚙️ Equipos
 
-La liga contiene 8 equipos ficticios con características variadas:
+La liga contiene 8 equipos inspirados en corrientes filosóficas. Sus plantillas
+usan nombres de pensadores vinculados a cada corriente y sus filiales, nombres
+de poetas:
 
-1. **Club Atlántico** - Overall 78
-2. **Elite United** - Overall 82 (más fuerte)
-3. **Real Victoria** - Overall 75
-4. **Sport Juvenil** - Overall 71 (más débil)
-5. **Dynamo Central** - Overall 76
-6. **Phoenix Power** - Overall 79
-7. **Titan Forces** - Overall 73
-8. **Noble Lions** - Overall 77
+1. **Estoicos CF** - Estoicismo - Overall 78
+2. **Academia Idealista** - Idealismo - Overall 82 (más fuerte)
+3. **Círculo Racionalista** - Racionalismo - Overall 75
+4. **Jardín Epicúreo** - Epicureísmo - Overall 71 (más débil)
+5. **Ágora Existencialista** - Existencialismo - Overall 76
+6. **Unión Empirista** - Empirismo - Overall 79
+7. **Deportivo Materialista** - Materialismo - Overall 73
+8. **Ateneo Humanista** - Humanismo - Overall 77
 
 ## 🎯 Limitaciones Conocidas
 

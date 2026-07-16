@@ -65,6 +65,60 @@ function getRandomName() {
   return `${first} ${last}`;
 }
 
+// La identidad de cada club nace de una corriente filosófica. Los nombres
+// están ordenados para que cada dorsal interno conserve siempre al mismo
+// pensador, aunque se cree una partida nueva.
+const PHILOSOPHICAL_IDENTITIES = {
+  'club-atletico': {
+    name: 'Estoicos CF', shortName: 'EST', current: 'Estoicismo', reserveName: 'Homero B',
+    thinkers: ['Zenón de Citio', 'Cleantes de Aso', 'Crisipo de Solos', 'Séneca', 'Epicteto', 'Marco Aurelio', 'Musonio Rufo', 'Panecio de Rodas', 'Posidonio', 'Hierocles', 'Catón de Útica', 'Junio Rústico', 'Cornuto', 'Aristón de Quíos', 'Diógenes de Babilonia', 'Antípatro de Tarso', 'Hecatón de Rodas', 'Trásea Peto'],
+    poets: ['Homero', 'Safo', 'Píndaro', 'Hesíodo', 'Simónides', 'Alceo', 'Baquílides', 'Teognis']
+  },
+  'elite-united': {
+    name: 'Academia Idealista', shortName: 'IDE', current: 'Idealismo', reserveName: 'Dante B',
+    thinkers: ['Platón', 'Plotino', 'Porfirio', 'Jámblico', 'Proclo', 'San Agustín', 'San Anselmo', 'Nicolás de Cusa', 'Immanuel Kant', 'Johann Fichte', 'Friedrich Schelling', 'Georg Hegel', 'Arthur Schopenhauer', 'Francis Bradley', 'Bernard Bosanquet', 'Josiah Royce', 'Benedetto Croce', 'Ernst Cassirer'],
+    poets: ['Dante Alighieri', 'William Blake', 'Novalis', 'Friedrich Hölderlin', 'John Keats', 'Percy Shelley', 'Giacomo Leopardi', 'Walt Whitman']
+  },
+  'real-victoria': {
+    name: 'Círculo Racionalista', shortName: 'RAC', current: 'Racionalismo', reserveName: 'Sor Juana B',
+    thinkers: ['René Descartes', 'Baruch Spinoza', 'Gottfried Leibniz', 'Nicolas Malebranche', 'Blaise Pascal', 'Christian Wolff', 'Antoine Arnauld', 'Arnold Geulincx', 'Anne Conway', 'Émilie du Châtelet', 'Pierre Bayle', 'Moses Mendelssohn', 'Gotthold Lessing', 'Nicolas de Condorcet', 'Bernard de Fontenelle', 'Louis de La Forge', 'Johannes Clauberg', 'François Poulain'],
+    poets: ['Sor Juana Inés', 'Luis de Góngora', 'Francisco Quevedo', 'Lope de Vega', 'Calderón de la Barca', 'Molière', 'Jean Racine', 'Alexander Pope']
+  },
+  'sport-juvenil': {
+    name: 'Jardín Epicúreo', shortName: 'EPI', current: 'Epicureísmo', reserveName: 'Horacio B',
+    thinkers: ['Epicuro de Samos', 'Metrodoro de Lámpsaco', 'Hermarco de Mitilene', 'Lucrecio', 'Filodemo de Gadara', 'Zenón de Sidón', 'Demetrio de Laconia', 'Colotes de Lámpsaco', 'Polieno de Lámpsaco', 'Leontion', 'Temista de Lámpsaco', 'Idomeneo de Lámpsaco', 'Diógenes de Enoanda', 'Apolodoro de Atenas', 'Basilides de Tiro', 'Patrón de Atenas', 'Fedro de Atenas', 'Cayo Amafinio'],
+    poets: ['Horacio', 'Virgilio', 'Ovidio', 'Catulo', 'Propercio', 'Tibulo', 'Marcial', 'Juvenal']
+  },
+  'dynamo-central': {
+    name: 'Ágora Existencialista', shortName: 'EXI', current: 'Existencialismo', reserveName: 'Rilke B',
+    thinkers: ['Søren Kierkegaard', 'Friedrich Nietzsche', 'Martin Heidegger', 'Jean-Paul Sartre', 'Simone de Beauvoir', 'Albert Camus', 'Karl Jaspers', 'Gabriel Marcel', 'Maurice Merleau-Ponty', 'Emmanuel Levinas', 'Miguel de Unamuno', 'José Ortega y Gasset', 'Nicola Abbagnano', 'Viktor Frankl', 'Martin Buber', 'Paul Tillich', 'Nikolái Berdiáyev', 'Lev Shestov'],
+    poets: ['Rainer Maria Rilke', 'Paul Celan', 'Fernando Pessoa', 'Alejandra Pizarnik', 'Sylvia Plath', 'Cesare Pavese', 'T. S. Eliot', 'Wisława Szymborska']
+  },
+  'phoenix-power': {
+    name: 'Unión Empirista', shortName: 'EMP', current: 'Empirismo', reserveName: 'Shakespeare B',
+    thinkers: ['Francis Bacon', 'Thomas Hobbes', 'John Locke', 'George Berkeley', 'David Hume', 'Robert Boyle', 'Isaac Newton', 'David Hartley', 'Thomas Reid', 'Adam Smith', 'Jeremy Bentham', 'John Stuart Mill', 'Étienne de Condillac', 'Claude Helvétius', 'A. J. Ayer', 'Rudolf Carnap', 'Otto Neurath', 'Moritz Schlick'],
+    poets: ['William Shakespeare', 'John Milton', 'William Wordsworth', 'Samuel Coleridge', 'Lord Byron', 'Emily Dickinson', 'Robert Frost', 'W. B. Yeats']
+  },
+  'titan-forces': {
+    name: 'Deportivo Materialista', shortName: 'MAT', current: 'Materialismo', reserveName: 'Neruda B',
+    thinkers: ['Leucipo de Mileto', 'Demócrito de Abdera', 'Julien de La Mettrie', 'Paul d’Holbach', 'Denis Diderot', 'Ludwig Feuerbach', 'Karl Marx', 'Friedrich Engels', 'Vladimir Lenin', 'Antonio Gramsci', 'György Lukács', 'Ernst Bloch', 'Louis Althusser', 'Walter Benjamin', 'Herbert Marcuse', 'Theodor Adorno', 'Lucio Colletti', 'Evald Iliénkov'],
+    poets: ['Pablo Neruda', 'César Vallejo', 'Rafael Alberti', 'Miguel Hernández', 'Roque Dalton', 'Nicolás Guillén', 'Bertolt Brecht', 'Nazım Hikmet']
+  },
+  'noble-lions': {
+    name: 'Ateneo Humanista', shortName: 'HUM', current: 'Humanismo', reserveName: 'Garcilaso B',
+    thinkers: ['Erasmo de Róterdam', 'Pico della Mirandola', 'Tomás Moro', 'Juan Luis Vives', 'Michel de Montaigne', 'Nicolás Maquiavelo', 'Coluccio Salutati', 'Leonardo Bruni', 'Leon Battista Alberti', 'Marsilio Ficino', 'Guillaume Budé', 'Johannes Reuchlin', 'Rodolfo Agrícola', 'Pier Paolo Vergerio', 'Giannozzo Manetti', 'François Rabelais', 'Baltasar Castiglione', 'Lorenzo Valla'],
+    poets: ['Garcilaso de la Vega', 'Francesco Petrarca', 'Giovanni Boccaccio', 'Pierre de Ronsard', 'Joachim du Bellay', 'Ausonio', 'Torquato Tasso', 'Ludovico Ariosto']
+  }
+};
+
+function getTeamPlayerName(teamId, index) {
+  return PHILOSOPHICAL_IDENTITIES[teamId]?.thinkers[index] || getRandomName();
+}
+
+function getReservePlayerName(teamId, index) {
+  return PHILOSOPHICAL_IDENTITIES[teamId]?.poets[index] || getRandomName();
+}
+
 // Crear jugadores por equipo
 function createTeamPlayers(teamId) {
   const players = [];
@@ -74,7 +128,7 @@ function createTeamPlayers(teamId) {
   for (let i = 0; i < 2; i++) {
     players.push(generatePlayer(
       `${teamId}_${String(playerId).padStart(3, '0')}`,
-      getRandomName(),
+      getTeamPlayerName(teamId, playerId - 1),
       Math.floor(Math.random() * 8) + 25,
       'GK',
       Math.floor(Math.random() * 20) + 70
@@ -87,7 +141,7 @@ function createTeamPlayers(teamId) {
   for (const pos of defPositions) {
     players.push(generatePlayer(
       `${teamId}_${String(playerId).padStart(3, '0')}`,
-      getRandomName(),
+      getTeamPlayerName(teamId, playerId - 1),
       Math.floor(Math.random() * 10) + 24,
       pos,
       Math.floor(Math.random() * 18) + 68
@@ -100,7 +154,7 @@ function createTeamPlayers(teamId) {
   for (const pos of midPositions) {
     players.push(generatePlayer(
       `${teamId}_${String(playerId).padStart(3, '0')}`,
-      getRandomName(),
+      getTeamPlayerName(teamId, playerId - 1),
       Math.floor(Math.random() * 9) + 24,
       pos,
       Math.floor(Math.random() * 16) + 69
@@ -113,7 +167,7 @@ function createTeamPlayers(teamId) {
   for (const pos of fwdPositions) {
     players.push(generatePlayer(
       `${teamId}_${String(playerId).padStart(3, '0')}`,
-      getRandomName(),
+      getTeamPlayerName(teamId, playerId - 1),
       Math.floor(Math.random() * 7) + 23,
       pos,
       Math.floor(Math.random() * 18) + 70
@@ -207,8 +261,10 @@ const TEAM_KITS = {
 const TEAMS = [
   {
     id: 'club-atletico',
-    name: 'Club Atlántico',
-    shortName: 'ATL',
+    name: PHILOSOPHICAL_IDENTITIES['club-atletico'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['club-atletico'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['club-atletico'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['club-atletico'].reserveName,
     overall: 78,
     ...TEAM_KITS['club-atletico'],
     budget: 50000000,
@@ -217,8 +273,10 @@ const TEAMS = [
   },
   {
     id: 'elite-united',
-    name: 'Elite United',
-    shortName: 'ELI',
+    name: PHILOSOPHICAL_IDENTITIES['elite-united'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['elite-united'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['elite-united'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['elite-united'].reserveName,
     overall: 82,
     ...TEAM_KITS['elite-united'],
     budget: 65000000,
@@ -227,8 +285,10 @@ const TEAMS = [
   },
   {
     id: 'real-victoria',
-    name: 'Real Victoria',
-    shortName: 'RVT',
+    name: PHILOSOPHICAL_IDENTITIES['real-victoria'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['real-victoria'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['real-victoria'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['real-victoria'].reserveName,
     overall: 75,
     ...TEAM_KITS['real-victoria'],
     budget: 45000000,
@@ -237,8 +297,10 @@ const TEAMS = [
   },
   {
     id: 'sport-juvenil',
-    name: 'Sport Juvenil',
-    shortName: 'SPJ',
+    name: PHILOSOPHICAL_IDENTITIES['sport-juvenil'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['sport-juvenil'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['sport-juvenil'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['sport-juvenil'].reserveName,
     overall: 71,
     ...TEAM_KITS['sport-juvenil'],
     budget: 35000000,
@@ -247,8 +309,10 @@ const TEAMS = [
   },
   {
     id: 'dynamo-central',
-    name: 'Dynamo Central',
-    shortName: 'DYN',
+    name: PHILOSOPHICAL_IDENTITIES['dynamo-central'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['dynamo-central'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['dynamo-central'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['dynamo-central'].reserveName,
     overall: 76,
     ...TEAM_KITS['dynamo-central'],
     budget: 48000000,
@@ -257,8 +321,10 @@ const TEAMS = [
   },
   {
     id: 'phoenix-power',
-    name: 'Phoenix Power',
-    shortName: 'PHX',
+    name: PHILOSOPHICAL_IDENTITIES['phoenix-power'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['phoenix-power'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['phoenix-power'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['phoenix-power'].reserveName,
     overall: 79,
     ...TEAM_KITS['phoenix-power'],
     budget: 55000000,
@@ -267,8 +333,10 @@ const TEAMS = [
   },
   {
     id: 'titan-forces',
-    name: 'Titan Forces',
-    shortName: 'TIT',
+    name: PHILOSOPHICAL_IDENTITIES['titan-forces'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['titan-forces'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['titan-forces'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['titan-forces'].reserveName,
     overall: 73,
     ...TEAM_KITS['titan-forces'],
     budget: 40000000,
@@ -277,8 +345,10 @@ const TEAMS = [
   },
   {
     id: 'noble-lions',
-    name: 'Noble Lions',
-    shortName: 'NLN',
+    name: PHILOSOPHICAL_IDENTITIES['noble-lions'].name,
+    shortName: PHILOSOPHICAL_IDENTITIES['noble-lions'].shortName,
+    current: PHILOSOPHICAL_IDENTITIES['noble-lions'].current,
+    reserveName: PHILOSOPHICAL_IDENTITIES['noble-lions'].reserveName,
     overall: 77,
     ...TEAM_KITS['noble-lions'],
     budget: 52000000,
@@ -322,11 +392,14 @@ const DATA = {
   DEFAULT_TACTICS,
   TACTICAL_STRATEGIES,
   TEAM_KITS,
+  PHILOSOPHICAL_IDENTITIES,
   TEAMS,
   VALID_POSITIONS,
   POSITIONS_BY_LINE,
   generatePlayer,
   getRandomName,
+  getTeamPlayerName,
+  getReservePlayerName,
   createTeamPlayers,
   initializeTeams
 };

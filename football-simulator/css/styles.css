@@ -3324,3 +3324,155 @@ input:focus-visible,
   background: #62caba;
 }
 .theme-snes .save-match-live { color: #7b2949; }
+
+/* Opciones tácticas como menú continuo, sin tarjetas anidadas. */
+.tactics-options-menu {
+  gap: 1px !important;
+  overflow: hidden;
+  border: 1px solid var(--dark-border);
+  border-radius: 14px;
+  background: var(--dark-border);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .12);
+}
+
+.tactics-options-menu .tactic-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(128px, auto);
+  align-items: center;
+  gap: .8rem;
+  min-height: 66px;
+  padding: .72rem .85rem;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--surface-1) !important;
+  box-shadow: none !important;
+}
+
+.tactics-options-menu .tactic-option:hover {
+  background: var(--surface-2) !important;
+}
+
+.tactics-options-menu .tactic-option label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: .73rem;
+  letter-spacing: .025em;
+}
+
+.tactics-options-menu select.form-control {
+  width: auto;
+  min-width: 128px;
+  max-width: 180px;
+  justify-self: end;
+  padding: .52rem 2rem .52rem .72rem;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 999px;
+  color: #bfdbfe;
+  background-color: rgba(96, 165, 250, .09);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 2px),
+    calc(100% - 10px) calc(50% - 2px);
+  background-repeat: no-repeat;
+  background-size: 4px 4px, 4px 4px;
+  font-size: .78rem;
+  font-weight: 800;
+  text-align: right;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.tactics-options-menu select.form-control:hover {
+  border-color: rgba(96, 165, 250, .42);
+  background-color: rgba(96, 165, 250, .14);
+}
+
+.tactics-options-menu select.form-control:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, .14);
+}
+
+/* Los temas alternativos conservan su carácter, pero comparten la estructura
+   compacta de menú en lugar del relieve de una tarjeta por opción. */
+.theme-retro-90s .tactics-options-menu,
+.theme-snes .tactics-options-menu {
+  gap: 1px !important;
+  border-radius: 0;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, .55);
+}
+
+.theme-retro-90s .tactics-options-menu {
+  border: 2px inset #f1f2df;
+  background: #59605a;
+}
+
+.theme-retro-90s .tactics-options-menu .tactic-option {
+  min-height: 58px;
+  color: #101820;
+  background: #c7c8b8 !important;
+}
+
+.theme-retro-90s .tactics-options-menu .tactic-option:hover {
+  background: #d8dac9 !important;
+}
+
+.theme-retro-90s .tactics-options-menu .tactic-option label { color: #26303a; }
+.theme-retro-90s .tactics-options-menu select.form-control {
+  color: #fff;
+  background-color: #124aa5;
+  border: 1px solid #071e39;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.theme-snes .tactics-options-menu {
+  border: 3px solid #171024;
+  background: #25183f;
+}
+
+.theme-snes .tactics-options-menu .tactic-option {
+  min-height: 62px;
+  background: #ddd5c6 !important;
+}
+
+.theme-snes .tactics-options-menu .tactic-option:hover {
+  background: #eee7d9 !important;
+}
+
+.theme-snes .tactics-options-menu .tactic-option label { color: #4b4055; }
+.theme-snes .tactics-options-menu select.form-control {
+  color: #fff8dc;
+  background-color: #684aa8;
+  border: 2px solid #25183f;
+  border-radius: 0;
+  box-shadow: 2px 2px #100a19;
+}
+
+@media (max-width: 700px) {
+  .tactics-options-menu .tactic-option {
+    grid-template-columns: minmax(0, 1fr) minmax(142px, auto);
+    min-height: 60px;
+  }
+
+  .tactics-options-menu select.form-control {
+    width: 100%;
+    max-width: 176px;
+  }
+}
+
+@media (max-width: 420px) {
+  .tactics-options-menu .tactic-option {
+    grid-template-columns: 1fr;
+    gap: .35rem;
+  }
+
+  .tactics-options-menu select.form-control {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+    text-align: left;
+  }
+}
