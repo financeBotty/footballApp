@@ -257,6 +257,7 @@ class FootballSimulator {
             <div class="pre-match-management">
               <button class="btn btn-secondary" data-screen="squad">Cambiar jugadores</button>
               <button class="btn btn-secondary" data-screen="tactics">Cambiar táctica</button>
+              <button id="btn-pre-match-best-xi" class="btn btn-secondary">Usar mejor XI</button>
             </div>
           </section>
 
@@ -286,6 +287,14 @@ class FootballSimulator {
     if (quickResultBtn) {
       quickResultBtn.addEventListener('click', () => this.playQuickResult());
     }
+    document.getElementById('btn-pre-match-best-xi')?.addEventListener('click', () => {
+      const lineup = this.teamManager.ensureValidStartingXI(this.userTeamId, true);
+      if (!lineup.valid) return this.ui.showError(lineup.error);
+      this.saveGame();
+      this.showNextMatch();
+      this.resetScreenViewport();
+      this.ui.showSuccess('Mejor XI preparado para el partido');
+    });
     document.querySelectorAll('.match-duration-option').forEach(button => {
       button.addEventListener('click', () => {
         document.querySelectorAll('.match-duration-option').forEach(option => {
@@ -379,17 +388,23 @@ class FootballSimulator {
       const displayName = player.name.split(' ').slice(-1)[0];
       const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
       const captain = player.id === team.captainId ? '<i aria-label="Capitán">C</i>' : '';
-      return `<div class="pitch-player preview-player ${goalkeeperClass}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name} · ${assignment.slotPosition}">
-        <span class="pitch-shirt">${player.overall}${captain}</span><strong>${displayName}</strong><small>${assignment.slotPosition}</small>
+      return `<div class="pitch-player preview-player ${goalkeeperClass}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name} · ${DATA.getPositionLabel(assignment.slotPosition, true)}">
+        <span class="pitch-shirt">${player.overall}${captain}</span><strong>${displayName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}</small>
       </div>`;
     }).join('');
     return `<div class="tactical-pitch pre-match-lineup-pitch" aria-label="Alineación ${team.formation} de ${team.name}">${lineup}</div>`;
   }
 
   validateMatchLineup() {
-    const startingXI = this.teamManager.getStartingXI(this.userTeamId);
-    if (startingXI.length === 11) return true;
-    alert('Debe tener 11 jugadores seleccionados antes de jugar');
+    const lineup = this.teamManager.ensureValidStartingXI(this.userTeamId);
+    if (lineup.valid) {
+      if (lineup.repaired) {
+        this.saveGame();
+        this.ui.showSuccess('La alineación estaba incompleta: se ha preparado automáticamente el mejor XI');
+      }
+      return true;
+    }
+    this.ui.showError(lineup.error || 'No se puede completar un once válido');
     this.showScreen('squad');
     return false;
   }
@@ -620,7 +635,7 @@ class FootballSimulator {
       ${select('live-situational', 'Instrucción', ['Normal', 'Perder tiempo', 'Buscar el empate', 'Defender resultado', 'Atacar izquierda', 'Atacar derecha', 'Presionar rival'], tactics.situationalInstruction || 'Normal')}
       <label>Rival a presionar<select id="live-press-target" class="form-control">
         <option value="">Automático</option>
-        ${this.liveMatchEngine.onField(teamState.side === 'home' ? 'away' : 'home').filter(player => player.position !== 'GK').map(player => `<option value="${player.id}" ${tactics.pressTargetId === player.id ? 'selected' : ''}>${player.name} · ${player.position}</option>`).join('')}
+        ${this.liveMatchEngine.onField(teamState.side === 'home' ? 'away' : 'home').filter(player => player.position !== 'GK').map(player => `<option value="${player.id}" ${tactics.pressTargetId === player.id ? 'selected' : ''}>${player.name} · ${DATA.getPositionLabel(player.position)}</option>`).join('')}
       </select></label>
     `;
   }
@@ -636,7 +651,7 @@ class FootballSimulator {
       return `
         <button type="button" class="live-player-row" data-player-id="${state.id}" aria-pressed="false" title="Preparar cambio de ${state.name}">
           <span class="live-player-dot ${state.side}" style="background:${teamState.kitColor}">${state.number}</span>
-          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${state.position} · ${state.role || 'Sin rol'} · confianza ${Math.round(state.confidence || 50)}</small></span>
+          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${DATA.getPositionLabel(state.position)} · ${state.role || 'Sin rol'} · confianza ${Math.round(state.confidence || 50)}</small></span>
           <span class="fitness ${fitnessLevel}" aria-label="Cansancio: ${fitness}%">
             <span class="fitness-bar"><i style="width:${fitness}%"></i></span>
             <em>${fitness}%</em>
@@ -666,7 +681,7 @@ class FootballSimulator {
       .map(player => {
         const data = this.teamManager.getPlayer(this.userTeamId, player.id);
         const fit = !onField && outgoing ? this.getSubstitutionFitLabel(player, outgoing) : '';
-        return `<option value="${player.id}">${fit ? `${fit} · ` : ''}${player.name} · ${player.position} · ${Math.round(player.fitness)}% · ${data.overall}</option>`;
+        return `<option value="${player.id}">${fit ? `${fit} · ` : ''}${player.name} · ${DATA.getPositionLabel(player.position)} · ${Math.round(player.fitness)}% · ${data.overall}</option>`;
       }).join('');
     return `<option value="">Seleccionar…</option>${options}`;
   }
@@ -1285,7 +1300,7 @@ class FootballSimulator {
         <div class="post-match-player-grid">
           ${reportPlayers.sort((a, b) => b.rating - a.rating).map(player => `
             <div class="post-match-player ${player.side}">
-              <span><strong>${player.name}</strong><small>${player.position} · ${player.fitness}%</small></span>
+              <span><strong>${player.name}</strong><small>${DATA.getPositionLabel(player.position)} · ${player.fitness}%</small></span>
               <span>${player.goals ? `⚽ ${player.goals}` : ''}${player.yellowCards ? ' 🟨' : ''}${player.redCards ? ' 🟥' : ''}${player.injured ? ' ✚' : ''}</span>
               <strong>${player.rating}</strong>
             </div>

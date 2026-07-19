@@ -99,6 +99,25 @@
       });
     });
 
+    test('Recompone automáticamente un once incompleto antes de jugar', () => {
+      const manager = new TeamManager();
+      const team = manager.getAllTeams()[0];
+      manager.autoSelectStartingXI(team.id);
+      team.startingXI = team.startingXI.slice(0, 7);
+      const repaired = manager.ensureValidStartingXI(team.id);
+      return repaired.valid && repaired.repaired && manager.getStartingXI(team.id).length === 11 &&
+        manager.validateLineup(team.id, team.startingXI).valid;
+    });
+
+    test('Todas las posiciones visibles tienen traducción española', () => {
+      const englishCodes = new Set(['GK', 'RB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'LW', 'ST', 'RM', 'LM']);
+      return DATA.VALID_POSITIONS.every(position => {
+        const shortLabel = DATA.getPositionLabel(position);
+        const fullLabel = DATA.getPositionLabel(position, true);
+        return shortLabel && fullLabel && !englishCodes.has(shortLabel) && fullLabel !== position;
+      });
+    });
+
     test('Los titulares ocupan los puestos marcados por la formación', () => {
       const { engine } = createEngine(110);
       return ['home', 'away'].every(side => {
@@ -755,7 +774,9 @@
         const required = engine.getRequiredInjurySubstitution();
         if (required) {
           const team = engine.getTeamState(required.teamId);
-          const incoming = team.bench.find(id => !engine.state.players[id].appeared);
+          const outgoing = engine.state.players[required.playerId];
+          const incoming = team.bench.find(id => !engine.state.players[id].appeared &&
+            (engine.state.players[id].position === 'GK') === (outgoing.position === 'GK'));
           if (incoming) engine.makeSubstitution(required.teamId, required.playerId, incoming);
         }
         if (engine.state.phase === 'HALF_TIME') engine.resumeSecondHalf();

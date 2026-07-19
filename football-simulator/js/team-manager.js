@@ -451,6 +451,27 @@ class TeamManager {
     return true;
   }
 
+  ensureValidStartingXI(teamId, forceBest = false) {
+    const team = this.getTeam(teamId);
+    if (!team) return { valid: false, repaired: false, error: 'Equipo no encontrado' };
+    const currentIds = Array.isArray(team.startingXI) ? team.startingXI : [];
+    const current = this.validateLineup(teamId, currentIds);
+    if (!forceBest && current.valid && this.getStartingXI(teamId).length === 11) {
+      return { valid: true, repaired: false, players: this.getStartingXI(teamId) };
+    }
+
+    const selected = this.autoSelectStartingXI(teamId);
+    const validation = this.validateLineup(teamId, team.startingXI || []);
+    if (!selected || !validation.valid || this.getStartingXI(teamId).length !== 11) {
+      return {
+        valid: false,
+        repaired: false,
+        error: validation.error || 'No hay once jugadores disponibles para completar la alineación'
+      };
+    }
+    return { valid: true, repaired: true, players: this.getStartingXI(teamId) };
+  }
+
   // Convierte cualquier sistema en sus tres líneas clásicas y asigna cada
   // titular al puesto que mejor encaja. La geometría depende de la formación,
   // no del nombre de la posición natural del futbolista.
@@ -610,7 +631,7 @@ class TeamManager {
     });
     if (misplaced) {
       const player = this.getPlayer(teamId, misplaced.playerId);
-      return { valid: false, error: `${player.name} no encaja en el puesto ${misplaced.slotPosition} de la formación ${team.formation}` };
+      return { valid: false, error: `${player.name} no encaja como ${DATA.getPositionLabel(misplaced.slotPosition, true)} en la formación ${team.formation}` };
     }
 
     return { valid: true };
@@ -710,7 +731,7 @@ class TeamManager {
       }
     }
 
-    if (selectedIds.length === 11) {
+    if (selectedIds.length === 11 && this.validateLineup(teamId, selectedIds).valid) {
       team.startingXI = selectedIds;
       return true;
     }

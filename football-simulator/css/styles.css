@@ -1139,7 +1139,7 @@ label {
 
 .pre-match-management {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .75rem;
 }
 
@@ -2929,6 +2929,7 @@ input:focus-visible,
   backdrop-filter: blur(14px);
 }
 .tactics-save-bar span { color: var(--text-muted); font-size: .76rem; }
+.tactics-save-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .55rem; }
 
 /* Partido: narración permanente y dos acciones contextuales. */
 .coach-primary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--dark-border); }
@@ -2984,6 +2985,7 @@ input:focus-visible,
   .tactics-command-center > .tactics-grid,
   .role-grid { grid-template-columns: 1fr; }
   .tactics-save-bar { align-items: stretch; flex-direction: column; }
+  .tactics-save-actions { display: grid; grid-template-columns: 1fr; }
   .tactics-save-bar .btn { width: 100%; }
 }
 

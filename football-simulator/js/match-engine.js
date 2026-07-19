@@ -7,6 +7,10 @@ class MatchEngine {
     this.homeTeam = homeTeam;
     this.awayTeam = awayTeam;
     this.teamManager = teamManager;
+    [homeTeam, awayTeam].forEach(team => {
+      const lineup = this.teamManager.ensureValidStartingXI(team.id);
+      if (!lineup.valid) throw new Error(`No se puede iniciar el partido: ${lineup.error}`);
+    });
     
     this.matchState = {
       minute: 0,

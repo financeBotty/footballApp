@@ -395,7 +395,7 @@ class UIManager {
           data-player-id="${player.id}" data-player-line="${line}"
           ${availability.available ? '' : 'disabled'} aria-pressed="${this.squadSelection.has(player.id)}">
           <span class="squad-player-main">
-            <span class="position-pill ${line.toLowerCase()}">${player.position}</span>
+            <span class="position-pill ${line.toLowerCase()}" title="${DATA.getPositionLabel(player.position, true)}">${DATA.getPositionLabel(player.position)}</span>
             <span><strong>${player.name}${player.id === team.captainId ? ' · C' : ''}</strong><small>${player.age} años · ${availability.reason}</small><em class="replacement-suggestion" aria-live="polite"></em></span>
           </span>
           <span class="squad-player-metrics">
@@ -464,7 +464,7 @@ class UIManager {
         .sort((a, b) => b.suitability - a.suitability);
       const currentSuitability = this.gameApp.teamManager.getRoleSuitability(player, player.role);
       return `
-        <label class="role-card"><span>${player.name} · ${player.position}</span>
+        <label class="role-card"><span>${player.name} · ${DATA.getPositionLabel(player.position)}</span>
           <select class="form-control player-role-select" data-player-id="${player.id}">
             ${roles.map(item => `<option value="${item.role}" data-suitability="${item.suitability}" ${player.role === item.role ? 'selected' : ''}>${item.role} · ${item.suitability}%</option>`).join('')}
           </select>
@@ -606,11 +606,11 @@ class UIManager {
         <details class="tactics-detail-section">
           <summary><span><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><strong>${team.reserveName || 'Filial'}</strong></span><span>${promotionCount}/3 promociones</span></summary>
           <div class="medical-report tactics-reserves">
-            ${team.reservePlayers.length ? team.reservePlayers.map(player => `<div class="medical-item available"><strong>${player.name} · ${player.age} años · ${player.position} · ${player.overall}</strong><button class="btn btn-secondary btn-promote-reserve" data-player-id="${player.id}" ${promotionCount >= 3 ? 'disabled' : ''}>Subir</button></div>`).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}
+            ${team.reservePlayers.length ? team.reservePlayers.map(player => `<div class="medical-item available"><strong>${player.name} · ${player.age} años · ${DATA.getPositionLabel(player.position)} · ${player.overall}</strong><button class="btn btn-secondary btn-promote-reserve" data-player-id="${player.id}" ${promotionCount >= 3 ? 'disabled' : ''}>Subir</button></div>`).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}
           </div>
         </details>
 
-        <div class="tactics-save-bar"><span>Los cambios se aplicarán al próximo partido.</span><button id="btn-save-tactics" class="btn btn-primary">Guardar tácticas</button></div>
+        <div class="tactics-save-bar"><span>Los cambios se aplicarán al próximo partido.</span><div class="tactics-save-actions"><button id="btn-best-xi-tactics" class="btn btn-secondary">Aplicar mejor XI</button><button id="btn-save-tactics" class="btn btn-primary">Guardar tácticas</button></div></div>
       </div>
     `;
 
@@ -621,14 +621,31 @@ class UIManager {
   attachTacticsManagementListeners() {
     const formation = document.getElementById('tactics-formation');
     if (formation) formation.addEventListener('change', () => {
+      const team = this.gameApp.teamManager.getTeam(this.gameApp.userTeamId);
+      const previousFormation = team.formation;
       if (!this.gameApp.teamManager.setFormation(this.gameApp.userTeamId, formation.value)) {
         this.showError('La formación seleccionada no es válida.');
+        return;
+      }
+      const lineup = this.gameApp.teamManager.ensureValidStartingXI(this.gameApp.userTeamId, true);
+      if (!lineup.valid) {
+        this.gameApp.teamManager.setFormation(this.gameApp.userTeamId, previousFormation);
+        this.gameApp.teamManager.ensureValidStartingXI(this.gameApp.userTeamId, true);
+        formation.value = previousFormation;
+        this.showError(lineup.error);
         return;
       }
       const description = document.getElementById('formation-description');
       if (description) description.textContent = DATA.FORMATIONS[formation.value].description;
       this.gameApp.saveGame();
-      this.showSuccess(`Formación ${formation.value} aplicada`);
+      this.showSuccess(`Formación ${formation.value} y mejor XI aplicados`);
+    });
+
+    document.getElementById('btn-best-xi-tactics')?.addEventListener('click', () => {
+      const lineup = this.gameApp.teamManager.ensureValidStartingXI(this.gameApp.userTeamId, true);
+      if (!lineup.valid) return this.showError(lineup.error);
+      this.gameApp.saveGame();
+      this.showSuccess('Mejor XI aplicado para el próximo partido');
     });
 
     document.getElementById('btn-save-training')?.addEventListener('click', () => {
@@ -1136,7 +1153,7 @@ class UIManager {
       const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
       const replacementClass = this.lineupReplacementId === player.id ? 'is-replacing' : '';
       return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${y}%" title="${replacementClass ? `Elige el sustituto de ${player.name}` : `Cambiar a ${player.name}`}">
-        <span class="pitch-shirt">${player.overall}</span><strong>${lastName}</strong><small>${assignment.slotPosition} · ${Math.round(player.fitness)}%</small>
+        <span class="pitch-shirt">${player.overall}</span><strong>${lastName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)} · ${Math.round(player.fitness)}%</small>
       </button>`;
     }).join('');
 

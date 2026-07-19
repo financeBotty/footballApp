@@ -139,10 +139,8 @@ class LiveMatchEngine {
   }
 
   createTeamState(team, side, kit = null) {
-    const storedLineup = Array.isArray(team.startingXI) ? team.startingXI : [];
-    if (!this.teamManager.validateLineup(team.id, storedLineup).valid) {
-      this.teamManager.autoSelectStartingXI(team.id);
-    }
+    const lineup = this.teamManager.ensureValidStartingXI(team.id);
+    if (!lineup.valid) throw new Error(`No se puede iniciar el partido: ${lineup.error}`);
     const onField = this.teamManager.getStartingXI(team.id).map(player => player.id);
     const bench = team.players
       .filter(player => !onField.includes(player.id) && this.teamManager.isPlayerAvailable(player))

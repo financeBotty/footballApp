@@ -425,6 +425,24 @@ function initializeTeams() {
 // Posiciones válidas en el juego
 const VALID_POSITIONS = ['GK', 'RB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'LW', 'ST', 'RM', 'LM'];
 
+// Las claves internas se mantienen para no romper partidas guardadas ni el
+// motor, pero toda la interfaz utiliza nomenclatura futbolística en español.
+const POSITION_LABELS = {
+  GK: 'POR', RB: 'LD', CB: 'DFC', LB: 'LI', CDM: 'MCD', CM: 'MC',
+  CAM: 'MCO', RW: 'ED', LW: 'EI', ST: 'DC', RM: 'MD', LM: 'MI', CF: 'SD'
+};
+
+const POSITION_NAMES = {
+  GK: 'Portero', RB: 'Lateral derecho', CB: 'Defensa central', LB: 'Lateral izquierdo',
+  CDM: 'Mediocentro defensivo', CM: 'Mediocentro', CAM: 'Mediapunta',
+  RW: 'Extremo derecho', LW: 'Extremo izquierdo', ST: 'Delantero centro',
+  RM: 'Interior derecho', LM: 'Interior izquierdo', CF: 'Segundo delantero'
+};
+
+function getPositionLabel(position, fullName = false) {
+  return (fullName ? POSITION_NAMES : POSITION_LABELS)[position] || position;
+}
+
 // Posiciones por línea
 const POSITIONS_BY_LINE = {
   goalkeeper: ['GK'],
@@ -442,7 +460,10 @@ const DATA = {
   PHILOSOPHICAL_IDENTITIES,
   TEAMS,
   VALID_POSITIONS,
+  POSITION_LABELS,
+  POSITION_NAMES,
   POSITIONS_BY_LINE,
+  getPositionLabel,
   generatePlayer,
   getRandomName,
   getTeamPlayerName,
