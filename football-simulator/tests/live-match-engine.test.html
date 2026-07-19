@@ -109,6 +109,19 @@
         manager.validateLineup(team.id, team.startingXI).valid;
     });
 
+    test('El mejor XI siempre contiene once jugadores visibles y un solo portero', () => {
+      return Object.keys(DATA.FORMATIONS).every((formation, index) => {
+        const manager = new TeamManager();
+        const team = manager.getAllTeams()[index % manager.getAllTeams().length];
+        manager.setFormation(team.id, formation);
+        const result = manager.ensureValidStartingXI(team.id, true, 1);
+        const players = manager.getStartingXI(team.id);
+        const assignments = manager.assignLineupToFormation(team.id, team.startingXI);
+        return result.valid && team.startingXI.length === 11 && players.length === 11 && assignments.length === 11 &&
+          players.filter(player => player.position === 'GK').length === 1;
+      });
+    });
+
     test('Completa el once con juveniles cuando faltan jugadores disponibles', () => {
       const manager = new TeamManager();
       const team = manager.getAllTeams()[0];
@@ -296,6 +309,18 @@
       const results = ids.map(id => manager.promoteReservePlayer(home.id, id, 1));
       return results.slice(0, 3).every(result => result.valid) && !results[3].valid &&
         home.reservePromotions.count === 3 && ids.slice(0, 3).every(id => home.players.some(player => player.id === id));
+    });
+
+    test('Un canterano promocionado compite por entrar en el mejor XI', () => {
+      const { manager, home } = createEngine(416);
+      const reserve = home.reservePlayers.find(player => player.position === 'RB');
+      const promotion = manager.promoteReservePlayer(home.id, reserve.id, 1);
+      promotion.player.overall = 99;
+      promotion.player.fitness = 100;
+      promotion.player.morale = 100;
+      const lineup = manager.ensureValidStartingXI(home.id, true, 1);
+      return promotion.valid && promotion.player.isAcademyPlayer && lineup.valid &&
+        home.startingXI.includes(promotion.player.id);
     });
 
     test('El filial, sus promociones y la adaptación persisten al guardar', () => {

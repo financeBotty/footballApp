@@ -111,7 +111,7 @@ class FootballSimulator {
         this.ui.showSquad();
         break;
       case 'tactics':
-        this.ui.showTactics();
+        this.ui.showSquad();
         break;
       case 'next-match':
         this.showNextMatch();
@@ -191,8 +191,7 @@ class FootballSimulator {
         <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="tactics">Tácticas</button>
+          <button class="nav-btn" data-screen="squad">Equipo</button>
           <button class="nav-btn active" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -221,12 +220,19 @@ class FootballSimulator {
     const awayPreviewTeam = isHome ? opponent : team;
     const startingXI = this.teamManager.getStartingXI(userTeamId);
     const savedHalfDuration = Number(GameStorage.getSetting('halfDuration', 3));
+    const homeStyle = homePreviewTeam.strategy || 'Equilibrio';
+    const awayStyle = awayPreviewTeam.strategy || 'Equilibrio';
 
     content.innerHTML = `
       <div class="next-match-container">
-        <h2>Próximo Partido - Jornada ${nextMatch.matchday}</h2>
+        <div class="match-page-heading"><span class="eyebrow">Jornada ${nextMatch.matchday}</span><h2>Próximo partido</h2></div>
         
         <div class="match-preview-large">
+          <aside class="match-identity-glance" aria-label="Resumen de identidad del partido">
+            <span>Claves del duelo</span>
+            <strong>${homeStyle} vs ${awayStyle}</strong>
+            <small>${homePreviewTeam.formation} frente a ${awayPreviewTeam.formation}</small>
+          </aside>
           <section class="match-mode-selection match-mode-selection-top" aria-labelledby="match-mode-title">
             <div>
               <span class="season-kicker">Todo preparado</span>
@@ -275,8 +281,7 @@ class FootballSimulator {
               <p>Estás en el descanso entre jornadas: todavía puedes ajustar jugadores y táctica antes de elegir cómo disputar el encuentro.</p>
             </div>
             <div class="pre-match-management">
-              <button class="btn btn-secondary" data-screen="squad">Cambiar jugadores</button>
-              <button class="btn btn-secondary" data-screen="tactics">Cambiar táctica</button>
+              <button class="btn btn-secondary" data-screen="squad">Preparar equipo</button>
               <button id="btn-pre-match-best-xi" class="btn btn-secondary">Usar mejor XI</button>
             </div>
           </section>
@@ -429,7 +434,7 @@ class FootballSimulator {
       const effectiveOverall = this.teamManager.getEffectiveOverall(player, assignment.slotPosition);
       const delta = effectiveOverall - player.overall;
       return `<div class="pitch-player preview-player ${goalkeeperClass} ${delta ? 'is-adapted' : ''}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name} · media base ${player.overall} · media en ${DATA.getPositionLabel(assignment.slotPosition, true)} ${effectiveOverall}">
-        <span class="pitch-shirt ${delta > 0 ? 'overall-up' : delta < 0 ? 'overall-down' : ''}">${effectiveOverall}${captain}</span><strong>${displayName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${delta ? ` · ${delta > 0 ? '+' : ''}${delta}` : ''}</small>
+        <span class="pitch-shirt ${delta > 0 ? 'overall-up' : delta < 0 ? 'overall-down' : ''}">${effectiveOverall}${captain}</span><strong>${displayName}${this.ui.renderAcademyBadge(player, true)}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${delta ? ` · ${delta > 0 ? '+' : ''}${delta}` : ''}</small>
       </div>`;
     }).join('');
     return `<div class="tactical-pitch pre-match-lineup-pitch" aria-label="Alineación ${team.formation} de ${team.name}">${lineup}</div>`;
@@ -621,7 +626,7 @@ class FootballSimulator {
             <div class="live-quick-access" aria-label="Órdenes rápidas">
               <div><strong>Órdenes rápidas</strong><small>Respuesta inmediata</small></div>
               ${DATA.QUICK_ORDERS.filter(order => ['Normal', 'Buscar el empate', 'Presionar rival', 'Mantener posesión', 'Contraatacar', 'Perder tiempo', 'Defender resultado'].includes(order.value)).map(order => `
-                <button type="button" class="live-quick-chip ${userState.tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}" title="${order.description}">${order.label}</button>`).join('')}
+                <button type="button" class="live-quick-chip ${userState.tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}" title="${order.description}" aria-pressed="${userState.tactics.situationalInstruction === order.value}">${order.label}</button>`).join('')}
             </div>
             <div class="coach-narrative-always">
               <section class="match-narrative live-narrative sidebar-narrative">
@@ -745,7 +750,7 @@ class FootballSimulator {
       return `
         <button type="button" class="live-player-row" data-player-id="${state.id}" aria-pressed="false" title="Preparar cambio de ${state.name}">
           <span class="live-player-dot ${state.side}" style="background:${teamState.kitColor}">${state.number}</span>
-          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${DATA.getPositionLabel(state.assignedPosition)} · MED ${effectiveOverall}${overallDelta ? ` (${overallDelta > 0 ? '+' : ''}${overallDelta})` : ''} · confianza ${Math.round(state.confidence || 50)}</small></span>
+          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''} ${this.ui.renderAcademyBadge(data)}</strong><small>${DATA.getPositionLabel(state.assignedPosition)} · MED ${effectiveOverall}${overallDelta ? ` (${overallDelta > 0 ? '+' : ''}${overallDelta})` : ''} · confianza ${Math.round(state.confidence || 50)}</small></span>
           <span class="fitness ${fitnessLevel}" aria-label="Cansancio: ${fitness}%">
             <span class="fitness-bar"><i style="width:${fitness}%"></i></span>
             <em>${fitness}%</em>
@@ -775,7 +780,7 @@ class FootballSimulator {
       .map(player => {
         const data = this.teamManager.getPlayer(this.userTeamId, player.id);
         const fit = !onField && outgoing ? this.getSubstitutionFitLabel(player, outgoing) : '';
-        return `<option value="${player.id}">${fit ? `${fit} · ` : ''}${player.name} · ${DATA.getPositionLabel(player.position)} · ${Math.round(player.fitness)}% · ${data.overall}</option>`;
+        return `<option value="${player.id}">${fit ? `${fit} · ` : ''}${player.name}${this.ui.isAcademyPlayer(data) ? ' · CAN' : ''} · ${DATA.getPositionLabel(player.position)} · ${Math.round(player.fitness)}% · ${data.overall}</option>`;
       }).join('');
     return `<option value="">Seleccionar…</option>${options}`;
   }
@@ -794,7 +799,7 @@ class FootballSimulator {
       const data = this.teamManager.getPlayer(this.userTeamId, player.id);
       const fit = outgoing ? this.getSubstitutionFitLabel(player, outgoing) : 'Disponible';
       return `<button type="button" class="bench-choice ${index === 0 && outgoing ? 'recommended' : ''}" data-substitute-in="${player.id}" aria-pressed="false">
-        <span><strong>${player.name}</strong><small>${fit} · ${DATA.getPositionLabel(player.position)}</small></span>
+        <span><strong>${player.name} ${this.ui.renderAcademyBadge(data)}</strong><small>${fit} · ${DATA.getPositionLabel(player.position)}</small></span>
         <span><strong>${data.overall}</strong><small>${Math.round(player.fitness)}%</small></span>
       </button>`;
     }).join('');
@@ -1278,7 +1283,11 @@ class FootballSimulator {
     this.persistLiveMatch(true);
     this.ui.showSuccess(`Plan ${planId} · ${plan.name} aplicado`);
     document.querySelectorAll('[data-live-plan]').forEach(button => button.classList.toggle('active', button.dataset.livePlan === planId));
-    document.querySelectorAll('[data-live-order]').forEach(button => button.classList.toggle('active', button.dataset.liveOrder === plan.tactics.situationalInstruction));
+    document.querySelectorAll('[data-live-order]').forEach(button => {
+      const active = button.dataset.liveOrder === plan.tactics.situationalInstruction;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
     this.processLiveMatchEvents();
     return true;
   }
@@ -1290,7 +1299,11 @@ class FootballSimulator {
     this.teamManager.updateTactics(this.userTeamId, { situationalInstruction: order });
     this.saveGame();
     this.persistLiveMatch(true);
-    document.querySelectorAll('[data-live-order]').forEach(button => button.classList.toggle('active', button.dataset.liveOrder === order));
+    document.querySelectorAll('[data-live-order]').forEach(button => {
+      const active = button.dataset.liveOrder === order;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
     this.ui.showSuccess(`Orden aplicada: ${DATA.QUICK_ORDERS.find(item => item.value === order).label}`);
     this.processLiveMatchEvents();
     return true;
@@ -1480,7 +1493,7 @@ class FootballSimulator {
       .sort((a, b) => b.rating - a.rating)
       .map(player => `
         <div class="post-match-player ${player.side}">
-          <span><strong>${player.name}</strong><small>${DATA.getPositionLabel(player.position)} · ${player.fitness}%</small></span>
+          <span><strong>${player.name} ${this.ui.renderAcademyBadge(this.teamManager.getPlayer(team.id, player.id))}</strong><small>${DATA.getPositionLabel(player.position)} · ${player.fitness}%</small></span>
           <span>${player.goals ? `⚽ ${player.goals}` : ''}${player.yellowCards ? ' 🟨' : ''}${player.redCards ? ' 🟥' : ''}${player.injured ? ' ✚' : ''}</span>
           <strong>${player.rating}</strong>
         </div>`).join('');
@@ -1572,8 +1585,7 @@ class FootballSimulator {
         <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="tactics">Tácticas</button>
+          <button class="nav-btn" data-screen="squad">Equipo</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn active" data-screen="stats">Datos</button>

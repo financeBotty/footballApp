@@ -89,6 +89,7 @@ class TeamManager {
     }
     team.reservePromotions = team.reservePromotions || { matchday: 0, count: 0 };
     team.reservePlayers.forEach(player => {
+      player.isAcademyPlayer = true;
       this.initializePlayerRole(player);
       player.trainingProgress = player.trainingProgress || {};
       player.suspensionMatches = Math.max(0, Number(player.suspensionMatches) || 0);
@@ -222,6 +223,7 @@ class TeamManager {
     const index = team.reservePlayers.findIndex(player => player.id === playerId);
     if (index < 0) return { valid: false, error: 'Jugador del filial no encontrado' };
     const [player] = team.reservePlayers.splice(index, 1);
+    player.isAcademyPlayer = true;
     player.promotedMatchday = day;
     player.trainingProgress = player.trainingProgress || {};
     team.players.push(player);
@@ -246,6 +248,7 @@ class TeamManager {
       const candidate = candidates[0];
       if (!candidate) break;
       team.reservePlayers.splice(team.reservePlayers.findIndex(player => player.id === candidate.id), 1);
+      candidate.isAcademyPlayer = true;
       candidate.promotedMatchday = Math.max(1, Number(matchday) || 1);
       candidate.emergencyPromotion = true;
       candidate.trainingProgress = candidate.trainingProgress || {};
@@ -474,7 +477,9 @@ class TeamManager {
         if (!player.suspensionMatches) player.suspensionCreatedMatchday = null;
       });
       const selectedUnavailable = (team.startingXI || []).some(id => !this.isPlayerAvailable(this.getPlayer(team.id, id)));
-      if (selectedUnavailable || this.getStartingXI(team.id).length !== 11) this.autoSelectStartingXI(team.id);
+      if (selectedUnavailable || this.getStartingXI(team.id).length !== 11) {
+        this.ensureValidStartingXI(team.id, true, matchday);
+      }
     });
   }
 

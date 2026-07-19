@@ -1171,7 +1171,7 @@ label {
 
 .pre-match-management {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: .75rem;
 }
 
@@ -2700,6 +2700,36 @@ input:focus-visible,
 .team-page-header { margin: .5rem 0 1.25rem; }
 .team-page-header h2 { margin: .1rem 0; font-size: clamp(1.7rem, 3vw, 2.5rem); letter-spacing: -.045em; }
 .team-page-header p { color: var(--text-muted); }
+.team-section-nav {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .35rem;
+  margin: 0 0 .85rem;
+  padding: .45rem;
+  border: 1px solid var(--dark-border);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, .94);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .2);
+  backdrop-filter: blur(14px);
+}
+.team-section-nav button {
+  min-height: 42px;
+  padding: .45rem .6rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+.team-section-nav button.active { border-color: rgba(96, 165, 250, .4); color: #dbeafe; background: rgba(37, 99, 235, .18); }
+#team-lineup-section,
+#team-tactics-section,
+#team-roles-section,
+#academy-development-section { scroll-margin-top: 64px; }
 .eyebrow {
   display: block;
   color: #93c5fd;
@@ -2719,6 +2749,26 @@ input:focus-visible,
 }
 .availability-summary strong { font-size: 1.35rem; line-height: 1; }
 .availability-summary span { color: var(--text-muted); font-size: .72rem; }
+.availability-summary small { margin-top: .22rem; color: #86efac; font-size: .6rem; font-weight: 800; text-transform: uppercase; }
+.academy-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 27px;
+  min-height: 17px;
+  margin-left: .28rem;
+  padding: 0 .3rem;
+  border: 1px solid rgba(52, 211, 153, .5);
+  border-radius: 999px;
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, .14);
+  font-size: .52rem;
+  font-weight: 950;
+  letter-spacing: .04em;
+  line-height: 1;
+  vertical-align: middle;
+}
+.academy-badge.compact { min-width: 16px; min-height: 16px; margin-left: .2rem; padding: 0; font-size: .48rem; }
+:is(.theme-retro-90s, .theme-snes) .academy-badge { border-radius: 0; color: #064e3b; background: #86efac; }
 
 .lineup-workspace {
   display: grid;
@@ -2954,6 +3004,11 @@ input:focus-visible,
 .section-heading > span { color: var(--text-muted); font-size: .78rem; }
 
 .tactics-command-center { max-width: 1100px; }
+.team-hub > .tactics-command-center {
+  margin: 2.5rem auto 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--dark-border);
+}
 .tactics-page-header { margin: .5rem 0 1.5rem; }
 .tactics-page-header h2 { margin: .1rem 0; font-size: clamp(1.8rem, 3vw, 2.5rem); letter-spacing: -.045em; }
 .tactics-page-header p { max-width: 680px; color: var(--text-muted); }
@@ -3043,6 +3098,27 @@ input:focus-visible,
 .settings-choice.active { border-color: #60a5fa; background: rgba(37, 99, 235, .2); color: #dbeafe; }
 :is(.theme-retro-90s, .theme-snes) .settings-choice { border-radius: 0; }
 .tactics-reserves { display: grid; gap: .45rem; }
+.reserve-batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .7rem;
+  border: 1px solid rgba(52, 211, 153, .3);
+  border-radius: 10px;
+  background: rgba(16, 185, 129, .08);
+}
+.reserve-batch-bar span { color: var(--text-secondary); font-size: .72rem; }
+.reserve-batch-bar .btn { flex: 0 0 auto; }
+.reserve-candidate { transition: border-color .15s ease, background-color .15s ease; }
+.reserve-candidate.selected { border-color: #34d399; background: rgba(16, 185, 129, .13); }
+.btn-select-reserve.active { border-color: #34d399; color: #d1fae5; background: rgba(16, 185, 129, .22); }
+:is(.theme-retro-90s, .theme-snes) .reserve-batch-bar { border-radius: 0; }
+
+@media (max-width: 700px) {
+  .reserve-batch-bar { align-items: stretch; flex-direction: column; }
+  .reserve-batch-bar .btn { width: 100%; }
+}
 .tactics-save-bar {
   position: sticky;
   z-index: 4;
@@ -4166,6 +4242,22 @@ input:focus-visible,
 .team-game-model { display: flex; flex-wrap: wrap; gap: .3rem; }
 .team-game-model span { padding: .28rem .42rem; border-radius: 999px; color: #bfdbfe; background: rgba(59, 130, 246, .13); font-size: .62rem; font-weight: 800; }
 
+.match-page-heading { margin-bottom: 1rem; }
+.match-page-heading h2 { margin: .1rem 0 0; }
+.match-identity-glance {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: .4rem .75rem;
+  margin-bottom: .8rem;
+  padding: .65rem .8rem;
+  border-left: 3px solid #60a5fa;
+  background: rgba(59, 130, 246, .09);
+}
+.match-identity-glance span { color: #93c5fd; font-size: .7rem; font-weight: 850; text-transform: uppercase; }
+.match-identity-glance strong { min-width: 0; overflow-wrap: anywhere; }
+.match-identity-glance small { color: var(--text-muted); font-size: .72rem; }
+
 :is(.theme-retro-90s, .theme-snes) :is(.match-mode-selection-top, .team-introduction, .team-game-model span) { border-radius: 0; }
 
 @media (max-width: 700px) {
@@ -4589,6 +4681,7 @@ input:focus-visible,
   .theme-retro-90s .navbar,
   .theme-snes .navbar {
     align-items: stretch;
+    flex-direction: column;
     gap: 5px;
     padding: 5px 7px 6px;
   }
@@ -4599,7 +4692,12 @@ input:focus-visible,
     justify-content: flex-start;
     min-width: 0;
     padding-inline: 5px;
+    font-size: .88rem;
   }
+
+  .navbar-brand .club-crest,
+  .theme-retro-90s .navbar-brand .club-crest,
+  .theme-snes .navbar-brand .club-crest { width: 25px; height: 29px; }
 
   .navbar-brand .club-identity {
     min-width: 0;
@@ -4617,7 +4715,7 @@ input:focus-visible,
   .theme-retro-90s .navbar-menu,
   .theme-snes .navbar-menu {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 4px;
     width: 100%;
     padding: 0;
@@ -4632,9 +4730,9 @@ input:focus-visible,
   .theme-snes .nav-btn {
     width: 100%;
     min-width: 0;
-    min-height: 36px;
+    min-height: 44px;
     padding: 7px 2px;
-    font-size: .65rem;
+    font-size: .68rem;
     line-height: 1;
     text-align: center;
     white-space: nowrap;
@@ -4648,10 +4746,11 @@ input:focus-visible,
   }
 
   :is(.dashboard-container, .next-match-container, .league-container, .stats-container, .settings-container) > h2,
+  .match-page-heading > h2,
   .squad-container-v2 h2,
   .tactics-container h2 {
     margin-bottom: 1.1rem;
-    font-size: clamp(1.75rem, 9vw, 2.15rem);
+    font-size: clamp(1.65rem, 7vw, 1.95rem);
     line-height: 1.12;
     overflow-wrap: anywhere;
   }
@@ -4668,6 +4767,15 @@ input:focus-visible,
   .team-page-header > div:first-child { min-width: 0; }
   .team-page-header p { margin: .2rem 0 0; line-height: 1.45; }
   .availability-summary { flex: 0 0 auto; }
+  .team-section-nav {
+    margin-inline: -4px;
+    padding: .35rem;
+    border-radius: 9px;
+  }
+  .team-section-nav button { min-height: 44px; padding-inline: .25rem; font-size: .78rem; }
+
+  .squad-container-v2 :is(.btn, .filter-chip, .training-choice),
+  .next-match-container .btn { min-height: 44px; }
 
   .lineup-editor {
     width: 100%;
@@ -4693,6 +4801,16 @@ input:focus-visible,
   }
 
   .match-preview-large { padding: 14px; }
+  .match-page-heading { margin-bottom: .7rem; }
+  .match-page-heading > h2 { margin: .05rem 0 0; }
+  .match-identity-glance {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .2rem .55rem;
+    margin-bottom: .65rem;
+  }
+  .match-identity-glance span { grid-column: 1 / -1; font-size: .72rem; }
+  .match-identity-glance strong { font-size: .88rem; }
+  .match-identity-glance small { font-size: .75rem; text-align: right; }
   .match-teams {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
@@ -4780,7 +4898,7 @@ input:focus-visible,
   }
   .live-controls-top .btn {
     min-width: 0;
-    min-height: 40px;
+    min-height: 44px;
     padding: .45rem .25rem;
     font-size: .68rem;
     line-height: 1.1;
@@ -4807,6 +4925,34 @@ input:focus-visible,
   .coach-panel[data-coach-panel="changes"].active {
     overflow-y: auto;
   }
+
+  .live-match-shell { padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
+  .live-quick-access {
+    position: fixed;
+    z-index: 79;
+    right: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    left: 0;
+    flex-wrap: nowrap;
+    gap: .4rem;
+    min-height: 58px;
+    padding: 7px 8px;
+    overflow-x: auto;
+    border-top: 1px solid rgba(148, 163, 184, .3);
+    border-bottom: 0;
+    background: rgba(7, 20, 46, .96);
+    box-shadow: 0 -8px 22px rgba(0, 0, 0, .25);
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .live-quick-access::-webkit-scrollbar { display: none; }
+  .live-quick-access > div { display: none; }
+  .live-quick-chip {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: .55rem .75rem;
+    font-size: .75rem;
+  }
   .change-selector-grid,
   #btn-make-substitution {
     position: static;
@@ -4820,6 +4966,12 @@ input:focus-visible,
   .pre-match-lineup-pitch { min-height: 0; aspect-ratio: .72 / 1; }
   .pitch-player { width: 58px; }
   .pitch-shirt { width: 32px; height: 32px; }
+  .pitch-player strong { font-size: .72rem; }
+  .pitch-player small { font-size: .64rem; }
+  .squad-player-main small,
+  .roster-player small { font-size: .72rem; }
+  .squad-player-metrics small { font-size: .65rem; }
+  .academy-badge { font-size: .6rem; }
   .lineup-toolbar { flex-wrap: wrap; }
   .active-formation { flex: 1 1 240px; }
   .theme-choice { grid-template-columns: 68px minmax(0, 1fr); padding: 8px; }

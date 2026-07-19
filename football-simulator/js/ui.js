@@ -6,6 +6,8 @@ class UIManager {
   constructor() {
     this.currentScreen = null;
     this.gameApp = null; // Referencia a la aplicación principal
+    this.reservePromotionSelection = new Set();
+    this.reservePromotionTeamId = null;
   }
 
   // Inicializar la interfaz
@@ -56,6 +58,15 @@ class UIManager {
   renderClubIdentity(team, className = '') {
     if (!team) return '';
     return `<span class="club-identity ${className}">${this.renderTeamCrest(team)}<span>${team.name}</span></span>`;
+  }
+
+  isAcademyPlayer(player) {
+    return Boolean(player && (player.isAcademyPlayer || player.emergencyPromotion || player.promotedMatchday));
+  }
+
+  renderAcademyBadge(player, compact = false) {
+    if (!this.isAcademyPlayer(player)) return '';
+    return `<span class="academy-badge ${compact ? 'compact' : ''}" title="Canterano formado en el club" aria-label="Canterano">${compact ? 'C' : 'CAN'}</span>`;
   }
 
   // Mostrar pantalla de bienvenida
@@ -202,8 +213,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn active" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="tactics">Tácticas</button>
+          <button class="nav-btn" data-screen="squad">Equipo</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -309,7 +319,7 @@ class UIManager {
             <h3>Tu Equipo</h3>
             <div class="team-info">
               <div class="dashboard-club">${this.renderTeamCrest(team, 'dashboard-club-crest')}<strong>${team.name}</strong></div>
-              <p>Posición: <strong>#${userPosition}</strong></p>
+              <p>Posición: <strong>${Number.isFinite(userPosition) ? `#${userPosition}` : 'Pretemporada'}</strong></p>
               <p>Jugadores: <strong>${team.players.length}</strong></p>
               <p>Formación: <strong>${team.formation}</strong></p>
             </div>
@@ -372,8 +382,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn active" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="tactics">Tácticas</button>
+          <button class="nav-btn active" data-screen="squad">Equipo</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -395,11 +404,11 @@ class UIManager {
       const line = this.getSquadPlayerLine(player.position);
       return `
         <button type="button" class="squad-player-card ${this.squadSelection.has(player.id) ? 'is-selected' : ''} ${availability.available ? '' : 'is-unavailable'}"
-          data-player-id="${player.id}" data-player-line="${line}"
+          data-player-id="${player.id}" data-player-line="${line}" data-player-academy="${this.isAcademyPlayer(player)}"
           ${availability.available ? '' : 'disabled'} aria-pressed="${this.squadSelection.has(player.id)}">
           <span class="squad-player-main">
             <span class="position-pill ${line.toLowerCase()}" title="${DATA.getPositionLabel(player.position, true)}">${DATA.getPositionLabel(player.position)}</span>
-            <span><strong>${player.name}${player.id === team.captainId ? ' · C' : ''}</strong><small>${player.age} años · ${availability.reason}</small><em class="replacement-suggestion" aria-live="polite"></em></span>
+            <span><strong>${player.name}${player.id === team.captainId ? ' · C' : ''} ${this.renderAcademyBadge(player)}</strong><small>${player.age} años · ${availability.reason}</small><em class="replacement-suggestion" aria-live="polite"></em></span>
           </span>
           <span class="squad-player-metrics">
             <span><strong>${player.overall}</strong><small>MED</small></span>
@@ -413,14 +422,21 @@ class UIManager {
     content.innerHTML = `
       <div class="squad-container-v2 team-hub">
         <header class="team-page-header">
-          <div><span class="eyebrow">Gestión del equipo</span><h2>Alineación</h2><p>Construye el once directamente sobre el campo.</p></div>
-          <div class="availability-summary"><strong>${medicalReport.filter(item => !item.available).length}</strong><span>bajas</span></div>
+          <div><span class="eyebrow">Gestión del equipo</span><h2>Equipo</h2><p>Elige el once y define cómo jugará, todo en el mismo lugar.</p></div>
+          <div class="availability-summary"><strong>${medicalReport.filter(item => !item.available).length}</strong><span>bajas</span><small>${team.players.filter(player => this.isAcademyPlayer(player)).length} cantera</small></div>
         </header>
 
-        <section class="lineup-workspace" aria-label="Editor de alineación">
+        <nav class="team-section-nav" aria-label="Secciones del equipo">
+          <button type="button" class="active" data-team-anchor="team-lineup-section">Once</button>
+          <button type="button" data-team-anchor="team-tactics-section">Plan</button>
+          <button type="button" data-team-anchor="team-roles-section">Roles</button>
+          <button type="button" data-team-anchor="academy-development-section">Cantera</button>
+        </nav>
+
+        <section class="lineup-workspace" id="team-lineup-section" aria-label="Editor de alineación">
           <div class="lineup-editor">
             <div class="lineup-toolbar">
-              <div class="active-formation"><span>Formación</span><strong>${formation}</strong><button type="button" data-screen="tactics">Editar en Tácticas</button></div>
+              <div class="active-formation"><span>Formación</span><strong id="active-formation-value">${formation}</strong><button type="button" id="btn-scroll-team-tactics">Cambiar sistema</button></div>
               <span id="lineup-selection-status" class="lineup-count">${this.squadSelection.size}/11</span>
             </div>
             <div class="tactical-pitch" id="lineup-pitch"></div>
@@ -434,18 +450,31 @@ class UIManager {
           <aside class="player-picker" aria-label="Jugadores disponibles">
             <div class="player-picker-heading"><div><span class="eyebrow">Primer equipo</span><h3>Elige jugadores</h3></div><span id="lineup-replacement-help" class="picker-hint">Pulsa para añadir o retirar</span></div>
             <div class="player-filter-chips" role="group" aria-label="Filtrar por línea">
-              ${[['ALL','Todos'],['GK','Porteros'],['DEF','Defensas'],['MID','Medios'],['ATK','Ataque']].map(([value, label]) => `<button type="button" class="filter-chip ${value === 'ALL' ? 'active' : ''}" data-squad-filter="${value}" aria-pressed="${value === 'ALL'}">${label}</button>`).join('')}
+              ${[['ALL','Todos'],['ACADEMY','Cantera'],['GK','Porteros'],['DEF','Defensas'],['MID','Medios'],['ATK','Ataque']].map(([value, label]) => `<button type="button" class="filter-chip ${value === 'ALL' ? 'active' : ''}" data-squad-filter="${value}" aria-pressed="${value === 'ALL'}">${label}</button>`).join('')}
             </div>
             <div id="squad-player-list" class="squad-player-list">${playerCards}</div>
           </aside>
         </section>
+
+        ${this.showTactics(true)}
 
       </div>
     `;
 
     this.currentScreen = 'squad';
     this.attachSquadListenersV2();
+    this.attachTacticsManagementListeners();
     this.updateLineupWorkspace();
+    document.getElementById('btn-scroll-team-tactics')?.addEventListener('click', () => {
+      document.getElementById('team-tactics-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    document.querySelectorAll('[data-team-anchor]').forEach(button => button.addEventListener('click', () => {
+      const target = document.getElementById(button.dataset.teamAnchor);
+      if (!target) return;
+      if (target.tagName === 'DETAILS') target.open = true;
+      document.querySelectorAll('[data-team-anchor]').forEach(item => item.classList.toggle('active', item === button));
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
     if (lineupStatus.promoted?.length) {
       const names = lineupStatus.promoted.map(player => player.name).join(', ');
       this.showSuccess(`${names} ${lineupStatus.promoted.length === 1 ? 'sube' : 'suben'} del filial para completar el once`);
@@ -453,7 +482,8 @@ class UIManager {
   }
 
   // Mostrar pantalla de tácticas
-  showTactics() {
+  showTactics(embedded = false) {
+    if (!embedded) return this.showSquad();
     const userTeamId = this.gameApp.userTeamId;
     const team = this.gameApp.teamManager.getTeam(userTeamId);
     const tactics = team.tactics;
@@ -470,6 +500,13 @@ class UIManager {
     const medicalReport = this.gameApp.teamManager.getMedicalReport(userTeamId);
     const currentMatchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
     const promotionCount = team.reservePromotions.matchday === currentMatchday ? team.reservePromotions.count : 0;
+    if (this.reservePromotionTeamId !== team.id) {
+      this.reservePromotionSelection = new Set();
+      this.reservePromotionTeamId = team.id;
+    }
+    const reserveIds = new Set(team.reservePlayers.map(player => player.id));
+    this.reservePromotionSelection = new Set([...this.reservePromotionSelection].filter(id => reserveIds.has(id)));
+    const remainingPromotions = Math.max(0, 3 - promotionCount);
     const nextMatch = this.gameApp.leagueEngine.getNextUserMatch(userTeamId);
     const opponentId = nextMatch ? (nextMatch.homeTeam === userTeamId ? nextMatch.awayTeam : nextMatch.homeTeam) : null;
     const recommendation = this.gameApp.teamManager.getTacticalRecommendation(userTeamId, opponentId);
@@ -515,7 +552,7 @@ class UIManager {
         .sort((a, b) => b.suitability - a.suitability);
       const currentSuitability = this.gameApp.teamManager.getRoleSuitability(player, player.role);
       return `
-        <div class="role-card"><span>${player.name} · ${DATA.getPositionLabel(player.position)}</span>
+        <div class="role-card"><span>${player.name} ${this.renderAcademyBadge(player)} · ${DATA.getPositionLabel(player.position)}</span>
           <div class="role-choice-grid">${roles.map(item => `<button type="button" class="role-choice ${player.role === item.role ? 'active' : ''}" data-player-role="${item.role}" data-player-id="${player.id}" data-suitability="${item.suitability}" aria-pressed="${player.role === item.role}"><strong>${item.role}</strong><small>${item.suitability}%</small></button>`).join('')}</div>
           <small class="role-suitability" data-role-suitability="${player.id}">${this.roleSuitabilityLabel(currentSuitability)} · ${currentSuitability}%</small>
         </div>`;
@@ -524,13 +561,12 @@ class UIManager {
     const navBar = document.getElementById('navigation');
     const content = document.getElementById('main-content');
 
-    navBar.innerHTML = `
+    if (!embedded) navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn active" data-screen="tactics">Tácticas</button>
+          <button class="nav-btn active" data-screen="squad">Equipo</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -539,9 +575,9 @@ class UIManager {
       </nav>
     `;
 
-    content.innerHTML = `
-      <div class="tactics-container tactics-command-center">
-        <header class="tactics-page-header"><span class="eyebrow">Plan de juego</span><h2>Tácticas</h2><p>Define cómo se coloca y compite el equipo. La alineación solo se ocupa de elegir a los once.</p></header>
+    const tacticsMarkup = `
+      <div class="tactics-container tactics-command-center" id="team-tactics-section">
+        <header class="tactics-page-header"><span class="eyebrow">Plan de juego</span><h2>Cómo juega el equipo</h2><p>El once, la formación y las instrucciones forman una única preparación para el próximo partido.</p></header>
 
         <section class="tactical-identity-card">
           <div><span class="eyebrow">Estructura</span><h3>Formación e identidad</h3></div>
@@ -572,7 +608,7 @@ class UIManager {
           <div class="quick-order-grid">${quickOrders}</div>
         </section>
 
-        <details class="tactics-detail-section">
+        <details class="tactics-detail-section" id="team-roles-section">
           <summary><span><span class="eyebrow">Jugadores</span><strong>Roles individuales</strong></span><span>${team.players.length} jugadores</span></summary>
           <div class="tactics-grid role-grid">${roleRows}</div>
         </details>
@@ -593,15 +629,19 @@ class UIManager {
               <p class="training-help">Se aplica al completar cada jornada. Una intensidad alta mejora más, pero aumenta fatiga y riesgo.</p>
             </div>
             <div><h3>Parte médico y sanciones</h3><div class="medical-report">
-              ${medicalReport.length ? medicalReport.map(item => `<div class="medical-item ${item.status}"><strong>${item.player.name}</strong><span>${item.available ? `${item.player.yellowCardAccumulation} amarillas acumuladas` : item.reason}</span></div>`).join('') : '<p>Todos los jugadores están disponibles.</p>'}
+              ${medicalReport.length ? medicalReport.map(item => `<div class="medical-item ${item.status}"><strong>${item.player.name} ${this.renderAcademyBadge(item.player)}</strong><span>${item.available ? `${item.player.yellowCardAccumulation} amarillas acumuladas` : item.reason}</span></div>`).join('') : '<p>Todos los jugadores están disponibles.</p>'}
             </div></div>
           </div>
         </details>
 
-        <details class="tactics-detail-section">
-          <summary><span><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><strong>${team.reserveName || 'Filial'}</strong></span><span>${promotionCount}/3 promociones</span></summary>
+        <details class="tactics-detail-section" id="academy-development-section">
+          <summary><span><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><strong>${team.reserveName || 'Filial'}</strong></span><span id="reserve-promotion-count">${promotionCount}/3 promociones</span></summary>
           <div class="medical-report tactics-reserves">
-            ${team.reservePlayers.length ? team.reservePlayers.map(player => `<div class="medical-item available"><strong>${player.name} · ${player.age} años · ${DATA.getPositionLabel(player.position)} · ${player.overall}</strong><button class="btn btn-secondary btn-promote-reserve" data-player-id="${player.id}" ${promotionCount >= 3 ? 'disabled' : ''}>Subir</button></div>`).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}
+            <div class="reserve-batch-bar"><span id="reserve-selection-status">Elige hasta ${remainingPromotions} canterano${remainingPromotions === 1 ? '' : 's'}</span><button type="button" id="btn-promote-selected-reserves" class="btn btn-primary" disabled>Subir seleccionados</button></div>
+            ${team.reservePlayers.length ? team.reservePlayers.map(player => {
+              const selected = this.reservePromotionSelection.has(player.id);
+              return `<div class="medical-item available reserve-candidate ${selected ? 'selected' : ''}"><strong>${player.name} ${this.renderAcademyBadge(player)} · ${player.age} años · ${DATA.getPositionLabel(player.position)} · ${player.overall}</strong><button type="button" class="btn btn-secondary btn-select-reserve" data-player-id="${player.id}" aria-pressed="${selected}" ${remainingPromotions <= 0 ? 'disabled' : ''}>${selected ? 'Elegido' : 'Elegir'}</button></div>`;
+            }).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}
           </div>
         </details>
 
@@ -609,7 +649,10 @@ class UIManager {
       </div>
     `;
 
-    this.currentScreen = 'tactics';
+    if (embedded) return tacticsMarkup;
+    content.innerHTML = tacticsMarkup;
+
+    this.currentScreen = 'squad';
     this.attachTacticsManagementListeners();
   }
 
@@ -631,6 +674,11 @@ class UIManager {
       }
       const description = document.getElementById('formation-description');
       if (description) description.textContent = DATA.FORMATIONS[selectedFormation].description;
+      const activeFormation = document.getElementById('active-formation-value');
+      if (activeFormation) activeFormation.textContent = selectedFormation;
+      this.squadSelection = new Set(team.startingXI);
+      this.lineupReplacementId = null;
+      this.updateLineupWorkspace();
       document.querySelectorAll('[data-tactics-formation]').forEach(item => {
         const active = item === button;
         item.classList.toggle('active', active);
@@ -658,6 +706,10 @@ class UIManager {
     document.getElementById('btn-best-xi-tactics')?.addEventListener('click', () => {
       const lineup = this.gameApp.teamManager.ensureValidStartingXI(this.gameApp.userTeamId, true);
       if (!lineup.valid) return this.showError(lineup.error);
+      const team = this.gameApp.teamManager.getTeam(this.gameApp.userTeamId);
+      this.squadSelection = new Set(team.startingXI);
+      this.lineupReplacementId = null;
+      this.updateLineupWorkspace();
       this.gameApp.saveGame();
       this.showSuccess('Mejor XI aplicado para el próximo partido');
     });
@@ -708,16 +760,11 @@ class UIManager {
       });
     });
 
-    document.querySelectorAll('.btn-promote-reserve').forEach(button => {
-      button.addEventListener('click', () => {
-        const matchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
-        const result = this.gameApp.teamManager.promoteReservePlayer(this.gameApp.userTeamId, button.dataset.playerId, matchday);
-        if (!result.valid) return this.showError(result.error);
-        this.gameApp.saveGame();
-        this.showSuccess(`${result.player.name} sube al primer equipo`);
-        this.showTactics();
-      });
+    document.querySelectorAll('.btn-select-reserve').forEach(button => {
+      button.addEventListener('click', () => this.toggleReservePromotion(button.dataset.playerId));
     });
+    document.getElementById('btn-promote-selected-reserves')?.addEventListener('click', () => this.promoteSelectedReserves());
+    this.updateReservePromotionSelection();
 
     document.querySelectorAll('[data-player-role]').forEach(button => button.addEventListener('click', () => {
       const playerId = button.dataset.playerId;
@@ -732,6 +779,74 @@ class UIManager {
       if (output) output.textContent = `${this.roleSuitabilityLabel(score)} · ${score}%`;
       this.gameApp.saveGame();
     }));
+  }
+
+  getRemainingReservePromotions() {
+    if (!this.gameApp) return 0;
+    const team = this.gameApp.teamManager.getTeam(this.gameApp.userTeamId);
+    const matchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
+    const used = team.reservePromotions.matchday === matchday ? team.reservePromotions.count : 0;
+    return Math.max(0, 3 - used);
+  }
+
+  toggleReservePromotion(playerId) {
+    const remaining = this.getRemainingReservePromotions();
+    if (!remaining) return this.showError('Ya has subido tres jugadores esta jornada');
+    if (this.reservePromotionSelection.has(playerId)) this.reservePromotionSelection.delete(playerId);
+    else if (this.reservePromotionSelection.size < remaining) this.reservePromotionSelection.add(playerId);
+    else return this.showError(`Solo quedan ${remaining} plaza${remaining === 1 ? '' : 's'} de promoción`);
+    this.updateReservePromotionSelection();
+    // Con tres plazas libres, tres clics completan el lote y lo confirman sin
+    // obligar al usuario a ascender y volver al filial uno por uno.
+    if (this.reservePromotionSelection.size === remaining) this.promoteSelectedReserves();
+  }
+
+  updateReservePromotionSelection() {
+    const remaining = this.getRemainingReservePromotions();
+    const selected = this.reservePromotionSelection.size;
+    document.querySelectorAll('.btn-select-reserve').forEach(button => {
+      const active = this.reservePromotionSelection.has(button.dataset.playerId);
+      button.classList.toggle('active', active);
+      button.closest('.reserve-candidate')?.classList.toggle('selected', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.textContent = active ? 'Elegido' : 'Elegir';
+      button.disabled = !remaining || (!active && selected >= remaining);
+    });
+    const status = document.getElementById('reserve-selection-status');
+    if (status) status.textContent = remaining
+      ? `${selected}/${remaining} elegidos · al completar el cupo subirán juntos`
+      : 'Cupo de tres promociones completado';
+    const confirm = document.getElementById('btn-promote-selected-reserves');
+    if (confirm) {
+      confirm.disabled = selected === 0;
+      confirm.textContent = selected ? `Subir ${selected} seleccionado${selected === 1 ? '' : 's'}` : 'Subir seleccionados';
+    }
+  }
+
+  promoteSelectedReserves() {
+    if (!this.gameApp || !this.reservePromotionSelection.size) return false;
+    const matchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
+    const selectedIds = [...this.reservePromotionSelection];
+    const promoted = [];
+    for (const playerId of selectedIds) {
+      const result = this.gameApp.teamManager.promoteReservePlayer(this.gameApp.userTeamId, playerId, matchday);
+      if (!result.valid) {
+        this.showError(result.error);
+        break;
+      }
+      promoted.push(result.player);
+    }
+    if (!promoted.length) return false;
+    this.reservePromotionSelection.clear();
+    this.gameApp.saveGame();
+    this.showSquad();
+    const section = document.getElementById('academy-development-section');
+    if (section) {
+      section.open = true;
+      requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    }
+    this.showSuccess(`${promoted.map(player => player.name).join(', ')} ${promoted.length === 1 ? 'sube' : 'suben'} al primer equipo`);
+    return true;
   }
 
   applyTacticalQuickPreset(values, message, planId = null, keepPlan = false) {
@@ -806,8 +921,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="tactics">Tácticas</button>
+          <button class="nav-btn" data-screen="squad">Equipo</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn active" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -925,8 +1039,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="tactics">Tácticas</button>
+          <button class="nav-btn" data-screen="squad">Equipo</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -1208,6 +1321,8 @@ class UIManager {
 
   toggleSquadPlayer(playerId) {
     if (!this.squadSelection) this.squadSelection = new Set();
+    const team = this.gameApp?.teamManager.getTeam(this.gameApp.userTeamId);
+    const playerToAdd = team?.players.find(player => player.id === playerId);
     if (this.squadSelection.has(playerId)) {
       if (this.squadSelection.size === 11 && this.lineupReplacementId !== playerId) {
         this.lineupReplacementId = playerId;
@@ -1237,6 +1352,22 @@ class UIManager {
         this.showError('Selecciona primero en el campo al jugador que quieres cambiar.');
         return;
       }
+      if (playerToAdd?.position === 'GK') {
+        const selectedKeeper = Array.from(this.squadSelection)
+          .map(id => team.players.find(player => player.id === id))
+          .find(player => player?.position === 'GK');
+        if (selectedKeeper) {
+          this.squadSelection.delete(selectedKeeper.id);
+          this.showSuccess(`${playerToAdd.name} sustituye a ${selectedKeeper.name} en la portería`);
+        }
+      } else if (this.squadSelection.size === 10) {
+        const hasKeeper = Array.from(this.squadSelection)
+          .some(id => team.players.find(player => player.id === id)?.position === 'GK');
+        if (!hasKeeper) {
+          this.showError('El once necesita un portero. Selecciónalo antes de completar la alineación.');
+          return;
+        }
+      }
       this.squadSelection.add(playerId);
     }
     this.updateLineupWorkspace();
@@ -1265,7 +1396,7 @@ class UIManager {
       const overallChange = overallDelta ? ` · ${overallDelta > 0 ? '+' : ''}${overallDelta} MED` : '';
       const replacementClass = this.lineupReplacementId === player.id ? 'is-replacing' : '';
       return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${adaptedClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name}: media base ${player.overall}, media como ${DATA.getPositionLabel(assignment.slotPosition)} ${effectiveOverall}">
-        <span class="pitch-shirt ${overallDelta > 0 ? 'overall-up' : overallDelta < 0 ? 'overall-down' : ''}">${effectiveOverall}</span><strong>${lastName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${adaptedClass ? ' · ADAPT.' : ''}${overallChange} · ${Math.round(player.fitness)}%</small>
+        <span class="pitch-shirt ${overallDelta > 0 ? 'overall-up' : overallDelta < 0 ? 'overall-down' : ''}">${effectiveOverall}</span><strong>${lastName}${this.renderAcademyBadge(player, true)}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${adaptedClass ? ' · ADAPT.' : ''}${overallChange} · ${Math.round(player.fitness)}%</small>
       </button>`;
     }).join('');
 
@@ -1339,16 +1470,27 @@ class UIManager {
     if (!saveBtn) return;
 
     const selected = (this.squadSelection || new Set()).size;
+    let validation = null;
+    if (selected === 11 && this.gameApp) {
+      validation = this.gameApp.teamManager.validateLineup(
+        this.gameApp.userTeamId,
+        Array.from(this.squadSelection)
+      );
+    }
     saveBtn.textContent = this.lineupReplacementId
       ? 'Elige el sustituto'
-      : selected === 11 ? 'Guardar alineación' : `Faltan ${11 - selected}`;
-    saveBtn.disabled = selected !== 11 || Boolean(this.lineupReplacementId);
+      : selected === 11 && validation?.valid ? 'Guardar alineación'
+        : selected === 11 ? 'Once no válido' : `Faltan ${11 - selected}`;
+    saveBtn.title = validation && !validation.valid ? validation.error : '';
+    saveBtn.disabled = selected !== 11 || Boolean(this.lineupReplacementId) || Boolean(validation && !validation.valid);
   }
 
   filterSquadPlayerCards() {
     const filter = document.querySelector('[data-squad-filter].active')?.dataset.squadFilter || 'ALL';
     document.querySelectorAll('.squad-player-card').forEach(card => {
-      const filteredOut = filter !== 'ALL' && card.dataset.playerLine !== filter;
+      const filteredOut = filter === 'ACADEMY'
+        ? card.dataset.playerAcademy !== 'true'
+        : filter !== 'ALL' && card.dataset.playerLine !== filter;
       card.hidden = filteredOut;
       card.classList.toggle('is-filtered-out', filteredOut);
     });
@@ -1359,71 +1501,19 @@ class UIManager {
     if (!this.gameApp) return;
 
     const userTeamId = this.gameApp.userTeamId;
-    const team = this.gameApp.teamManager.getTeam(userTeamId);
-    const formation = team.formation;
-    const formationObj = DATA.FORMATIONS[formation];
-
-    if (!formationObj) {
-      alert('Formación no válida');
+    const matchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
+    const result = this.gameApp.teamManager.ensureValidStartingXI(userTeamId, true, matchday);
+    if (!result.valid) {
+      this.showError(result.error || 'No se ha podido completar un once válido');
       return;
     }
-
-    // Obtener jugadores disponibles agrupados por posición
-    const availablePlayers = {};
-    team.players.filter(player => this.gameApp.teamManager.isPlayerAvailable(player)).forEach(player => {
-      if (!availablePlayers[player.position]) {
-        availablePlayers[player.position] = [];
-      }
-      availablePlayers[player.position].push(player);
-    });
-
-    // Ordenar cada posición por overall, fitness y morale
-    for (const pos in availablePlayers) {
-      availablePlayers[pos].sort((a, b) => {
-        const scoreA = (a.overall * 0.6) + (a.fitness * 0.25) + (a.morale * 0.15);
-        const scoreB = (b.overall * 0.6) + (b.fitness * 0.25) + (b.morale * 0.15);
-        return scoreB - scoreA;
-      });
-    }
-
-    // Seleccionar jugadores para cada posición de la formación
-    const selectedIds = new Set();
-    const positionMap = {
-      'RM': 'RW', // Mappear a posición similar si no existe
-      'LM': 'LW'
-    };
-
-    for (const formationPos of formationObj.positions) {
-      const targetPos = positionMap[formationPos] || formationPos;
-      
-      if (availablePlayers[targetPos] && availablePlayers[targetPos].length > 0) {
-        // Encontrar el mejor jugador disponible
-        for (const player of availablePlayers[targetPos]) {
-          if (!selectedIds.has(player.id)) {
-            selectedIds.add(player.id);
-            break;
-          }
-        }
-      }
-    }
-
-    // Si no hay suficientes jugadores, rellenar con los mejores disponibles
-    if (selectedIds.size < 11) {
-      const allPlayers = team.players.filter(player => this.gameApp.teamManager.isPlayerAvailable(player)).sort((a, b) => {
-        const scoreA = (a.overall * 0.6) + (a.fitness * 0.25) + (a.morale * 0.15);
-        const scoreB = (b.overall * 0.6) + (b.fitness * 0.25) + (b.morale * 0.15);
-        return scoreB - scoreA;
-      });
-
-      for (const player of allPlayers) {
-        if (selectedIds.size >= 11) break;
-        selectedIds.add(player.id);
-      }
-    }
-
-    this.squadSelection = selectedIds;
+    const team = this.gameApp.teamManager.getTeam(userTeamId);
+    this.squadSelection = new Set(team.startingXI);
     this.lineupReplacementId = null;
+    this.gameApp.saveGame();
     this.updateLineupWorkspace();
+    const promoted = result.promoted?.length ? ` · ${result.promoted.length} juvenil${result.promoted.length === 1 ? '' : 'es'} incorporado${result.promoted.length === 1 ? '' : 's'}` : '';
+    this.showSuccess(`Mejor XI guardado: 11 jugadores y un portero${promoted}`);
   }
 
   // Limpiar selección

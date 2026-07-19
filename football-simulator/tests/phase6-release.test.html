@@ -57,6 +57,77 @@
       );
     });
 
+    test('El botón Mejor XI usa y guarda el once validado por el gestor', () => {
+      const { manager, league, team } = create();
+      team.startingXI = [];
+      const ui = new UIManager();
+      let saved = false;
+      let failed = false;
+      ui.gameApp = { userTeamId: team.id, teamManager: manager, leagueEngine: league, saveGame: () => { saved = true; } };
+      ui.updateLineupWorkspace = () => {};
+      ui.showSuccess = () => {};
+      ui.showError = () => { failed = true; };
+      ui.autoSelectLineupForFormation();
+      const selected = Array.from(ui.squadSelection || []);
+      return !failed && saved && selected.length === 11 && manager.validateLineup(team.id, selected).valid &&
+        selected.filter(id => manager.getPlayer(team.id, id).position === 'GK').length === 1;
+    });
+
+    test('Alineación y táctica comparten una única pantalla Equipo', () => {
+      const { manager, league, team } = create();
+      team.crest = `../${team.crest}`;
+      const fixture = document.createElement('div');
+      fixture.innerHTML = '<div id="navigation"></div><main id="main-content"></main>';
+      document.body.appendChild(fixture);
+      const ui = new UIManager();
+      ui.gameApp = {
+        userTeamId: team.id, teamManager: manager, leagueEngine: league,
+        saveGame: () => {}, showScreen: () => {}
+      };
+      ui.showSquad();
+      const teamButtons = fixture.querySelectorAll('[data-screen="squad"]');
+      const sectionButtons = fixture.querySelectorAll('[data-team-anchor]');
+      fixture.querySelector('[data-team-anchor="team-roles-section"]')?.click();
+      const valid = Boolean(fixture.querySelector('#lineup-pitch')) &&
+        Boolean(fixture.querySelector('#team-tactics-section')) &&
+        sectionButtons.length === 4 && fixture.querySelector('#team-roles-section')?.open &&
+        fixture.querySelector('[data-team-anchor="team-roles-section"]')?.classList.contains('active') &&
+        teamButtons.length === 1 && teamButtons[0].textContent.trim() === 'Equipo' &&
+        !fixture.querySelector('[data-screen="tactics"]');
+      fixture.remove();
+      return valid;
+    });
+
+    test('La interfaz identifica y permite filtrar a los canteranos', () => {
+      const { manager, team } = create();
+      const reserve = team.reservePlayers[1];
+      const promotion = manager.promoteReservePlayer(team.id, reserve.id, 1);
+      const ui = new UIManager();
+      return promotion.valid && ui.isAcademyPlayer(promotion.player) &&
+        ui.renderAcademyBadge(promotion.player).includes('academy-badge') &&
+        team.reservePlayers.every(player => ui.isAcademyPlayer(player));
+    });
+
+    test('Tres clics promocionan juntos a tres canteranos', () => {
+      const { manager, league, team } = create();
+      team.crest = `../${team.crest}`;
+      const fixture = document.createElement('div');
+      fixture.innerHTML = '<div id="navigation"></div><main id="main-content"></main>';
+      document.body.appendChild(fixture);
+      const ui = new UIManager();
+      let saves = 0;
+      ui.gameApp = { userTeamId: team.id, teamManager: manager, leagueEngine: league, saveGame: () => { saves++; } };
+      const playersBefore = team.players.length;
+      const reservesBefore = team.reservePlayers.length;
+      ui.showSquad();
+      [...fixture.querySelectorAll('.btn-select-reserve')].slice(0, 3).forEach(button => button.click());
+      const valid = team.players.length === playersBefore + 3 && team.reservePlayers.length === reservesBefore - 3 &&
+        team.reservePromotions.count === 3 && ui.reservePromotionSelection.size === 0 && saves === 1 &&
+        fixture.querySelector('#academy-development-section')?.open;
+      fixture.remove();
+      return valid;
+    });
+
     test('Permite alternar y conservar los tres estilos visuales', () => {
       const ui = new UIManager();
       const original = GameStorage.getSetting('visualTheme', '90s');
