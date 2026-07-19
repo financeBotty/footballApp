@@ -214,6 +214,8 @@ class FootballSimulator {
     const opponent = this.teamManager.getTeam(
       nextMatch.homeTeam === userTeamId ? nextMatch.awayTeam : nextMatch.homeTeam
     );
+    const lineupStatus = this.teamManager.ensureValidStartingXI(userTeamId, false, nextMatch.matchday);
+    if (lineupStatus.valid && (lineupStatus.repaired || lineupStatus.promoted.length)) this.saveGame();
     const isHome = nextMatch.homeTeam === userTeamId;
     const homePreviewTeam = isHome ? team : opponent;
     const awayPreviewTeam = isHome ? opponent : team;
@@ -305,6 +307,10 @@ class FootballSimulator {
         GameStorage.setSetting('halfDuration', button.dataset.matchDuration);
       });
     });
+    if (lineupStatus.promoted?.length) {
+      const names = lineupStatus.promoted.map(player => player.name).join(', ');
+      this.ui.showSuccess(`${names} ${lineupStatus.promoted.length === 1 ? 'sube' : 'suben'} del filial y entra en la convocatoria`);
+    }
   }
 
   renderMatchBriefing(homeTeam, awayTeam) {
@@ -588,15 +594,18 @@ class FootballSimulator {
               <div class="coach-drawer-bar"><strong id="coach-drawer-title">Decisiones</strong><button type="button" id="btn-close-coach-drawer" aria-label="Cerrar panel">×</button></div>
               <div class="coach-panel" data-coach-panel="tactics">
                 ${this.renderLiveTactics(userState.tactics, userState)}
-                <button id="btn-apply-live-tactics" class="btn btn-primary">Aplicar instrucciones</button>
               </div>
               <div class="coach-panel" data-coach-panel="changes">
                 <p class="change-flow-help">Elige sobre el once quién debe salir. Te recomendaremos los mejores reemplazos.</p>
                 <div id="live-team-list" class="live-change-team">${this.renderLiveTeamList()}</div>
-                <div class="change-selector-grid">
-                  <label>Sale<select id="sub-player-out" class="form-control">${this.renderSubstitutionOptions(true)}</select></label>
-                  <label>Entra<select id="sub-player-in" class="form-control">${this.renderSubstitutionOptions(false)}</select></label>
+                <input id="sub-player-out" type="hidden" value="">
+                <input id="sub-player-in" type="hidden" value="">
+                <div class="change-selection-summary">
+                  <span>Sale<strong id="selected-player-out">Toca un titular</strong></span>
+                  <i>→</i>
+                  <span>Entra<strong id="selected-player-in">Elige un suplente</strong></span>
                 </div>
+                <div><div class="live-bench-heading"><strong>Banquillo</strong><small>Ordenado por encaje</small></div><div id="live-bench-list" class="live-bench-list">${this.renderSubstitutionCandidates()}</div></div>
                 <button id="btn-queue-substitution" class="btn btn-secondary">Preparar cambio</button>
                 <div id="queued-substitutions" class="queued-substitutions">${this.renderQueuedSubstitutions()}</div>
                 <button id="btn-make-substitution" class="btn btn-primary" disabled>Confirmar cambios</button>
@@ -618,26 +627,28 @@ class FootballSimulator {
   }
 
   renderLiveTactics(tactics, teamState = null) {
-    const select = (id, label, values, value) => `
-      <label>${label}<select id="${id}" class="form-control">
-        ${values.map(option => `<option value="${option}" ${option === value ? 'selected' : ''}>${option}</option>`).join('')}
-      </select></label>`;
+    const recommendation = this.getLiveTacticalRecommendation();
+    const planButtons = Object.values(DATA.MATCH_PLANS).map(plan => `
+      <button type="button" class="live-plan-button ${this.teamManager.getTeam(this.userTeamId).activeMatchPlan === plan.id ? 'active' : ''}" data-live-plan="${plan.id}"><span>Plan ${plan.id}</span><strong>${plan.name}</strong><small>${plan.effects.join(' · ')}</small></button>`).join('');
+    const orderButtons = DATA.QUICK_ORDERS.map(order => `
+      <button type="button" class="live-order-button ${tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}"><strong>${order.label}</strong><small>${order.description}</small></button>`).join('');
     return `
-      ${select('live-strategy', 'Estrategia', Object.keys(DATA.TACTICAL_STRATEGIES), teamState?.strategy)}
-      <small>Estrategia natural: ${teamState?.naturalStrategy || 'Equilibrada'} · Adaptación ${teamState?.tacticalFamiliarity || 100}%</small>
-      ${select('live-mentality', 'Mentalidad', ['Muy Defensiva', 'Defensiva', 'Equilibrada', 'Ofensiva', 'Muy Ofensiva'], tactics.mentality)}
-      ${select('live-pressure', 'Presión', ['Baja', 'Media', 'Alta'], tactics.pressure)}
-      ${select('live-tempo', 'Ritmo', ['Bajo', 'Medio', 'Alto'], tactics.tempo)}
-      ${select('live-width', 'Anchura', ['Estrecha', 'Equilibrada', 'Amplia'], tactics.width)}
-      ${select('live-pass-style', 'Pase', ['Corto', 'Mixto', 'Directo'], tactics.passStyle)}
-      ${select('live-defensive-line', 'Línea defensiva', ['Baja', 'Media', 'Alta'], tactics.defensiveLine)}
-      ${select('live-set-piece', 'Balón parado', ['Disparar', 'Centrar', 'Corto'], tactics.setPiecePreference || 'Centrar')}
-      ${select('live-situational', 'Instrucción', ['Normal', 'Perder tiempo', 'Buscar el empate', 'Defender resultado', 'Atacar izquierda', 'Atacar derecha', 'Presionar rival'], tactics.situationalInstruction || 'Normal')}
-      <label>Rival a presionar<select id="live-press-target" class="form-control">
-        <option value="">Automático</option>
-        ${this.liveMatchEngine.onField(teamState.side === 'home' ? 'away' : 'home').filter(player => player.position !== 'GK').map(player => `<option value="${player.id}" ${tactics.pressTargetId === player.id ? 'selected' : ''}>${player.name} · ${DATA.getPositionLabel(player.position)}</option>`).join('')}
-      </select></label>
+      <div class="live-tactical-recommendation"><span>Lectura del partido</span><p>${recommendation.reason}</p><button type="button" class="btn btn-secondary" data-live-plan="${recommendation.planId}">Aplicar Plan ${recommendation.planId}</button></div>
+      <div class="live-plan-grid">${planButtons}</div>
+      <div class="live-order-heading"><strong>Órdenes rápidas</strong><small>Un toque, efecto inmediato</small></div>
+      <div class="live-order-grid">${orderButtons}</div>
     `;
+  }
+
+  getLiveTacticalRecommendation() {
+    if (!this.liveMatchEngine) return { planId: 'A', reason: 'Empieza controlando el partido.' };
+    const state = this.liveMatchEngine.state;
+    const userSide = state.teams.home.teamId === this.userTeamId ? 'home' : 'away';
+    const rivalSide = userSide === 'home' ? 'away' : 'home';
+    const difference = state.score[userSide] - state.score[rivalSide];
+    if (difference < 0 && state.displayMinute >= 55) return { planId: 'B', reason: 'Vas por detrás y queda menos de media hora: conviene aumentar presión y ritmo.' };
+    if (difference > 0 && state.displayMinute >= 65) return { planId: 'C', reason: 'Tienes ventaja en el tramo final: protege zonas interiores y sal al espacio.' };
+    return { planId: 'A', reason: 'El partido no exige una ruptura: controla el balón y conserva estructura.' };
   }
 
   renderLiveTeamList() {
@@ -684,6 +695,26 @@ class FootballSimulator {
         return `<option value="${player.id}">${fit ? `${fit} · ` : ''}${player.name} · ${DATA.getPositionLabel(player.position)} · ${Math.round(player.fitness)}% · ${data.overall}</option>`;
       }).join('');
     return `<option value="">Seleccionar…</option>${options}`;
+  }
+
+  renderSubstitutionCandidates(suggestedForId = null) {
+    if (!this.liveMatchEngine) return '';
+    const teamState = this.liveMatchEngine.getTeamState(this.userTeamId);
+    const outgoing = suggestedForId ? this.liveMatchEngine.state.players[suggestedForId] : null;
+    const queuedIn = new Set((this.pendingSubstitutions || []).map(change => change.playerInId));
+    const candidates = teamState.bench.map(id => this.liveMatchEngine.state.players[id])
+      .filter(player => player && !player.appeared && !queuedIn.has(player.id) &&
+        (!outgoing || (player.position === 'GK') === (outgoing.position === 'GK')))
+      .sort((a, b) => outgoing ? this.getSubstitutionFitScore(b, outgoing) - this.getSubstitutionFitScore(a, outgoing) : 0);
+    if (!candidates.length) return '<p class="queue-empty">Selecciona primero quién sale.</p>';
+    return candidates.map((player, index) => {
+      const data = this.teamManager.getPlayer(this.userTeamId, player.id);
+      const fit = outgoing ? this.getSubstitutionFitLabel(player, outgoing) : 'Disponible';
+      return `<button type="button" class="bench-choice ${index === 0 && outgoing ? 'recommended' : ''}" data-substitute-in="${player.id}" aria-pressed="false">
+        <span><strong>${player.name}</strong><small>${fit} · ${DATA.getPositionLabel(player.position)}</small></span>
+        <span><strong>${data.overall}</strong><small>${Math.round(player.fitness)}%</small></span>
+      </button>`;
+    }).join('');
   }
 
   getPositionLine(position) {
@@ -773,15 +804,19 @@ class FootballSimulator {
     byId('btn-skip-first-half').addEventListener('click', () => this.skipLiveMatchTo(45));
     byId('btn-skip-full-match').addEventListener('click', () => this.skipLiveMatchTo(90));
     byId('btn-save-exit-match').addEventListener('click', () => this.saveAndExitLiveMatch());
-    byId('btn-apply-live-tactics').addEventListener('click', () => this.applyLiveTactics());
     byId('btn-queue-substitution').addEventListener('click', () => this.queueLiveSubstitution());
     byId('btn-make-substitution').addEventListener('click', () => this.applyLiveSubstitution());
-    byId('sub-player-out').addEventListener('change', () => this.updateSubstitutionRecommendations());
     byId('btn-close-coach-drawer').addEventListener('click', () => this.closeCoachDrawer());
 
     byId('coach-console').addEventListener('click', event => {
+      const livePlan = event.target.closest('[data-live-plan]');
+      if (livePlan) this.applyLiveMatchPlan(livePlan.dataset.livePlan);
+      const liveOrder = event.target.closest('[data-live-order]');
+      if (liveOrder) this.applyLiveQuickOrder(liveOrder.dataset.liveOrder);
       const playerRow = event.target.closest('.live-player-row[data-player-id]');
       if (playerRow) this.selectPlayerForSubstitution(playerRow.dataset.playerId);
+      const benchChoice = event.target.closest('[data-substitute-in]');
+      if (benchChoice) this.selectSubstitutionCandidate(benchChoice.dataset.substituteIn);
       const removeButton = event.target.closest('[data-remove-queued-sub]');
       if (removeButton) this.removeQueuedSubstitution(Number(removeButton.dataset.removeQueuedSub));
     });
@@ -843,7 +878,6 @@ class FootballSimulator {
     }
     this.activateCoachTab('changes');
     const outgoing = document.getElementById('sub-player-out');
-    outgoing.innerHTML = this.renderSubstitutionOptions(true);
     outgoing.value = playerId;
     document.querySelectorAll('.live-player-row').forEach(row => {
       const selected = row.dataset.playerId === playerId;
@@ -853,7 +887,7 @@ class FootballSimulator {
     this.updateSubstitutionRecommendations(true);
     if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) {
       window.setTimeout(() => {
-        document.querySelector('.change-selector-grid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.querySelector('.change-selection-summary')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 50);
     }
   }
@@ -862,19 +896,44 @@ class FootballSimulator {
     const outgoing = document.getElementById('sub-player-out');
     const incoming = document.getElementById('sub-player-in');
     if (!outgoing || !incoming) return;
-    incoming.innerHTML = this.renderSubstitutionOptions(false, outgoing.value || null);
-    if (selectFirst && incoming.options.length > 1) incoming.selectedIndex = 1;
+    incoming.value = '';
+    const bench = document.getElementById('live-bench-list');
+    if (bench) bench.innerHTML = this.renderSubstitutionCandidates(outgoing.value || null);
+    const firstCandidate = bench?.querySelector('[data-substitute-in]');
+    if (selectFirst && firstCandidate) this.selectSubstitutionCandidate(firstCandidate.dataset.substituteIn, false);
     document.querySelectorAll('.live-player-row').forEach(row => {
       const selected = Boolean(outgoing.value) && row.dataset.playerId === outgoing.value;
       row.classList.toggle('selected-for-change', selected);
       row.setAttribute('aria-pressed', String(selected));
     });
     const feedback = document.getElementById('substitution-feedback');
+    const outgoingName = document.getElementById('selected-player-out');
+    const incomingName = document.getElementById('selected-player-in');
+    if (outgoingName) outgoingName.textContent = outgoing.value ? this.liveMatchEngine.state.players[outgoing.value].name : 'Toca un titular';
+    if (incomingName && !incoming.value) incomingName.textContent = 'Elige un suplente';
     if (feedback && outgoing.value) {
       feedback.textContent = selectFirst && incoming.value
         ? 'Hemos seleccionado el suplente con mejor encaje. Puedes cambiarlo o añadir el cambio.'
         : 'Los suplentes están ordenados por encaje, nivel y fitness.';
       feedback.className = 'coach-feedback';
+    }
+  }
+
+  selectSubstitutionCandidate(playerId, announce = true) {
+    const incoming = document.getElementById('sub-player-in');
+    if (!incoming || !this.liveMatchEngine.state.players[playerId]) return;
+    incoming.value = playerId;
+    document.querySelectorAll('[data-substitute-in]').forEach(button => {
+      const active = button.dataset.substituteIn === playerId;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    const label = document.getElementById('selected-player-in');
+    if (label) label.textContent = this.liveMatchEngine.state.players[playerId].name;
+    if (announce) {
+      const feedback = document.getElementById('substitution-feedback');
+      feedback.textContent = 'Cambio listo para añadir.';
+      feedback.className = 'coach-feedback success';
     }
   }
 
@@ -929,8 +988,14 @@ class FootballSimulator {
         ? `Confirmar ${this.pendingSubstitutions.length} cambio${this.pendingSubstitutions.length === 1 ? '' : 's'}`
         : 'Confirmar cambios';
     }
-    if (outgoing) outgoing.innerHTML = this.renderSubstitutionOptions(true);
-    if (incoming) incoming.innerHTML = this.renderSubstitutionOptions(false);
+    if (outgoing) outgoing.value = '';
+    if (incoming) incoming.value = '';
+    const outgoingName = document.getElementById('selected-player-out');
+    const incomingName = document.getElementById('selected-player-in');
+    if (outgoingName) outgoingName.textContent = 'Toca un titular';
+    if (incomingName) incomingName.textContent = 'Elige un suplente';
+    const bench = document.getElementById('live-bench-list');
+    if (bench) bench.innerHTML = this.renderSubstitutionCandidates();
   }
 
   getLivePlaybackTiming(speed = this.matchPlaybackSpeed, logicStep = 0.05) {
@@ -1112,27 +1177,32 @@ class FootballSimulator {
     return `${state.displayMinute}'`;
   }
 
-  applyLiveTactics() {
-    const changes = {
-      strategy: document.getElementById('live-strategy').value,
-      mentality: document.getElementById('live-mentality').value,
-      pressure: document.getElementById('live-pressure').value,
-      tempo: document.getElementById('live-tempo').value,
-      width: document.getElementById('live-width').value,
-      passStyle: document.getElementById('live-pass-style').value,
-      defensiveLine: document.getElementById('live-defensive-line').value,
-      setPiecePreference: document.getElementById('live-set-piece').value,
-      situationalInstruction: document.getElementById('live-situational').value,
-      pressTargetId: document.getElementById('live-press-target').value || null
-    };
-    const result = this.liveMatchEngine.applyTactics(this.userTeamId, changes);
-    if (result.valid) {
-      this.teamManager.updateTactics(this.userTeamId, changes);
-      this.saveGame();
-      this.ui.showSuccess('Instrucciones aplicadas');
-      this.processLiveMatchEvents();
-      this.persistLiveMatch(true);
-    }
+  applyLiveMatchPlan(planId) {
+    const plan = DATA.MATCH_PLANS[planId];
+    if (!plan || !this.liveMatchEngine) return false;
+    const result = this.liveMatchEngine.applyTactics(this.userTeamId, plan.tactics);
+    if (!result.valid) return false;
+    this.teamManager.applyMatchPlan(this.userTeamId, planId);
+    this.saveGame();
+    this.persistLiveMatch(true);
+    this.ui.showSuccess(`Plan ${planId} · ${plan.name} aplicado`);
+    document.querySelectorAll('[data-live-plan]').forEach(button => button.classList.toggle('active', button.dataset.livePlan === planId));
+    document.querySelectorAll('[data-live-order]').forEach(button => button.classList.toggle('active', button.dataset.liveOrder === plan.tactics.situationalInstruction));
+    this.processLiveMatchEvents();
+    return true;
+  }
+
+  applyLiveQuickOrder(order) {
+    if (!DATA.QUICK_ORDERS.some(item => item.value === order) || !this.liveMatchEngine) return false;
+    const result = this.liveMatchEngine.applyTactics(this.userTeamId, { situationalInstruction: order });
+    if (!result.valid) return false;
+    this.teamManager.updateTactics(this.userTeamId, { situationalInstruction: order });
+    this.saveGame();
+    this.persistLiveMatch(true);
+    document.querySelectorAll('[data-live-order]').forEach(button => button.classList.toggle('active', button.dataset.liveOrder === order));
+    this.ui.showSuccess(`Orden aplicada: ${DATA.QUICK_ORDERS.find(item => item.value === order).label}`);
+    this.processLiveMatchEvents();
+    return true;
   }
 
   applyLiveSubstitution() {
@@ -1270,7 +1340,11 @@ class FootballSimulator {
       .map(item => {
         const home = this.teamManager.getTeam(item.homeTeam);
         const away = this.teamManager.getTeam(item.awayTeam);
-        return `<li><span>${home.shortName} - ${away.shortName}</span><strong>${item.homeGoals} - ${item.awayGoals}</strong></li>`;
+        return `<li class="matchday-result-row">
+          <span class="matchday-result-team home"><small>Local</small><strong>${home.name}</strong></span>
+          <strong class="matchday-result-score">${item.homeGoals} – ${item.awayGoals}</strong>
+          <span class="matchday-result-team away"><small>Visitante</small><strong>${away.name}</strong></span>
+        </li>`;
       }).join('');
 
     const seasonEndHtml = summary.complete ? `
@@ -1283,6 +1357,7 @@ class FootballSimulator {
       <section class="post-match-card">
         <h3>Estadísticas del partido</h3>
         <div class="post-match-stats">
+          <div class="post-match-stats-heading"><strong>${homeTeam.shortName}<small>Local</small></strong><span>Comparativa</span><strong>${awayTeam.shortName}<small>Visitante</small></strong></div>
           <div><strong>${homePossession}%</strong><span>Posesión</span><strong>${awayPossession}%</strong></div>
           ${[
             ['Tiros', 'shots'], ['A puerta', 'shotsOnTarget'], ['Pases', 'passes'],
@@ -1294,24 +1369,32 @@ class FootballSimulator {
         </div>
       </section>
     ` : '';
+    const renderPlayerRatings = (side, team) => reportPlayers
+      .filter(player => player.side === side)
+      .sort((a, b) => b.rating - a.rating)
+      .map(player => `
+        <div class="post-match-player ${player.side}">
+          <span><strong>${player.name}</strong><small>${DATA.getPositionLabel(player.position)} · ${player.fitness}%</small></span>
+          <span>${player.goals ? `⚽ ${player.goals}` : ''}${player.yellowCards ? ' 🟨' : ''}${player.redCards ? ' 🟥' : ''}${player.injured ? ' ✚' : ''}</span>
+          <strong>${player.rating}</strong>
+        </div>`).join('');
+    const mvpTeam = mvp ? (mvp.side === 'home' ? homeTeam : awayTeam) : null;
     const playersHtml = reportPlayers.length ? `
       <section class="post-match-card">
-        <h3>Valoraciones ${mvp ? `· MVP ${mvp.name} (${mvp.rating})` : ''}</h3>
-        <div class="post-match-player-grid">
-          ${reportPlayers.sort((a, b) => b.rating - a.rating).map(player => `
-            <div class="post-match-player ${player.side}">
-              <span><strong>${player.name}</strong><small>${DATA.getPositionLabel(player.position)} · ${player.fitness}%</small></span>
-              <span>${player.goals ? `⚽ ${player.goals}` : ''}${player.yellowCards ? ' 🟨' : ''}${player.redCards ? ' 🟥' : ''}${player.injured ? ' ✚' : ''}</span>
-              <strong>${player.rating}</strong>
-            </div>
-          `).join('')}
+        <h3>Valoraciones ${mvp ? `· MVP ${mvp.name} · ${mvpTeam.shortName} (${mvp.rating})` : ''}</h3>
+        <div class="post-match-rating-columns">
+          <div class="post-match-team-ratings"><header>${this.ui.renderTeamCrest(homeTeam, 'rating-team-crest')}<span><small>Local</small><strong>${homeTeam.name}</strong></span></header>${renderPlayerRatings('home', homeTeam)}</div>
+          <div class="post-match-team-ratings"><header>${this.ui.renderTeamCrest(awayTeam, 'rating-team-crest')}<span><small>Visitante</small><strong>${awayTeam.name}</strong></span></header>${renderPlayerRatings('away', awayTeam)}</div>
         </div>
       </section>
     ` : '';
     const timelineHtml = keyEvents.length ? `
       <section class="post-match-card">
         <h3>Cronología destacada</h3>
-        <ol class="post-match-timeline">${keyEvents.map(event => `<li class="${event.side || ''}">${event.narration}</li>`).join('')}</ol>
+        <ol class="post-match-timeline">${keyEvents.map(event => {
+          const eventTeam = event.side === 'home' ? homeTeam : event.side === 'away' ? awayTeam : null;
+          return `<li class="${event.side || ''}">${eventTeam ? `<strong>${eventTeam.shortName}</strong>` : ''}<span>${event.narration}</span></li>`;
+        }).join('')}</ol>
       </section>
     ` : '';
 
@@ -1323,14 +1406,18 @@ class FootballSimulator {
         <div class="result-display">
           <div class="result-teams">
             <div class="team-result">
+              <span class="result-team-side">Local</span>
               ${this.ui.renderTeamCrest(homeTeam, 'result-club-crest')}
               <h3>${homeTeam.name}</h3>
+              <small>${homeTeam.shortName}</small>
               <p class="final-score">${homeGoals}</p>
             </div>
-            <div class="result-status ${result.toLowerCase()}">${result}</div>
+            <div class="result-status ${result.toLowerCase()}">${result}<small>para ${homeTeam.id === userTeamId ? homeTeam.shortName : awayTeam.shortName}</small></div>
             <div class="team-result">
+              <span class="result-team-side">Visitante</span>
               ${this.ui.renderTeamCrest(awayTeam, 'result-club-crest')}
               <h3>${awayTeam.name}</h3>
+              <small>${awayTeam.shortName}</small>
               <p class="final-score">${awayGoals}</p>
             </div>
           </div>
@@ -1364,6 +1451,7 @@ class FootballSimulator {
         this.showScreen('dashboard');
       });
     }
+    this.resetScreenViewport();
   }
 
   // Mostrar estadísticas

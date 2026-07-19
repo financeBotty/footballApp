@@ -266,6 +266,37 @@ const DEFAULT_TACTICS = {
   pressTargetId: null
 };
 
+const MATCH_PLANS = {
+  A: {
+    id: 'A', name: 'Controlar', symbol: '●',
+    description: 'Tener el balón y reducir el caos.',
+    effects: ['+ posesión', '+ estabilidad', 'riesgo medio'],
+    tactics: { mentality: 'Equilibrada', pressure: 'Media', tempo: 'Medio', width: 'Amplia', passStyle: 'Corto', defensiveLine: 'Media', situationalInstruction: 'Normal' }
+  },
+  B: {
+    id: 'B', name: 'Buscar el gol', symbol: '▲',
+    description: 'Acelerar, presionar arriba y asumir riesgos.',
+    effects: ['+ ocasiones', '+ presión', '- energía'],
+    tactics: { mentality: 'Ofensiva', pressure: 'Alta', tempo: 'Alto', width: 'Amplia', passStyle: 'Mixto', defensiveLine: 'Alta', situationalInstruction: 'Buscar el empate' }
+  },
+  C: {
+    id: 'C', name: 'Proteger', symbol: '■',
+    description: 'Cerrar espacios y salir al contraataque.',
+    effects: ['+ seguridad', '+ contraataque', '- posesión'],
+    tactics: { mentality: 'Defensiva', pressure: 'Baja', tempo: 'Bajo', width: 'Estrecha', passStyle: 'Directo', defensiveLine: 'Baja', situationalInstruction: 'Defender resultado' }
+  }
+};
+
+const QUICK_ORDERS = [
+  { value: 'Normal', label: 'Volver al plan', description: 'Cancelar la orden temporal.' },
+  { value: 'Buscar el empate', label: 'Buscar el gol', description: 'Más ritmo y llegadas.' },
+  { value: 'Perder tiempo', label: 'Bajar el ritmo', description: 'Dormir el partido.' },
+  { value: 'Presionar rival', label: 'Presionar salida', description: 'Ahogar al poseedor.' },
+  { value: 'Atacar izquierda', label: 'Atacar izquierda', description: 'Volcar el juego a esa banda.' },
+  { value: 'Atacar derecha', label: 'Atacar derecha', description: 'Volcar el juego a esa banda.' },
+  { value: 'Defender resultado', label: 'Cerrar el partido', description: 'Priorizar la protección.' }
+];
+
 // Identidades tácticas. Cada plantilla recibe de inicio la que mejor encaja
 // con sus atributos; el entrenador puede cambiarla, con un coste de adaptación.
 const TACTICAL_STRATEGIES = {
@@ -455,6 +486,8 @@ const POSITIONS_BY_LINE = {
 const DATA = {
   FORMATIONS,
   DEFAULT_TACTICS,
+  MATCH_PLANS,
+  QUICK_ORDERS,
   TACTICAL_STRATEGIES,
   TEAM_KITS,
   PHILOSOPHICAL_IDENTITIES,

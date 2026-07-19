@@ -356,6 +356,9 @@ class UIManager {
   // Mostrar pantalla de plantilla mejorada (Fase 2)
   showSquad() {
     const userTeamId = this.gameApp.userTeamId;
+    const currentMatchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
+    const lineupStatus = this.gameApp.teamManager.ensureValidStartingXI(userTeamId, false, currentMatchday);
+    if (lineupStatus.valid && (lineupStatus.repaired || lineupStatus.promoted.length)) this.gameApp.saveGame();
     const team = this.gameApp.teamManager.getTeam(userTeamId);
     const players = team.players;
     const formation = team.formation;
@@ -443,6 +446,10 @@ class UIManager {
     this.currentScreen = 'squad';
     this.attachSquadListenersV2();
     this.updateLineupWorkspace();
+    if (lineupStatus.promoted?.length) {
+      const names = lineupStatus.promoted.map(player => player.name).join(', ');
+      this.showSuccess(`${names} ${lineupStatus.promoted.length === 1 ? 'sube' : 'suben'} del filial para completar el once`);
+    }
   }
 
   // Mostrar pantalla de tácticas
@@ -451,25 +458,67 @@ class UIManager {
     const team = this.gameApp.teamManager.getTeam(userTeamId);
     const tactics = team.tactics;
     const strategies = Object.keys(DATA.TACTICAL_STRATEGIES);
-    const formationOptions = Object.keys(DATA.FORMATIONS)
-      .map(formation => `<option value="${formation}" ${formation === team.formation ? 'selected' : ''}>${formation} · ${DATA.FORMATIONS[formation].description}</option>`)
-      .join('');
+    const formationButtons = Object.keys(DATA.FORMATIONS).map(formation => `
+      <button type="button" class="visual-choice formation-choice ${formation === team.formation ? 'active' : ''}" data-tactics-formation="${formation}" aria-pressed="${formation === team.formation}">
+        <strong>${formation}</strong><small>${DATA.FORMATIONS[formation].description}</small>
+      </button>`).join('');
+    const strategyButtons = strategies.map(strategy => `
+      <button type="button" class="visual-choice strategy-choice ${team.strategy === strategy ? 'active' : ''}" data-tactics-strategy="${strategy}" aria-pressed="${team.strategy === strategy}">
+        <strong>${strategy}${strategy === team.naturalStrategy ? ' · Natural' : ''}</strong><small>${strategy === team.naturalStrategy ? 'Adaptación máxima' : 'Requiere adaptación'}</small>
+      </button>`).join('');
     const trainingPlan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
     const medicalReport = this.gameApp.teamManager.getMedicalReport(userTeamId);
     const currentMatchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
     const promotionCount = team.reservePromotions.matchday === currentMatchday ? team.reservePromotions.count : 0;
+    const nextMatch = this.gameApp.leagueEngine.getNextUserMatch(userTeamId);
+    const opponentId = nextMatch ? (nextMatch.homeTeam === userTeamId ? nextMatch.awayTeam : nextMatch.homeTeam) : null;
+    const recommendation = this.gameApp.teamManager.getTacticalRecommendation(userTeamId, opponentId);
+    const planButtons = Object.values(DATA.MATCH_PLANS).map(plan => `
+      <button type="button" class="match-plan-card ${team.activeMatchPlan === plan.id ? 'active' : ''}" data-tactical-plan="${plan.id}" aria-pressed="${team.activeMatchPlan === plan.id}">
+        <span class="plan-code">Plan ${plan.id}</span><strong><i>${plan.symbol}</i>${plan.name}</strong><small>${plan.description}</small>
+        <span class="plan-effects">${plan.effects.map(effect => `<em>${effect}</em>`).join('')}</span>
+      </button>`).join('');
+    const decisionGroups = [
+      { label: 'Actitud', help: 'Cuánto riesgo asumir', options: [
+        ['Defender', { mentality: 'Defensiva' }, '+ seguridad · - presencia arriba'],
+        ['Equilibrar', { mentality: 'Equilibrada' }, 'riesgo y apoyo equilibrados'],
+        ['Atacar', { mentality: 'Ofensiva' }, '+ llegadas · + espacios atrás']
+      ] },
+      { label: 'Presión', help: 'Dónde recuperar el balón', options: [
+        ['Esperar', { pressure: 'Baja' }, '+ orden · - recuperación alta'],
+        ['Presionar', { pressure: 'Media' }, 'esfuerzo controlado'],
+        ['Asfixiar', { pressure: 'Alta' }, '+ robos · - energía']
+      ] },
+      { label: 'Construcción', help: 'Cómo avanzar', options: [
+        ['Posesión', { passStyle: 'Corto', tempo: 'Medio' }, '+ control · avance paciente'],
+        ['Mixta', { passStyle: 'Mixto', tempo: 'Medio' }, 'variedad y equilibrio'],
+        ['Directa', { passStyle: 'Directo', tempo: 'Alto' }, '+ verticalidad · - precisión']
+      ] },
+      { label: 'Anchura', help: 'Dónde ocupar el campo', options: [
+        ['Cerrar centro', { width: 'Estrecha' }, '+ densidad interior'],
+        ['Equilibrada', { width: 'Equilibrada' }, 'ocupación compensada'],
+        ['Abrir campo', { width: 'Amplia' }, '+ espacio por bandas']
+      ] }
+    ];
+    const decisionHtml = decisionGroups.map(group => `
+      <div class="tactical-decision-group"><div><strong>${group.label}</strong><small>${group.help}</small></div>
+        <div class="decision-options">${group.options.map(([label, values, effect]) => {
+          const active = Object.entries(values).every(([key, value]) => tactics[key] === value);
+          return `<button type="button" class="decision-option ${active ? 'active' : ''}" data-tactical-values="${encodeURIComponent(JSON.stringify(values))}" aria-pressed="${active}"><strong>${label}</strong><small>${effect}</small></button>`;
+        }).join('')}</div>
+      </div>`).join('');
+    const quickOrders = DATA.QUICK_ORDERS.map(order => `
+      <button type="button" class="quick-order ${tactics.situationalInstruction === order.value ? 'active' : ''}" data-quick-order="${order.value}" aria-pressed="${tactics.situationalInstruction === order.value}"><strong>${order.label}</strong><small>${order.description}</small></button>`).join('');
     const roleRows = team.players.map(player => {
       const roles = this.gameApp.teamManager.getAvailableRoles(player.position)
         .map(role => ({ role, suitability: this.gameApp.teamManager.getRoleSuitability(player, role) }))
         .sort((a, b) => b.suitability - a.suitability);
       const currentSuitability = this.gameApp.teamManager.getRoleSuitability(player, player.role);
       return `
-        <label class="role-card"><span>${player.name} · ${DATA.getPositionLabel(player.position)}</span>
-          <select class="form-control player-role-select" data-player-id="${player.id}">
-            ${roles.map(item => `<option value="${item.role}" data-suitability="${item.suitability}" ${player.role === item.role ? 'selected' : ''}>${item.role} · ${item.suitability}%</option>`).join('')}
-          </select>
+        <div class="role-card"><span>${player.name} · ${DATA.getPositionLabel(player.position)}</span>
+          <div class="role-choice-grid">${roles.map(item => `<button type="button" class="role-choice ${player.role === item.role ? 'active' : ''}" data-player-role="${item.role}" data-player-id="${player.id}" data-suitability="${item.suitability}" aria-pressed="${player.role === item.role}"><strong>${item.role}</strong><small>${item.suitability}%</small></button>`).join('')}</div>
           <small class="role-suitability" data-role-suitability="${player.id}">${this.roleSuitabilityLabel(currentSuitability)} · ${currentSuitability}%</small>
-        </label>`;
+        </div>`;
     }).join('');
 
     const navBar = document.getElementById('navigation');
@@ -496,85 +545,32 @@ class UIManager {
 
         <section class="tactical-identity-card">
           <div><span class="eyebrow">Estructura</span><h3>Formación e identidad</h3></div>
-          <div class="tactical-identity-grid">
-            <label>Formación
-              <select id="tactics-formation" class="form-control">${formationOptions}</select>
-              <small id="formation-description">${DATA.FORMATIONS[team.formation].description}</small>
-            </label>
-            <label>Estrategia activa
-              <select id="tactics-strategy" class="form-control">
-                ${strategies.map(strategy => `<option value="${strategy}" ${team.strategy === strategy ? 'selected' : ''}>${strategy}${strategy === team.naturalStrategy ? ' · natural' : ''}</option>`).join('')}
-              </select>
-              <small>Adaptación ${team.tacticalFamiliarity || 100}% · identidad natural: ${team.naturalStrategy}</small>
-            </label>
+          <div class="visual-tactics-block">
+            <div class="visual-choice-heading"><strong>Formación</strong><small id="formation-description">${DATA.FORMATIONS[team.formation].description}</small></div>
+            <div class="formation-choice-grid">${formationButtons}</div>
+          </div>
+          <div class="visual-tactics-block">
+            <div class="visual-choice-heading"><strong>Identidad</strong><small id="strategy-familiarity">Adaptación ${team.tacticalFamiliarity || 100}% · natural: ${team.naturalStrategy}</small></div>
+            <div class="strategy-choice-grid">${strategyButtons}</div>
           </div>
           <p>La plantilla parte con este estilo. Puedes cambiarlo, pero una estrategia menos adecuada reduce la adaptación del equipo.</p>
         </section>
 
-        <div class="tactics-section-heading"><span class="eyebrow">Instrucciones colectivas</span><h3>Comportamiento del equipo</h3></div>
-        <div class="tactics-grid tactics-options-menu" role="group" aria-label="Instrucciones colectivas">
-          <div class="tactic-option">
-            <label for="tactics-mentality">Mentalidad</label>
-            <select id="tactics-mentality" class="form-control">
-              <option value="Muy Defensiva" ${tactics.mentality === 'Muy Defensiva' ? 'selected' : ''}>Muy Defensiva</option>
-              <option value="Defensiva" ${tactics.mentality === 'Defensiva' ? 'selected' : ''}>Defensiva</option>
-              <option value="Equilibrada" ${tactics.mentality === 'Equilibrada' ? 'selected' : ''}>Equilibrada</option>
-              <option value="Ofensiva" ${tactics.mentality === 'Ofensiva' ? 'selected' : ''}>Ofensiva</option>
-              <option value="Muy Ofensiva" ${tactics.mentality === 'Muy Ofensiva' ? 'selected' : ''}>Muy Ofensiva</option>
-            </select>
-          </div>
+        <section class="match-plan-center">
+          <div class="section-heading"><div><span class="eyebrow">Una decisión, todo el equipo</span><h3>Planes de partido</h3></div><small>Se aplican al instante</small></div>
+          <div class="match-plan-grid">${planButtons}</div>
+          <aside class="tactical-recommendation"><span>Ayudante táctico</span><p>${recommendation.reason}</p><button type="button" class="btn btn-secondary" data-recommended-plan="${recommendation.planId}">Aplicar Plan ${recommendation.planId}</button></aside>
+        </section>
 
-          <div class="tactic-option">
-            <label for="tactics-pressure">Presión</label>
-            <select id="tactics-pressure" class="form-control">
-              <option value="Baja" ${tactics.pressure === 'Baja' ? 'selected' : ''}>Baja</option>
-              <option value="Media" ${tactics.pressure === 'Media' ? 'selected' : ''}>Media</option>
-              <option value="Alta" ${tactics.pressure === 'Alta' ? 'selected' : ''}>Alta</option>
-            </select>
-          </div>
+        <section class="tactical-decision-center">
+          <div class="section-heading"><div><span class="eyebrow">Ajuste directo</span><h3>Cuatro decisiones</h3></div><small>Sin menús desplegables</small></div>
+          <div class="tactical-decisions">${decisionHtml}</div>
+        </section>
 
-          <div class="tactic-option">
-            <label for="tactics-tempo">Ritmo</label>
-            <select id="tactics-tempo" class="form-control">
-              <option value="Bajo" ${tactics.tempo === 'Bajo' ? 'selected' : ''}>Bajo</option>
-              <option value="Medio" ${tactics.tempo === 'Medio' ? 'selected' : ''}>Medio</option>
-              <option value="Alto" ${tactics.tempo === 'Alto' ? 'selected' : ''}>Alto</option>
-            </select>
-          </div>
-
-          <div class="tactic-option">
-            <label for="tactics-width">Anchura</label>
-            <select id="tactics-width" class="form-control">
-              <option value="Estrecha" ${tactics.width === 'Estrecha' ? 'selected' : ''}>Estrecha</option>
-              <option value="Equilibrada" ${tactics.width === 'Equilibrada' ? 'selected' : ''}>Equilibrada</option>
-              <option value="Amplia" ${tactics.width === 'Amplia' ? 'selected' : ''}>Amplia</option>
-            </select>
-          </div>
-
-          <div class="tactic-option">
-            <label for="tactics-passStyle">Estilo de Pase</label>
-            <select id="tactics-passStyle" class="form-control">
-              <option value="Corto" ${tactics.passStyle === 'Corto' ? 'selected' : ''}>Corto</option>
-              <option value="Mixto" ${tactics.passStyle === 'Mixto' ? 'selected' : ''}>Mixto</option>
-              <option value="Directo" ${tactics.passStyle === 'Directo' ? 'selected' : ''}>Directo</option>
-            </select>
-          </div>
-
-          <div class="tactic-option">
-            <label for="tactics-defensiveLine">Línea Defensiva</label>
-            <select id="tactics-defensiveLine" class="form-control">
-              <option value="Baja" ${tactics.defensiveLine === 'Baja' ? 'selected' : ''}>Baja</option>
-              <option value="Media" ${tactics.defensiveLine === 'Media' ? 'selected' : ''}>Media</option>
-              <option value="Alta" ${tactics.defensiveLine === 'Alta' ? 'selected' : ''}>Alta</option>
-            </select>
-          </div>
-          <div class="tactic-option">
-            <label for="tactics-situational">Instrucción situacional</label>
-            <select id="tactics-situational" class="form-control">
-              ${['Normal', 'Perder tiempo', 'Buscar el empate', 'Defender resultado', 'Atacar izquierda', 'Atacar derecha', 'Presionar rival'].map(value => `<option value="${value}" ${tactics.situationalInstruction === value ? 'selected' : ''}>${value}</option>`).join('')}
-            </select>
-          </div>
-        </div>
+        <section class="quick-order-center">
+          <div class="section-heading"><div><span class="eyebrow">Orden para el próximo partido</span><h3>Consigna rápida</h3></div></div>
+          <div class="quick-order-grid">${quickOrders}</div>
+        </section>
 
         <details class="tactics-detail-section">
           <summary><span><span class="eyebrow">Jugadores</span><strong>Roles individuales</strong></span><span>${team.players.length} jugadores</span></summary>
@@ -587,13 +583,12 @@ class UIManager {
             <div>
               <h3>Plan semanal</h3>
               <div class="training-controls">
-                <label>Enfoque<select id="training-focus" class="form-control">${[
+                <div><strong>Enfoque</strong><div class="training-choice-grid">${[
                   ['recovery', 'Recuperación'], ['balanced', 'Equilibrado'], ['physical', 'Físico'],
                   ['tactical', 'Táctico'], ['technical', 'Técnico']
-                ].map(([value, label]) => `<option value="${value}" ${trainingPlan.focus === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
-                <label>Intensidad<select id="training-intensity" class="form-control">${[['low', 'Baja'], ['medium', 'Media'], ['high', 'Alta']]
-                  .map(([value, label]) => `<option value="${value}" ${trainingPlan.intensity === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
-                <button id="btn-save-training" class="btn btn-secondary">Guardar plan</button>
+                ].map(([value, label]) => `<button type="button" class="training-choice ${trainingPlan.focus === value ? 'active' : ''}" data-training-focus="${value}" aria-pressed="${trainingPlan.focus === value}">${label}</button>`).join('')}</div></div>
+                <div><strong>Intensidad</strong><div class="training-choice-grid compact">${[['low', 'Baja'], ['medium', 'Media'], ['high', 'Alta']]
+                  .map(([value, label]) => `<button type="button" class="training-choice ${trainingPlan.intensity === value ? 'active' : ''}" data-training-intensity="${value}" aria-pressed="${trainingPlan.intensity === value}">${label}</button>`).join('')}</div></div>
               </div>
               <p class="training-help">Se aplica al completar cada jornada. Una intensidad alta mejora más, pero aumenta fatiga y riesgo.</p>
             </div>
@@ -610,7 +605,7 @@ class UIManager {
           </div>
         </details>
 
-        <div class="tactics-save-bar"><span>Los cambios se aplicarán al próximo partido.</span><div class="tactics-save-actions"><button id="btn-best-xi-tactics" class="btn btn-secondary">Aplicar mejor XI</button><button id="btn-save-tactics" class="btn btn-primary">Guardar tácticas</button></div></div>
+        <div class="tactics-save-bar"><span>Todos los cambios se aplican al instante.</span><div class="tactics-save-actions"><button id="btn-best-xi-tactics" class="btn btn-primary">Aplicar mejor XI</button></div></div>
       </div>
     `;
 
@@ -619,11 +614,11 @@ class UIManager {
   }
 
   attachTacticsManagementListeners() {
-    const formation = document.getElementById('tactics-formation');
-    if (formation) formation.addEventListener('change', () => {
+    document.querySelectorAll('[data-tactics-formation]').forEach(button => button.addEventListener('click', () => {
       const team = this.gameApp.teamManager.getTeam(this.gameApp.userTeamId);
       const previousFormation = team.formation;
-      if (!this.gameApp.teamManager.setFormation(this.gameApp.userTeamId, formation.value)) {
+      const selectedFormation = button.dataset.tacticsFormation;
+      if (!this.gameApp.teamManager.setFormation(this.gameApp.userTeamId, selectedFormation)) {
         this.showError('La formación seleccionada no es válida.');
         return;
       }
@@ -631,15 +626,34 @@ class UIManager {
       if (!lineup.valid) {
         this.gameApp.teamManager.setFormation(this.gameApp.userTeamId, previousFormation);
         this.gameApp.teamManager.ensureValidStartingXI(this.gameApp.userTeamId, true);
-        formation.value = previousFormation;
         this.showError(lineup.error);
         return;
       }
       const description = document.getElementById('formation-description');
-      if (description) description.textContent = DATA.FORMATIONS[formation.value].description;
+      if (description) description.textContent = DATA.FORMATIONS[selectedFormation].description;
+      document.querySelectorAll('[data-tactics-formation]').forEach(item => {
+        const active = item === button;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
       this.gameApp.saveGame();
-      this.showSuccess(`Formación ${formation.value} y mejor XI aplicados`);
-    });
+      this.showSuccess(`Formación ${selectedFormation} y mejor XI aplicados`);
+    }));
+
+    document.querySelectorAll('[data-tactics-strategy]').forEach(button => button.addEventListener('click', () => {
+      const strategy = button.dataset.tacticsStrategy;
+      if (!this.gameApp.teamManager.applyStrategy(this.gameApp.userTeamId, strategy)) return;
+      const team = this.gameApp.teamManager.getTeam(this.gameApp.userTeamId);
+      document.querySelectorAll('[data-tactics-strategy]').forEach(item => {
+        const active = item === button;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
+      const familiarity = document.getElementById('strategy-familiarity');
+      if (familiarity) familiarity.textContent = `Adaptación ${team.tacticalFamiliarity}% · natural: ${team.naturalStrategy}`;
+      this.gameApp.saveGame();
+      this.showSuccess(`Identidad ${strategy} aplicada`);
+    }));
 
     document.getElementById('btn-best-xi-tactics')?.addEventListener('click', () => {
       const lineup = this.gameApp.teamManager.ensureValidStartingXI(this.gameApp.userTeamId, true);
@@ -648,13 +662,50 @@ class UIManager {
       this.showSuccess('Mejor XI aplicado para el próximo partido');
     });
 
-    document.getElementById('btn-save-training')?.addEventListener('click', () => {
-      const focus = document.getElementById('training-focus').value;
-      const intensity = document.getElementById('training-intensity').value;
+    document.querySelectorAll('[data-tactical-plan]').forEach(button => {
+      button.addEventListener('click', () => this.applyTacticalQuickPreset(
+        DATA.MATCH_PLANS[button.dataset.tacticalPlan].tactics,
+        `Plan ${button.dataset.tacticalPlan} · ${DATA.MATCH_PLANS[button.dataset.tacticalPlan].name}`,
+        button.dataset.tacticalPlan
+      ));
+    });
+    document.querySelector('[data-recommended-plan]')?.addEventListener('click', event => {
+      const planId = event.currentTarget.dataset.recommendedPlan;
+      this.applyTacticalQuickPreset(DATA.MATCH_PLANS[planId].tactics, `Recomendación aplicada: Plan ${planId}`, planId);
+    });
+    document.querySelectorAll('[data-tactical-values]').forEach(button => {
+      button.addEventListener('click', () => this.applyTacticalQuickPreset(
+        JSON.parse(decodeURIComponent(button.dataset.tacticalValues)),
+        'Ajuste táctico aplicado'
+      ));
+    });
+    document.querySelectorAll('[data-quick-order]').forEach(button => {
+      button.addEventListener('click', () => this.applyTacticalQuickPreset(
+        { situationalInstruction: button.dataset.quickOrder },
+        `Orden aplicada: ${button.querySelector('strong').textContent}`,
+        null,
+        true
+      ));
+    });
+
+    const saveTrainingChoice = () => {
+      const focus = document.querySelector('[data-training-focus].active')?.dataset.trainingFocus;
+      const intensity = document.querySelector('[data-training-intensity].active')?.dataset.trainingIntensity;
       if (this.gameApp.teamManager.setTrainingPlan(this.gameApp.userTeamId, focus, intensity)) {
         this.gameApp.saveGame();
-        this.showSuccess('Plan semanal guardado');
+        this.showSuccess('Plan semanal actualizado');
       }
+    };
+    document.querySelectorAll('[data-training-focus], [data-training-intensity]').forEach(button => {
+      button.addEventListener('click', () => {
+        const selector = button.hasAttribute('data-training-focus') ? '[data-training-focus]' : '[data-training-intensity]';
+        document.querySelectorAll(selector).forEach(item => {
+          const active = item === button;
+          item.classList.toggle('active', active);
+          item.setAttribute('aria-pressed', String(active));
+        });
+        saveTrainingChoice();
+      });
     });
 
     document.querySelectorAll('.btn-promote-reserve').forEach(button => {
@@ -668,9 +719,53 @@ class UIManager {
       });
     });
 
-    document.querySelectorAll('.player-role-select').forEach(select => {
-      select.addEventListener('change', () => this.updateRoleSuitability(select));
-      this.updateRoleSuitability(select);
+    document.querySelectorAll('[data-player-role]').forEach(button => button.addEventListener('click', () => {
+      const playerId = button.dataset.playerId;
+      if (!this.gameApp.teamManager.setPlayerRole(this.gameApp.userTeamId, playerId, button.dataset.playerRole)) return;
+      document.querySelectorAll(`[data-player-role][data-player-id="${playerId}"]`).forEach(item => {
+        const active = item === button;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
+      const score = Number(button.dataset.suitability) || 0;
+      const output = document.querySelector(`[data-role-suitability="${playerId}"]`);
+      if (output) output.textContent = `${this.roleSuitabilityLabel(score)} · ${score}%`;
+      this.gameApp.saveGame();
+    }));
+  }
+
+  applyTacticalQuickPreset(values, message, planId = null, keepPlan = false) {
+    if (!this.gameApp) return;
+    const teamId = this.gameApp.userTeamId;
+    const team = this.gameApp.teamManager.getTeam(teamId);
+    if (planId) this.gameApp.teamManager.applyMatchPlan(teamId, planId);
+    else {
+      this.gameApp.teamManager.updateTactics(teamId, values);
+      if (!keepPlan) team.activeMatchPlan = 'CUSTOM';
+    }
+    this.gameApp.saveGame();
+    this.refreshTacticalQuickControls();
+    this.showSuccess(message);
+  }
+
+  refreshTacticalQuickControls() {
+    if (!this.gameApp) return;
+    const team = this.gameApp.teamManager.getTeam(this.gameApp.userTeamId);
+    document.querySelectorAll('[data-tactical-plan]').forEach(button => {
+      const active = team.activeMatchPlan === button.dataset.tacticalPlan;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    document.querySelectorAll('[data-tactical-values]').forEach(button => {
+      const values = JSON.parse(decodeURIComponent(button.dataset.tacticalValues));
+      const active = Object.entries(values).every(([key, value]) => team.tactics[key] === value);
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    document.querySelectorAll('[data-quick-order]').forEach(button => {
+      const active = team.tactics.situationalInstruction === button.dataset.quickOrder;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
     });
   }
 
@@ -879,9 +974,10 @@ class UIManager {
           </div>
           <div class="backup-import">
             <input id="backup-file" class="form-control" type="file" accept="application/json,.json">
-            <select id="backup-target-slot" class="form-control" aria-label="Ranura de destino">
-              ${[1, 2, 3].map(slot => `<option value="${slot}" ${GameStorage.getActiveSlot() === slot ? 'selected' : ''}>Partida ${slot}</option>`).join('')}
-            </select>
+            <input id="backup-target-slot" type="hidden" value="${GameStorage.getActiveSlot() || 1}">
+            <div class="settings-choice-row" aria-label="Ranura de destino">
+              ${[1, 2, 3].map(slot => `<button type="button" class="settings-choice ${GameStorage.getActiveSlot() === slot ? 'active' : ''}" data-backup-slot="${slot}" aria-pressed="${GameStorage.getActiveSlot() === slot}">Partida ${slot}</button>`).join('')}
+            </div>
             <button id="btn-import-backup" class="btn btn-primary">Importar backup</button>
           </div>
           <p class="settings-help">Un backup completo restaura sus ranuras originales. Una partida individual se importa en la ranura seleccionada.</p>
@@ -895,10 +991,10 @@ class UIManager {
 
         <div class="settings-section">
           <h3>Partidos</h3>
-          <label for="settings-half-duration">Duración predeterminada por parte</label>
-          <select id="settings-half-duration" class="form-control">
-            ${[1, 3, 5, 10].map(value => `<option value="${value}" ${Number(GameStorage.getSetting('halfDuration', 3)) === value ? 'selected' : ''}>${value} minutos</option>`).join('')}
-          </select>
+          <span>Duración predeterminada por parte</span>
+          <div class="settings-choice-row" aria-label="Duración predeterminada por parte">
+            ${[1, 3, 5, 10].map(value => `<button type="button" class="settings-choice ${Number(GameStorage.getSetting('halfDuration', 3)) === value ? 'active' : ''}" data-settings-duration="${value}" aria-pressed="${Number(GameStorage.getSetting('halfDuration', 3)) === value}">${value} min</button>`).join('')}
+          </div>
         </div>
       </div>
     `;
@@ -963,11 +1059,6 @@ class UIManager {
         }
       }
 
-      // Guardar tácticas
-      if (e.target.id === 'btn-save-tactics') {
-        this.saveTactics();
-      }
-
       // Jugar partido
       if (e.target.id === 'btn-play-match') {
         if (this.gameApp) {
@@ -1010,6 +1101,27 @@ class UIManager {
         }
       }
 
+      const backupSlot = e.target.closest('[data-backup-slot]');
+      if (backupSlot && this.currentScreen === 'settings') {
+        document.getElementById('backup-target-slot').value = backupSlot.dataset.backupSlot;
+        document.querySelectorAll('[data-backup-slot]').forEach(button => {
+          const active = button === backupSlot;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-pressed', String(active));
+        });
+      }
+
+      const duration = e.target.closest('[data-settings-duration]');
+      if (duration && this.currentScreen === 'settings') {
+        GameStorage.setSetting('halfDuration', duration.dataset.settingsDuration);
+        document.querySelectorAll('[data-settings-duration]').forEach(button => {
+          const active = button === duration;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-pressed', String(active));
+        });
+        this.showSuccess('Duración predeterminada guardada');
+      }
+
     });
 
     document.addEventListener('change', (e) => {
@@ -1017,10 +1129,6 @@ class UIManager {
         const labels = { classic: 'Classic', '90s': '90s', snes: 'SNES' };
         const selected = this.applyVisualTheme(e.target.value);
         this.showSuccess(`Estilo ${labels[selected]} aplicado`);
-      }
-      if (e.target.id === 'settings-half-duration') {
-        GameStorage.setSetting('halfDuration', e.target.value);
-        this.showSuccess('Duración predeterminada guardada');
       }
     });
 
@@ -1151,9 +1259,10 @@ class UIManager {
       const lastName = player.name.split(' ').slice(-1)[0];
       const condition = player.fitness < 60 ? 'warning' : '';
       const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
+      const adaptedClass = assignment.line !== 'gk' && player.position !== assignment.slotPosition ? 'is-adapted' : '';
       const replacementClass = this.lineupReplacementId === player.id ? 'is-replacing' : '';
-      return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${y}%" title="${replacementClass ? `Elige el sustituto de ${player.name}` : `Cambiar a ${player.name}`}">
-        <span class="pitch-shirt">${player.overall}</span><strong>${lastName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)} · ${Math.round(player.fitness)}%</small>
+      return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${adaptedClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${y}%" title="${replacementClass ? `Elige el sustituto de ${player.name}` : `Cambiar a ${player.name}`}">
+        <span class="pitch-shirt">${player.overall}</span><strong>${lastName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${adaptedClass ? ' · ADAPT.' : ''} · ${Math.round(player.fitness)}%</small>
       </button>`;
     }).join('');
 
@@ -1319,31 +1428,6 @@ class UIManager {
     this.squadSelection = new Set();
     this.lineupReplacementId = null;
     this.updateLineupWorkspace();
-  }
-
-  // Guardar tácticas
-  saveTactics() {
-    if (!this.gameApp) return;
-
-    const userTeamId = this.gameApp.userTeamId;
-    const newTactics = {
-      strategy: document.getElementById('tactics-strategy').value,
-      mentality: document.getElementById('tactics-mentality').value,
-      pressure: document.getElementById('tactics-pressure').value,
-      tempo: document.getElementById('tactics-tempo').value,
-      width: document.getElementById('tactics-width').value,
-      passStyle: document.getElementById('tactics-passStyle').value,
-      defensiveLine: document.getElementById('tactics-defensiveLine').value,
-      situationalInstruction: document.getElementById('tactics-situational').value
-    };
-
-    document.querySelectorAll('.player-role-select').forEach(select => {
-      this.gameApp.teamManager.setPlayerRole(userTeamId, select.dataset.playerId, select.value);
-    });
-
-    this.gameApp.teamManager.updateTactics(userTeamId, newTactics);
-    alert('Tácticas guardadas correctamente');
-    this.gameApp.saveGame();
   }
 
   // Mostrar mensaje de error

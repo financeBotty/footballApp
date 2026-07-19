@@ -109,6 +109,32 @@
         manager.validateLineup(team.id, team.startingXI).valid;
     });
 
+    test('Completa el once con juveniles cuando faltan jugadores disponibles', () => {
+      const manager = new TeamManager();
+      const team = manager.getAllTeams()[0];
+      const keeper = team.players.find(player => player.position === 'GK');
+      const outfield = team.players.filter(player => player.position !== 'GK').slice(0, 9);
+      const kept = new Set([keeper.id, ...outfield.map(player => player.id)]);
+      team.players.forEach(player => {
+        if (!kept.has(player.id)) player.suspensionMatches = 1;
+      });
+      const reserveBefore = team.reservePlayers.length;
+      const repaired = manager.ensureValidStartingXI(team.id, true);
+      return repaired.valid && repaired.promoted.length === 1 && repaired.promoted[0].emergencyPromotion === true &&
+        team.reservePlayers.length === reserveBefore - 1 && team.reservePromotions.count === 0 &&
+        manager.getStartingXI(team.id).length === 11;
+    });
+
+    test('Permite un once con jugadores adaptados sin bloqueos por línea', () => {
+      const manager = new TeamManager();
+      const team = manager.getAllTeams()[0];
+      const keeper = team.players.find(player => player.position === 'GK');
+      const outfield = team.players.filter(player => player.position !== 'GK').slice(0, 10);
+      outfield.forEach(player => { player.position = 'ST'; });
+      const result = manager.validateLineup(team.id, [keeper.id, ...outfield.map(player => player.id)]);
+      return result.valid && result.adapted.length >= 7;
+    });
+
     test('Todas las posiciones visibles tienen traducción española', () => {
       const englishCodes = new Set(['GK', 'RB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'LW', 'ST', 'RM', 'LM']);
       return DATA.VALID_POSITIONS.every(position => {
@@ -208,6 +234,15 @@
       const state = engine.getTeamState(home.id);
       return validIdentity && result.valid && state.strategy === alternative &&
         state.tacticalFamiliarity < 100 && home.tacticalFamiliarity < 100;
+    });
+
+    test('Los planes A, B y C aplican todas sus instrucciones', () => {
+      const { manager, home } = createEngine(414);
+      return Object.values(DATA.MATCH_PLANS).every(plan => {
+        const applied = manager.applyMatchPlan(home.id, plan.id);
+        return applied && home.activeMatchPlan === plan.id &&
+          Object.entries(plan.tactics).every(([key, value]) => home.tactics[key] === value);
+      });
     });
 
     test('La adaptación táctica progresa con partidos y entrenamiento táctico', () => {

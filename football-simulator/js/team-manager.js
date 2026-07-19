@@ -16,6 +16,7 @@ class TeamManager {
       this.initializeTacticalIdentity(team);
       this.initializeCaptain(team);
       team.tactics.situationalInstruction = team.tactics.situationalInstruction || 'Normal';
+      team.activeMatchPlan = DATA.MATCH_PLANS[team.activeMatchPlan] ? team.activeMatchPlan : 'A';
       if (typeof team.tactics.pressTargetId === 'undefined') team.tactics.pressTargetId = null;
       team.trainingPlan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
       team.players.forEach(player => {
@@ -184,6 +185,40 @@ class TeamManager {
     return { valid: true, player, remaining: 3 - team.reservePromotions.count };
   }
 
+  ensureEmergencyYouthForLineup(teamId, matchday = 1) {
+    const team = this.getTeam(teamId);
+    if (!team) return [];
+    const promoted = [];
+    const available = () => team.players.filter(player => this.isPlayerAvailable(player));
+    const availableKeepers = () => available().filter(player => player.position === 'GK');
+    const availableOutfield = () => available().filter(player => player.position !== 'GK');
+
+    while ((available().length < 11 || !availableKeepers().length || availableOutfield().length < 10) && team.reservePlayers.length) {
+      const needsKeeper = !availableKeepers().length;
+      const candidates = team.reservePlayers
+        .filter(player => this.isPlayerAvailable(player) &&
+          (needsKeeper ? player.position === 'GK' : player.position !== 'GK'))
+        .sort((a, b) => (Number(b.overall) || 0) - (Number(a.overall) || 0));
+      const candidate = candidates[0];
+      if (!candidate) break;
+      team.reservePlayers.splice(team.reservePlayers.findIndex(player => player.id === candidate.id), 1);
+      candidate.promotedMatchday = Math.max(1, Number(matchday) || 1);
+      candidate.emergencyPromotion = true;
+      candidate.trainingProgress = candidate.trainingProgress || {};
+      this.initializePlayerRole(candidate);
+      team.players.push(candidate);
+      promoted.push(candidate);
+    }
+
+    if (promoted.length) {
+      team.emergencyPromotions = [...(team.emergencyPromotions || []), ...promoted.map(player => ({
+        playerId: player.id,
+        matchday: Math.max(1, Number(matchday) || 1)
+      }))];
+    }
+    return promoted;
+  }
+
   initializeCaptain(team) {
     const players = team.players || [];
     if (!players.length) return;
@@ -262,6 +297,28 @@ class TeamManager {
     team.tactics = { ...team.tactics, ...preset };
     team.tacticalFamiliarity = this.getStrategyFamiliarity(team, strategy);
     return true;
+  }
+
+  applyMatchPlan(teamId, planId) {
+    const team = this.getTeam(teamId);
+    const plan = DATA.MATCH_PLANS[planId];
+    if (!team || !plan) return false;
+    team.activeMatchPlan = planId;
+    team.tactics = { ...team.tactics, ...plan.tactics };
+    return true;
+  }
+
+  getTacticalRecommendation(teamId, opponentId = null) {
+    const team = this.getTeam(teamId);
+    const opponent = this.getTeam(opponentId);
+    if (!team) return { planId: 'A', reason: 'El plan equilibrado ofrece un punto de partida seguro.' };
+    const morale = list => list.length
+      ? list.reduce((sum, player) => sum + (Number(player.morale) || 0), 0) / list.length : 70;
+    const difference = (Number(team.overall) || 70) - (Number(opponent?.overall) || 70);
+    const moraleDifference = morale(team.players) - morale(opponent?.players || []);
+    if (difference <= -4) return { planId: 'C', reason: `${opponent.name} parte con más calidad; conviene cerrar espacios y atacar con campo.` };
+    if (difference >= 4 || moraleDifference >= 7) return { planId: 'B', reason: 'El equipo llega con ventaja de calidad o confianza: es un buen momento para apretar arriba.' };
+    return { planId: 'A', reason: 'El duelo parece equilibrado; controlar el balón reduce riesgos innecesarios.' };
   }
 
   getPlayerAvailability(player) {
@@ -451,13 +508,14 @@ class TeamManager {
     return true;
   }
 
-  ensureValidStartingXI(teamId, forceBest = false) {
+  ensureValidStartingXI(teamId, forceBest = false, matchday = 1) {
     const team = this.getTeam(teamId);
     if (!team) return { valid: false, repaired: false, error: 'Equipo no encontrado' };
+    const promoted = this.ensureEmergencyYouthForLineup(teamId, matchday);
     const currentIds = Array.isArray(team.startingXI) ? team.startingXI : [];
     const current = this.validateLineup(teamId, currentIds);
     if (!forceBest && current.valid && this.getStartingXI(teamId).length === 11) {
-      return { valid: true, repaired: false, players: this.getStartingXI(teamId) };
+      return { valid: true, repaired: false, promoted, players: this.getStartingXI(teamId) };
     }
 
     const selected = this.autoSelectStartingXI(teamId);
@@ -469,7 +527,7 @@ class TeamManager {
         error: validation.error || 'No hay once jugadores disponibles para completar la alineación'
       };
     }
-    return { valid: true, repaired: true, players: this.getStartingXI(teamId) };
+    return { valid: true, repaired: true, promoted, players: this.getStartingXI(teamId) };
   }
 
   // Convierte cualquier sistema en sus tres líneas clásicas y asigna cada
@@ -599,42 +657,17 @@ class TeamManager {
       return { valid: false, error: 'Se requiere exactamente 1 portero' };
     }
 
-    const defensePositions = ['CB', 'RB', 'LB'];
-    const defenseCount = defensePositions.reduce((sum, pos) => sum + (positionCounts[pos] || 0), 0);
-    if (defenseCount < 3) {
-      return { valid: false, error: 'Se requieren al menos 3 defensas' };
-    }
-
-    const midfieldPositions = ['CDM', 'CM', 'CAM', 'RM', 'LM'];
-    const midfieldCount = midfieldPositions.reduce((sum, pos) => sum + (positionCounts[pos] || 0), 0);
-    if (midfieldCount < 2) {
-      return { valid: false, error: 'Se requieren al menos 2 centrocampistas' };
-    }
-
-    const attackPositions = ['RW', 'LW', 'ST'];
-    const attackCount = attackPositions.reduce((sum, pos) => sum + (positionCounts[pos] || 0), 0);
-    if (attackCount < 1) {
-      return { valid: false, error: 'Se requiere al menos 1 atacante' };
-    }
-
     const assignments = this.assignLineupToFormation(teamId, playersIds);
-    const naturalLine = position => defensePositions.includes(position) ? 'def' :
-      midfieldPositions.includes(position) ? 'mid' : 'att';
-    const equivalents = { RM: 'RW', RW: 'RM', LM: 'LW', LW: 'LM', CDM: 'CM', CAM: 'CM' };
-    const misplaced = assignments.find(assignment => {
+    const adapted = assignments.filter(assignment => {
       const player = this.getPlayer(teamId, assignment.playerId);
-      if (!player || assignment.line === 'gk') return false;
-      return player.position !== assignment.slotPosition &&
-        equivalents[player.position] !== assignment.slotPosition &&
-        equivalents[assignment.slotPosition] !== player.position &&
-        naturalLine(player.position) !== assignment.line;
-    });
-    if (misplaced) {
-      const player = this.getPlayer(teamId, misplaced.playerId);
-      return { valid: false, error: `${player.name} no encaja como ${DATA.getPositionLabel(misplaced.slotPosition, true)} en la formación ${team.formation}` };
-    }
+      return player && assignment.line !== 'gk' && player.position !== assignment.slotPosition;
+    }).map(assignment => ({
+      playerId: assignment.playerId,
+      from: this.getPlayer(teamId, assignment.playerId).position,
+      to: assignment.slotPosition
+    }));
 
-    return { valid: true };
+    return { valid: true, adapted };
   }
 
   // Establecer alineación titular
