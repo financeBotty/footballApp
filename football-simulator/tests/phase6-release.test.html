@@ -51,6 +51,12 @@
         crests.every(crest => /^assets\/crests\/[a-z0-9-]+\.svg$/.test(crest));
     });
 
+    test('Cada club explica su filosofía y su traducción futbolística', () => {
+      return Object.values(DATA.PHILOSOPHICAL_IDENTITIES).every(identity =>
+        identity.principle && identity.footballMeaning && identity.principle.length > 30 && identity.footballMeaning.length > 30
+      );
+    });
+
     test('Permite alternar y conservar los tres estilos visuales', () => {
       const ui = new UIManager();
       const original = GameStorage.getSetting('visualTheme', '90s');

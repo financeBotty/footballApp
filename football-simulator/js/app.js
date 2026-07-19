@@ -227,6 +227,22 @@ class FootballSimulator {
         <h2>Próximo Partido - Jornada ${nextMatch.matchday}</h2>
         
         <div class="match-preview-large">
+          <section class="match-mode-selection match-mode-selection-top" aria-labelledby="match-mode-title">
+            <div>
+              <span class="season-kicker">Todo preparado</span>
+              <h4 id="match-mode-title">Empezar el partido</h4>
+              <p>Elige la duración y entra al campo, o resuelve directamente el resultado.</p>
+            </div>
+            <button id="btn-quick-result" class="btn btn-secondary btn-large">Ver resultado</button>
+            <div class="simulator-choice">
+              <span class="duration-label" id="match-duration-label">Duración por parte</span>
+              <div class="match-duration-menu" role="radiogroup" aria-labelledby="match-duration-label">
+                ${[1, 3, 5, 10].map(value => `<button type="button" class="match-duration-option ${savedHalfDuration === value ? 'active' : ''}" data-match-duration="${value}" role="radio" aria-checked="${savedHalfDuration === value}">${value}<small>min</small></button>`).join('')}
+              </div>
+              <button id="btn-play-match-large" class="btn btn-primary btn-large">Jugar partido</button>
+            </div>
+          </section>
+
           <div class="match-teams">
             <div class="team-section">
               ${this.ui.renderTeamCrest(homePreviewTeam, 'match-preview-crest')}
@@ -240,6 +256,8 @@ class FootballSimulator {
               <p class="team-label">${isHome ? 'VISITANTE' : 'LOCAL'}</p>
             </div>
           </div>
+
+          ${this.renderTeamIntroductions(homePreviewTeam, awayPreviewTeam)}
 
           ${this.renderMatchBriefing(homePreviewTeam, awayPreviewTeam)}
 
@@ -263,20 +281,6 @@ class FootballSimulator {
             </div>
           </section>
 
-          <section class="match-mode-selection" aria-labelledby="match-mode-title">
-            <div>
-              <h4 id="match-mode-title">¿Cómo quieres jugar?</h4>
-              <p>Obtén directamente el resultado o entra al simulador táctico en directo.</p>
-            </div>
-            <button id="btn-quick-result" class="btn btn-secondary btn-large">Ver resultado</button>
-            <div class="simulator-choice">
-              <span class="duration-label" id="match-duration-label">Duración por parte</span>
-              <div class="match-duration-menu" role="radiogroup" aria-labelledby="match-duration-label">
-                ${[1, 3, 5, 10].map(value => `<button type="button" class="match-duration-option ${savedHalfDuration === value ? 'active' : ''}" data-match-duration="${value}" role="radio" aria-checked="${savedHalfDuration === value}">${value}<small>min</small></button>`).join('')}
-              </div>
-              <button id="btn-play-match-large" class="btn btn-primary btn-large">Abrir simulador</button>
-            </div>
-          </section>
         </div>
       </div>
     `;
@@ -311,6 +315,34 @@ class FootballSimulator {
       const names = lineupStatus.promoted.map(player => player.name).join(', ');
       this.ui.showSuccess(`${names} ${lineupStatus.promoted.length === 1 ? 'sube' : 'suben'} del filial y entra en la convocatoria`);
     }
+  }
+
+  renderTeamIntroductions(homeTeam, awayTeam) {
+    const strategyDescriptions = {
+      'Posesión': 'quiere mandar mediante pases cortos, amplitud y paciencia',
+      'Presión alta': 'busca recuperar arriba, acelerar el ritmo y encerrar al rival',
+      'Juego directo': 'progresa pronto hacia campo contrario y ataca la segunda jugada',
+      'Contraataque': 'protege espacios y sale con velocidad cuando recupera',
+      'Bloque bajo': 'reduce espacios cerca de su área y prioriza la seguridad'
+    };
+    const describeTeam = (team, venue) => {
+      const identity = DATA.PHILOSOPHICAL_IDENTITIES[team.id] || {};
+      const strategy = team.strategy || 'Posesión';
+      const tactic = team.tactics || DATA.DEFAULT_TACTICS;
+      return `
+        <article class="team-introduction">
+          <header>${this.ui.renderTeamCrest(team, 'team-introduction-crest')}<div><span>${venue} · ${identity.current || team.current}</span><h4>${team.name}</h4></div></header>
+          <p><strong>Qué representa.</strong> ${identity.principle || 'Una manera propia de comprender el juego y la competición.'}</p>
+          <p><strong>Cómo lo lleva al campo.</strong> ${identity.footballMeaning || 'Su identidad se expresa mediante el funcionamiento colectivo.'}</p>
+          <div class="team-game-model"><span>${team.formation}</span><span>${strategy}</span><span>Presión ${String(tactic.pressure || 'Media').toLowerCase()}</span><span>Ritmo ${String(tactic.tempo || 'Medio').toLowerCase()}</span></div>
+          <small>Hoy ${strategyDescriptions[strategy] || 'buscará imponer su identidad con un plan equilibrado'}.</small>
+        </article>`;
+    };
+    return `
+      <section class="team-introductions" aria-labelledby="team-introductions-title">
+        <div class="team-introductions-heading"><span class="season-kicker">Identidad del duelo</span><h3 id="team-introductions-title">Dos maneras de entender el fútbol</h3></div>
+        <div class="team-introduction-grid">${describeTeam(homeTeam, 'Local')}${describeTeam(awayTeam, 'Visitante')}</div>
+      </section>`;
   }
 
   renderMatchBriefing(homeTeam, awayTeam) {
@@ -394,8 +426,10 @@ class FootballSimulator {
       const displayName = player.name.split(' ').slice(-1)[0];
       const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
       const captain = player.id === team.captainId ? '<i aria-label="Capitán">C</i>' : '';
-      return `<div class="pitch-player preview-player ${goalkeeperClass}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name} · ${DATA.getPositionLabel(assignment.slotPosition, true)}">
-        <span class="pitch-shirt">${player.overall}${captain}</span><strong>${displayName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}</small>
+      const effectiveOverall = this.teamManager.getEffectiveOverall(player, assignment.slotPosition);
+      const delta = effectiveOverall - player.overall;
+      return `<div class="pitch-player preview-player ${goalkeeperClass} ${delta ? 'is-adapted' : ''}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name} · media base ${player.overall} · media en ${DATA.getPositionLabel(assignment.slotPosition, true)} ${effectiveOverall}">
+        <span class="pitch-shirt ${delta > 0 ? 'overall-up' : delta < 0 ? 'overall-down' : ''}">${effectiveOverall}${captain}</span><strong>${displayName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${delta ? ` · ${delta > 0 ? '+' : ''}${delta}` : ''}</small>
       </div>`;
     }).join('');
     return `<div class="tactical-pitch pre-match-lineup-pitch" aria-label="Alineación ${team.formation} de ${team.name}">${lineup}</div>`;
@@ -584,6 +618,11 @@ class FootballSimulator {
               <button class="coach-action" data-coach-tab="tactics"><span>◆</span><strong>Táctica</strong><small>Ajustar el plan</small></button>
               <button class="coach-action" data-coach-tab="changes"><span>⇄</span><strong>Hacer cambios</strong><small>Elegir jugador</small></button>
             </div>
+            <div class="live-quick-access" aria-label="Órdenes rápidas">
+              <div><strong>Órdenes rápidas</strong><small>Respuesta inmediata</small></div>
+              ${DATA.QUICK_ORDERS.filter(order => ['Normal', 'Buscar el empate', 'Presionar rival', 'Mantener posesión', 'Contraatacar', 'Perder tiempo', 'Defender resultado'].includes(order.value)).map(order => `
+                <button type="button" class="live-quick-chip ${userState.tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}" title="${order.description}">${order.label}</button>`).join('')}
+            </div>
             <div class="coach-narrative-always">
               <section class="match-narrative live-narrative sidebar-narrative">
                 <div class="coach-section-title"><h4>Narración</h4><span>En directo</span></div>
@@ -628,12 +667,17 @@ class FootballSimulator {
 
   renderLiveTactics(tactics, teamState = null) {
     const recommendation = this.getLiveTacticalRecommendation();
+    const formation = teamState?.formation || this.teamManager.getTeam(this.userTeamId).formation;
+    const formationOptions = Object.values(DATA.FORMATIONS).map(item =>
+      `<option value="${item.name}" ${item.name === formation ? 'selected' : ''}>${item.name} · ${item.description}</option>`
+    ).join('');
     const planButtons = Object.values(DATA.MATCH_PLANS).map(plan => `
       <button type="button" class="live-plan-button ${this.teamManager.getTeam(this.userTeamId).activeMatchPlan === plan.id ? 'active' : ''}" data-live-plan="${plan.id}"><span>Plan ${plan.id}</span><strong>${plan.name}</strong><small>${plan.effects.join(' · ')}</small></button>`).join('');
     const orderButtons = DATA.QUICK_ORDERS.map(order => `
       <button type="button" class="live-order-button ${tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}"><strong>${order.label}</strong><small>${order.description}</small></button>`).join('');
     return `
-      <div class="live-tactical-recommendation"><span>Lectura del partido</span><p>${recommendation.reason}</p><button type="button" class="btn btn-secondary" data-live-plan="${recommendation.planId}">Aplicar Plan ${recommendation.planId}</button></div>
+      <div id="live-tactical-recommendation" class="live-tactical-recommendation" data-reading-key="${recommendation.key}" data-tone="${recommendation.tone}">${this.renderLiveRecommendation(recommendation)}</div>
+      <label class="live-formation-control"><span><strong>Sistema</strong><small>Recoloca al equipo sin detener el partido</small></span><select id="live-formation-select" class="form-control" aria-label="Cambiar formación durante el partido">${formationOptions}</select></label>
       <div class="live-plan-grid">${planButtons}</div>
       <div class="live-order-heading"><strong>Órdenes rápidas</strong><small>Un toque, efecto inmediato</small></div>
       <div class="live-order-grid">${orderButtons}</div>
@@ -641,14 +685,50 @@ class FootballSimulator {
   }
 
   getLiveTacticalRecommendation() {
-    if (!this.liveMatchEngine) return { planId: 'A', reason: 'Empieza controlando el partido.' };
+    if (!this.liveMatchEngine) return { planId: 'A', tone: 'neutral', key: 'pre', reason: 'Empieza controlando el partido.' };
     const state = this.liveMatchEngine.state;
     const userSide = state.teams.home.teamId === this.userTeamId ? 'home' : 'away';
     const rivalSide = userSide === 'home' ? 'away' : 'home';
     const difference = state.score[userSide] - state.score[rivalSide];
-    if (difference < 0 && state.displayMinute >= 55) return { planId: 'B', reason: 'Vas por detrás y queda menos de media hora: conviene aumentar presión y ritmo.' };
-    if (difference > 0 && state.displayMinute >= 65) return { planId: 'C', reason: 'Tienes ventaja en el tramo final: protege zonas interiores y sal al espacio.' };
-    return { planId: 'A', reason: 'El partido no exige una ruptura: controla el balón y conserva estructura.' };
+    const minute = Math.floor(state.displayMinute);
+    const stats = state.stats[userSide];
+    const rivalStats = state.stats[rivalSide];
+    const userReds = this.liveMatchEngine.onField(userSide).length < this.liveMatchEngine.onField(rivalSide).length;
+    const totalPossession = stats.possessionTicks + rivalStats.possessionTicks;
+    const possession = totalPossession ? Math.round(stats.possessionTicks / totalPossession * 100) : 50;
+    let planId = 'A';
+    let tone = 'neutral';
+    let reason = `Partido equilibrado (${possession}% de posesión): mantén la estructura y observa dónde aparece la ventaja.`;
+
+    if (userReds) {
+      planId = difference > 0 ? 'C' : difference < 0 && minute >= 70 ? 'B' : 'A';
+      tone = 'warning';
+      reason = difference > 0
+        ? 'Estás en inferioridad y por delante: junta líneas y protege el carril central.'
+        : 'Estás en inferioridad: conserva una salida y evita que el equipo se parta.';
+    } else if (difference < 0 && minute >= 70) {
+      planId = 'B'; tone = 'urgent';
+      reason = `Vas ${Math.abs(difference)} gol${difference < -1 ? 'es' : ''} abajo en el tramo final: sube presión, ritmo y altura.`;
+    } else if (difference < 0) {
+      planId = 'B'; tone = 'warning';
+      reason = `Vas por detrás en el ${minute}': aumenta la iniciativa sin romper todavía el equilibrio.`;
+    } else if (difference > 0 && minute >= 65) {
+      planId = 'C'; tone = 'protect';
+      reason = `Defiendes ${difference} gol${difference > 1 ? 'es' : ''} de ventaja: cierra espacios interiores y amenaza al contraataque.`;
+    } else if (stats.shotsOnTarget + 2 <= rivalStats.shotsOnTarget || possession < 40) {
+      planId = 'A'; tone = 'warning';
+      reason = `El rival está imponiendo el partido (${possession}% de posesión y ${stats.shotsOnTarget}-${rivalStats.shotsOnTarget} a puerta): recupera control antes de acelerar.`;
+    } else if (stats.shots >= rivalStats.shots + 4 && difference === 0 && minute >= 45) {
+      planId = 'B'; tone = 'warning';
+      reason = 'Estás llegando más pero el empate sigue: convierte el dominio en presión y más presencia en área.';
+    } else if (difference > 0) {
+      reason = 'Vas por delante y aún queda partido: conserva el control sin hundirte demasiado pronto.';
+    }
+    return { planId, tone, key: [minute, difference, possession, stats.shots, rivalStats.shots, stats.shotsOnTarget, rivalStats.shotsOnTarget, userReds, planId].join('-'), reason };
+  }
+
+  renderLiveRecommendation(recommendation) {
+    return `<span>Lectura del partido · ${this.liveMatchEngine ? this.liveMatchEngine.state.displayMinute : 0}'</span><p>${recommendation.reason}</p><button type="button" class="btn btn-secondary" data-live-plan="${recommendation.planId}">Aplicar Plan ${recommendation.planId}</button>`;
   }
 
   renderLiveTeamList() {
@@ -658,11 +738,14 @@ class FootballSimulator {
       const state = this.liveMatchEngine.state.players[id];
       if (!state || !state.onField) return '';
       const fitness = Math.round(state.fitness);
+      const data = this.teamManager.getPlayer(this.userTeamId, state.id);
+      const effectiveOverall = this.teamManager.getEffectiveOverall(data, state.assignedPosition);
+      const overallDelta = effectiveOverall - data.overall;
       const fitnessLevel = fitness < 40 ? 'critical' : fitness < 65 ? 'low' : fitness < 80 ? 'medium' : 'high';
       return `
         <button type="button" class="live-player-row" data-player-id="${state.id}" aria-pressed="false" title="Preparar cambio de ${state.name}">
           <span class="live-player-dot ${state.side}" style="background:${teamState.kitColor}">${state.number}</span>
-          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${DATA.getPositionLabel(state.position)} · ${state.role || 'Sin rol'} · confianza ${Math.round(state.confidence || 50)}</small></span>
+          <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${DATA.getPositionLabel(state.assignedPosition)} · MED ${effectiveOverall}${overallDelta ? ` (${overallDelta > 0 ? '+' : ''}${overallDelta})` : ''} · confianza ${Math.round(state.confidence || 50)}</small></span>
           <span class="fitness ${fitnessLevel}" aria-label="Cansancio: ${fitness}%">
             <span class="fitness-bar"><i style="width:${fitness}%"></i></span>
             <em>${fitness}%</em>
@@ -820,6 +903,7 @@ class FootballSimulator {
       const removeButton = event.target.closest('[data-remove-queued-sub]');
       if (removeButton) this.removeQueuedSubstitution(Number(removeButton.dataset.removeQueuedSub));
     });
+    byId('live-formation-select')?.addEventListener('change', event => this.applyLiveFormation(event.target.value));
 
     document.querySelectorAll('.coach-action').forEach(button => {
       button.addEventListener('click', () => this.activateCoachTab(button.dataset.coachTab));
@@ -1155,6 +1239,13 @@ class FootballSimulator {
     set('subs-used', teamState.substitutions);
     const teamList = document.getElementById('live-team-list');
     if (teamList) teamList.innerHTML = this.renderLiveTeamList();
+    const recommendation = this.getLiveTacticalRecommendation();
+    const reading = document.getElementById('live-tactical-recommendation');
+    if (reading && reading.dataset.readingKey !== recommendation.key) {
+      reading.dataset.readingKey = recommendation.key;
+      reading.dataset.tone = recommendation.tone;
+      reading.innerHTML = this.renderLiveRecommendation(recommendation);
+    }
   }
 
   livePhaseLabel(phase) {
@@ -1202,6 +1293,21 @@ class FootballSimulator {
     document.querySelectorAll('[data-live-order]').forEach(button => button.classList.toggle('active', button.dataset.liveOrder === order));
     this.ui.showSuccess(`Orden aplicada: ${DATA.QUICK_ORDERS.find(item => item.value === order).label}`);
     this.processLiveMatchEvents();
+    return true;
+  }
+
+  applyLiveFormation(formationName) {
+    if (!this.liveMatchEngine || !DATA.FORMATIONS[formationName]) return false;
+    const result = this.liveMatchEngine.changeFormation(this.userTeamId, formationName);
+    if (!result.valid) {
+      this.ui.showError(result.error || 'No se pudo cambiar la formación');
+      return false;
+    }
+    this.saveGame();
+    this.persistLiveMatch(true);
+    this.ui.showSuccess(`Sistema cambiado a ${formationName}`);
+    this.processLiveMatchEvents();
+    this.renderLiveMatchState();
     return true;
   }
 

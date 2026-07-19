@@ -131,6 +131,50 @@ class TeamManager {
     return Math.round(Math.max(1, Math.min(99, score)));
   }
 
+  // La media base describe al futbolista; esta media efectiva describe lo que
+  // rinde en el puesto concreto que ocupa dentro del sistema.
+  getEffectiveOverall(player, assignedPosition = null) {
+    if (!player) return 0;
+    const naturalPosition = player.position;
+    const targetPosition = assignedPosition || naturalPosition;
+    const baseOverall = Math.max(1, Math.min(99, Number(player.overall) || 1));
+    if (targetPosition === naturalPosition) return Math.round(baseOverall);
+    if ((targetPosition === 'GK') !== (naturalPosition === 'GK')) return Math.max(1, Math.round(baseOverall - 30));
+
+    const profiles = {
+      GK: { goalkeeping: .72, passing: .1, physical: .1, overall: .08 },
+      CB: { defending: .4, physical: .22, pace: .13, passing: .12, overall: .23 },
+      RB: { defending: .23, pace: .22, stamina: .18, passing: .14, dribbling: .1, overall: .13 },
+      LB: { defending: .23, pace: .22, stamina: .18, passing: .14, dribbling: .1, overall: .13 },
+      CDM: { defending: .27, passing: .22, stamina: .16, physical: .13, dribbling: .08, overall: .14 },
+      CM: { passing: .28, stamina: .18, dribbling: .16, defending: .11, pace: .08, overall: .19 },
+      CAM: { passing: .25, dribbling: .22, shooting: .16, pace: .09, stamina: .08, overall: .2 },
+      RM: { pace: .2, passing: .19, dribbling: .2, stamina: .15, defending: .08, overall: .18 },
+      LM: { pace: .2, passing: .19, dribbling: .2, stamina: .15, defending: .08, overall: .18 },
+      RW: { pace: .25, dribbling: .24, shooting: .15, passing: .13, overall: .23 },
+      LW: { pace: .25, dribbling: .24, shooting: .15, passing: .13, overall: .23 },
+      ST: { shooting: .33, pace: .16, physical: .14, dribbling: .13, overall: .24 }
+    };
+    const profile = profiles[targetPosition] || { overall: 1 };
+    const positionalScore = Object.entries(profile).reduce((sum, [attribute, weight]) =>
+      sum + (Number(player[attribute]) || baseOverall) * weight, 0);
+    const line = position => position === 'GK' ? 'gk' : ['CB', 'RB', 'LB'].includes(position) ? 'def' :
+      ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position) ? 'mid' : 'att';
+    const equivalents = {
+      RB: ['LB', 'CB', 'RM'], LB: ['RB', 'CB', 'LM'], CB: ['RB', 'LB', 'CDM'],
+      CDM: ['CM', 'CB'], CM: ['CDM', 'CAM', 'RM', 'LM'], CAM: ['CM', 'ST'],
+      RM: ['RW', 'CM', 'RB'], LM: ['LW', 'CM', 'LB'],
+      RW: ['RM', 'LW', 'ST'], LW: ['LM', 'RW', 'ST'], ST: ['RW', 'LW', 'CAM']
+    };
+    const familiar = (equivalents[targetPosition] || []).includes(naturalPosition);
+    const transitionPenalty = familiar ? 0 : line(naturalPosition) === line(targetPosition) ? 2 : 6;
+    let delta = Math.max(-15, Math.min(6, Math.round(positionalScore - baseOverall) - transitionPenalty));
+    // Un cambio de puesto siempre debe ser legible en pantalla, incluso cuando
+    // el cálculo de atributos redondearía exactamente a la misma valoración.
+    if (delta === 0) delta = positionalScore > baseOverall + transitionPenalty ? 1 : -1;
+    return Math.max(1, Math.min(99, Math.round(baseOverall + delta)));
+  }
+
   getReplacementSuitability(teamId, outgoingId, candidateId, lineupIds = null) {
     const team = this.getTeam(teamId);
     const outgoing = this.getPlayer(teamId, outgoingId);

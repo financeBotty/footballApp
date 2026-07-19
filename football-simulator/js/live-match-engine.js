@@ -201,6 +201,7 @@ class LiveMatchEngine {
           role: player.role,
           confidence: this.clamp(35 + (Number(player.morale) || 75) * 0.4, 35, 80),
           assignedPosition: formationAssignment ? formationAssignment.slotPosition : player.position,
+          effectiveOverall: this.teamManager.getEffectiveOverall(player, formationAssignment ? formationAssignment.slotPosition : player.position),
           formationLine: formationAssignment ? formationAssignment.line : null,
           x: anchor.x,
           y: anchor.y,
@@ -669,6 +670,9 @@ class LiveMatchEngine {
       let mentalShift = { 'Muy Defensiva': -8, 'Defensiva': -4, 'Equilibrada': 0, 'Ofensiva': 5, 'Muy Ofensiva': 9 }[mentality] || 0;
       if (instruction === 'Buscar el empate') mentalShift += 7;
       if (instruction === 'Defender resultado' || instruction === 'Perder tiempo') mentalShift -= 6;
+      if (instruction === 'Mantener posesión') mentalShift -= 2;
+      if (instruction === 'Contraatacar') mentalShift += hasBall ? 5 : -5;
+      if (instruction === 'Replegar') mentalShift -= 5;
       const width = teamState.tactics.width === 'Amplia' ? 1.2 : teamState.tactics.width === 'Estrecha' ? 0.75 : 1;
       teamState.onField.forEach(id => {
         const state = this.state.players[id];
@@ -691,6 +695,7 @@ class LiveMatchEngine {
         state.targetY = this.clamp(34 + (anchor.y - 34) * width + (ball.y - 34) * 0.2, 3, 65);
         if (instruction === 'Atacar izquierda' && hasBall) state.targetY = this.clamp(state.targetY - 9, 3, 65);
         if (instruction === 'Atacar derecha' && hasBall) state.targetY = this.clamp(state.targetY + 9, 3, 65);
+        if (instruction === 'Atacar centro' && hasBall) state.targetY = this.clamp(34 + (state.targetY - 34) * .48, 12, 56);
         if (state.role === 'Lateral ofensivo' && hasBall) state.targetX = this.clamp(state.targetX + direction * 9, 3, 97);
         if (state.role === 'Lateral defensivo') state.targetX = this.clamp(state.targetX - direction * 4, 3, 97);
         if (state.role === 'Falso nueve') state.targetX = this.clamp(state.targetX - direction * 9, 3, 97);
@@ -1315,6 +1320,8 @@ class LiveMatchEngine {
     let tempoMultiplier = ownerTactics.tempo === 'Alto' ? 1.25 : ownerTactics.tempo === 'Bajo' ? 0.78 : 1;
     if (ownerTactics.situationalInstruction === 'Perder tiempo') tempoMultiplier *= 0.55;
     if (ownerTactics.situationalInstruction === 'Buscar el empate') tempoMultiplier *= 1.25;
+    if (ownerTactics.situationalInstruction === 'Mantener posesión') tempoMultiplier *= 0.76;
+    if (ownerTactics.situationalInstruction === 'Contraatacar') tempoMultiplier *= 1.32;
     const controlledSince = Number.isFinite(ball.controlledSince) ? ball.controlledSince : this.state.minute;
     if (!Number.isFinite(ball.controlledSince)) ball.controlledSince = controlledSince;
     const controlledFor = Math.max(0, this.state.minute - controlledSince);
@@ -1325,6 +1332,10 @@ class LiveMatchEngine {
       ? Math.min(0.65, baseMaximumHold * 1.4)
       : ownerTactics.situationalInstruction === 'Buscar el empate'
         ? baseMaximumHold * 0.78
+        : ownerTactics.situationalInstruction === 'Mantener posesión'
+          ? Math.min(.6, baseMaximumHold * 1.25)
+          : ownerTactics.situationalInstruction === 'Contraatacar'
+            ? baseMaximumHold * .72
         : baseMaximumHold;
     const minimumHold = owner.position === 'GK' ? 0.06 : 0.08;
     if (controlledFor < minimumHold) return;
@@ -1344,7 +1355,17 @@ class LiveMatchEngine {
 
   chooseRoleAction(owner, attackingDistance) {
     const data = this.getPlayer(owner.id);
+    const effectiveOverall = owner.effectiveOverall || data.overall;
     const position = owner.position;
+    const instruction = this.state.teams[owner.side].tactics.situationalInstruction || 'Normal';
+    if (instruction === 'Disparar más' && position !== 'GK' && attackingDistance < 40 && data.shooting >= 55 && this.random() < .48) {
+      this.startShot(owner, false);
+      return;
+    }
+    if (instruction === 'Mantener posesión' && position !== 'ST' && this.random() < .92) {
+      this.startPass(owner);
+      return;
+    }
     if (owner.role === 'Organizador' || owner.role === 'Central con salida') {
       if (this.random() < 0.9) this.startPass(owner);
       else this.startDribble(owner);
@@ -1364,7 +1385,7 @@ class LiveMatchEngine {
       return;
     }
     if (['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position)) {
-      const creativeQuality = (data.passing * 0.5) + (data.dribbling * 0.2) + (data.overall * 0.3);
+      const creativeQuality = (data.passing * 0.5) + (data.dribbling * 0.2) + (effectiveOverall * 0.3);
       if (creativeQuality >= 78 && data.shooting >= 68 && attackingDistance < 32 && this.random() < 0.3) {
         this.startShot(owner, false);
       } else if (this.random() < (creativeQuality >= 78 ? 0.82 : 0.74)) {
@@ -1374,7 +1395,7 @@ class LiveMatchEngine {
       }
       return;
     }
-    const associationQuality = (data.passing * 0.4) + (data.dribbling * 0.3) + (data.overall * 0.3);
+    const associationQuality = (data.passing * 0.4) + (data.dribbling * 0.3) + (effectiveOverall * 0.3);
     const shotChance = this.clamp(0.12 + data.shooting / 260 + (attackingDistance < 25 ? 0.18 : 0), 0.2, 0.68);
     if (attackingDistance < 42 && this.random() < shotChance) {
       this.startShot(owner, false);
@@ -1416,6 +1437,7 @@ class LiveMatchEngine {
     const direction = owner.side === 'home' ? 1 : -1;
     const teamState = this.state.teams[owner.side];
     const passStyle = teamState.tactics.passStyle;
+    const instruction = teamState.tactics.situationalInstruction || 'Normal';
     const strategy = teamState.strategy || teamState.naturalStrategy || 'Posesión';
     const player = this.getPlayer(owner.id);
     const ownerIsGoalkeeper = owner.position === 'GK';
@@ -1424,6 +1446,19 @@ class LiveMatchEngine {
     let forcedPassType = null;
     let candidates = [...mates];
     let goalkeeperDistribution = false;
+
+    if (!forcedReceiverId && instruction === 'Atacar centro') {
+      const centralTargets = mates.filter(mate => ['CDM', 'CM', 'CAM', 'ST', 'CF'].includes(mate.assignedPosition || mate.position));
+      if (centralTargets.length) candidates = centralTargets;
+    } else if (!forcedReceiverId && instruction === 'Mantener posesión') {
+      candidates = mates.sort((a, b) => this.distance(owner, a) - this.distance(owner, b));
+    } else if (!forcedReceiverId && instruction === 'Contraatacar') {
+      const forwardTargets = mates.filter(mate => directForwardOption(mate));
+      if (forwardTargets.length) {
+        candidates = forwardTargets.sort((a, b) => direction * (b.x - a.x));
+        forcedPassType = 'through';
+      }
+    }
 
     if (ownerIsGoalkeeper) {
       // El portero no participa en rondos repetidos con su defensa. Busca una
@@ -1470,7 +1505,7 @@ class LiveMatchEngine {
         if (circulation.length) candidates = circulation.sort((a, b) => this.distance(owner, a) - this.distance(owner, b));
       }
     } else if (!forcedReceiverId && ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(owner.position)) {
-      const creativeQuality = player.passing * 0.55 + player.dribbling * 0.2 + player.overall * 0.25;
+      const creativeQuality = player.passing * 0.55 + player.dribbling * 0.2 + (owner.effectiveOverall || player.overall) * 0.25;
       if (creativeQuality >= 78 && this.random() < 0.62) {
         const insideTargets = mates.filter(mate => ['ST', 'CF', 'CAM', 'CM'].includes(mate.position) && direction * (mate.x - owner.x) > 4);
         if (insideTargets.length) {
@@ -1482,11 +1517,27 @@ class LiveMatchEngine {
         if (wideTargets.length) candidates = wideTargets.sort((a, b) => Math.abs(b.y - 34) - Math.abs(a.y - 34));
       }
     } else if (!forcedReceiverId && ['ST', 'CF', 'RW', 'LW'].includes(owner.position)) {
-      const associationQuality = player.passing * 0.4 + player.dribbling * 0.3 + player.overall * 0.3;
+      const associationQuality = player.passing * 0.4 + player.dribbling * 0.3 + (owner.effectiveOverall || player.overall) * 0.3;
       const associationTargets = mates.filter(mate => associationQuality >= 76
         ? ['ST', 'CF', 'RW', 'LW', 'CAM', 'CM'].includes(mate.position)
         : ['CAM', 'CM', 'RM', 'LM'].includes(mate.position));
       if (associationTargets.length) candidates = associationTargets.sort((a, b) => this.distance(owner, a) - this.distance(owner, b));
+    }
+
+    // Las órdenes del entrenador prevalecen sobre la selección posicional
+    // normal del pasador.
+    if (!ownerIsGoalkeeper && !forcedReceiverId && instruction === 'Atacar centro') {
+      const centralTargets = mates.filter(mate => ['CDM', 'CM', 'CAM', 'ST', 'CF'].includes(mate.assignedPosition || mate.position));
+      if (centralTargets.length) candidates = centralTargets;
+    } else if (!ownerIsGoalkeeper && !forcedReceiverId && instruction === 'Mantener posesión') {
+      candidates = mates.sort((a, b) => this.distance(owner, a) - this.distance(owner, b));
+      forcedPassType = 'ground';
+    } else if (!ownerIsGoalkeeper && !forcedReceiverId && instruction === 'Contraatacar') {
+      const forwardTargets = mates.filter(mate => directForwardOption(mate));
+      if (forwardTargets.length) {
+        candidates = forwardTargets.sort((a, b) => direction * (b.x - a.x));
+        forcedPassType = 'through';
+      }
     }
 
     // El estilo Directo nunca recicla hacia atrás: la misma regla se aplica
@@ -1543,7 +1594,8 @@ class LiveMatchEngine {
     if (!receiver) return;
     const inAttackingThird = owner.side === 'home' ? owner.x > 67 : owner.x < 33;
     const isWide = owner.y < 15 || owner.y > 53;
-    const shouldCross = !forcedReceiverId && inAttackingThird && isWide;
+    const shouldCross = !forcedReceiverId && isWide &&
+      (inAttackingThird || (instruction === 'Colgar balones' && (owner.side === 'home' ? owner.x > 52 : owner.x < 48)));
     if (shouldCross) {
       const targets = mates.filter(mate => ['ST', 'CF', 'LW', 'RW', 'CAM'].includes(mate.position) &&
           (passStyle !== 'Directo' || directForwardOption(mate)))
@@ -1608,7 +1660,8 @@ class LiveMatchEngine {
       targetX: passTargetX,
       targetY: passTargetY,
       progress: 0,
-      duration: this.clamp(Math.hypot(passTargetX - kickX, passTargetY - kickY) / (42 + player.passing * 0.36), 0.2, 0.78),
+      duration: this.clamp(Math.hypot(passTargetX - kickX, passTargetY - kickY) /
+        (42 + player.passing * 0.36 * this.clamp((owner.effectiveOverall || player.overall) / player.overall, .82, 1.08)), 0.2, 0.78),
       receiverId: receiver.id,
       passerId: owner.id,
       action: offside.isOffside ? 'offside-pass' : 'pass',
@@ -1724,7 +1777,7 @@ class LiveMatchEngine {
     const receiverData = this.getPlayer(receiver.id);
     const defenderData = defender ? this.getPlayer(defender.id) : null;
     const attackingScore = receiverDistance <= 5.5
-      ? receiverData.physical * 0.55 + receiverData.overall * 0.45 + this.random() * 35 - receiverDistance * 2
+      ? receiverData.physical * 0.55 + (receiver.effectiveOverall || receiverData.overall) * 0.45 + this.random() * 35 - receiverDistance * 2
       : -Infinity;
     const defendingScore = defenderData && defenderDistance <= 5.5
       ? defenderData.physical * 0.55 + defenderData.defending * 0.45 + this.random() * 35
@@ -1884,8 +1937,10 @@ class LiveMatchEngine {
     const defenderData = this.getPlayer(defender.id);
     const attackerData = this.getPlayer(attacker.id);
     const pressure = this.getTeamState(defender.teamId).tactics.pressure;
+    const instruction = this.getTeamState(defender.teamId).tactics.situationalInstruction || 'Normal';
     const attackerInBox = this.isInOpponentPenaltyArea(attacker);
-    const baseFoulChance = 0.14 + (pressure === 'Alta' ? 0.09 : 0) + (100 - defender.fitness) / 350;
+    const baseFoulChance = 0.14 + (pressure === 'Alta' ? 0.09 : 0) +
+      (instruction === 'Entradas duras' ? .12 : 0) + (100 - defender.fitness) / 350;
     // Las faltas en el área se reservan al sorteo por partido. Fuera de ella
     // se mantiene la frecuencia normal de infracciones.
     const plannedPenalty = attackerInBox && this.state.penaltyPlan && !this.state.penaltyPlan.awarded &&
@@ -1903,7 +1958,9 @@ class LiveMatchEngine {
       return;
     }
     const winChance = this.clamp(
-      0.35 + defenderData.defending / 220 + defenderData.physical / 500 - attackerData.dribbling / 260 +
+      0.35 + (defenderData.defending / 220) * this.clamp((defender.effectiveOverall || defenderData.overall) / defenderData.overall, .82, 1.08) +
+        defenderData.physical / 500 - (attackerData.dribbling / 260) * this.clamp((attacker.effectiveOverall || attackerData.overall) / attackerData.overall, .82, 1.08) +
+        (instruction === 'Entradas duras' ? .07 : 0) +
         (forcedCollision ? 0.07 : 0),
       0.18,
       0.84
@@ -2174,7 +2231,7 @@ class LiveMatchEngine {
         const pb = this.getPlayer(b.id);
         const score = (state, player) => {
           const quality = restart?.type === 'penalty'
-            ? player.shooting * 1.8 + player.overall * 0.4
+            ? player.shooting * 1.8 + (state.effectiveOverall || player.overall) * 0.4
             : player.shooting + player.passing;
           const travel = restart ? this.distance(state, restart) : 0;
           return quality - travel * (restart?.type === 'penalty' ? 1.4 : 2.8);
@@ -2193,9 +2250,10 @@ class LiveMatchEngine {
     const familiarity = this.state.teams[side].tacticalFamiliarity || 100;
     const adaptationMultiplier = 0.82 + familiarity * 0.0018;
     const confidenceMultiplier = 0.9 + (Number(shooter.confidence) || 50) / 500;
+    const positionMultiplier = this.clamp((shooter.effectiveOverall || player.overall) / player.overall, .82, 1.08);
     const shotQuality = this.clamp((
       0.35 + player.shooting / 160 + (action === 'penalty' ? 0.25 : 0) +
-        (action === 'header' ? player.physical / 500 - 0.13 : 0) - (setPiece && action !== 'penalty' ? 0.04 : 0)) * adaptationMultiplier * confidenceMultiplier,
+        (action === 'header' ? player.physical / 500 - 0.13 : 0) - (setPiece && action !== 'penalty' ? 0.04 : 0)) * adaptationMultiplier * confidenceMultiplier * positionMultiplier,
       0.35,
       0.96
     );
@@ -2548,6 +2606,55 @@ class LiveMatchEngine {
     return { valid: true };
   }
 
+  changeFormation(teamId, formationName, isAI = false) {
+    const teamState = this.getTeamState(teamId);
+    const formation = DATA.FORMATIONS[formationName];
+    if (!teamState || !formation) return { valid: false, error: 'Formación no válida' };
+    if (teamState.formation === formationName) return { valid: true, unchanged: true };
+
+    const previousFormation = teamState.formation;
+    if (!this.teamManager.setFormation(teamId, formationName)) {
+      return { valid: false, error: 'No se pudo aplicar la formación' };
+    }
+
+    teamState.formation = formationName;
+    teamState.formationAssignments = this.teamManager.assignLineupToFormation(teamId, teamState.onField);
+    const assignedByPlayer = new Map(teamState.formationAssignments.map(item => [item.playerId, item]));
+    const naturalLine = position => position === 'GK' ? 'gk' :
+      ['CB', 'RB', 'LB'].includes(position) ? 'def' :
+        ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position) ? 'mid' : 'att';
+
+    teamState.onField.forEach(playerId => {
+      const playerState = this.state.players[playerId];
+      const player = this.teamManager.getPlayer(teamId, playerId);
+      if (!playerState || !player) return;
+      const assignment = assignedByPlayer.get(playerId);
+      playerState.assignedPosition = assignment ? assignment.slotPosition : player.position;
+      playerState.effectiveOverall = this.teamManager.getEffectiveOverall(player, playerState.assignedPosition);
+      playerState.formationLine = assignment ? assignment.line : naturalLine(player.position);
+      const anchor = this.getAnchor(player, teamState, teamState.onField);
+      playerState.baseX = anchor.x;
+      playerState.baseY = anchor.y;
+      playerState.targetIntent = 'formation';
+      if (playerState.actionTargetUntil <= this.state.minute) {
+        playerState.targetX = anchor.x;
+        playerState.targetY = anchor.y;
+      }
+    });
+
+    this.state.visualRevision++;
+    this.state.decisions.push({
+      minute: this.state.displayMinute,
+      teamId,
+      type: 'formation',
+      changes: { formation: formationName, previousFormation },
+      isAI
+    });
+    const team = this.teamManager.getTeam(teamId);
+    this.addEvent('TACTICS', `${team.name} cambia de ${previousFormation} a ${formationName}`, null, teamState.side);
+    return { valid: true };
+  }
+
   makeSubstitution(teamId, playerOutId, playerInId, isAI = false) {
     const teamState = this.getTeamState(teamId);
     if (!teamState) return { valid: false, error: 'Equipo no encontrado' };
@@ -2590,6 +2697,7 @@ class LiveMatchEngine {
     incoming.baseX = outgoing.baseX;
     incoming.baseY = outgoing.baseY;
     incoming.assignedPosition = outgoing.assignedPosition;
+    incoming.effectiveOverall = this.teamManager.getEffectiveOverall(this.getPlayer(incoming.id), incoming.assignedPosition);
     incoming.formationLine = outgoing.formationLine;
     incoming.targetX = outgoing.baseX;
     incoming.targetY = outgoing.baseY;
@@ -2825,6 +2933,7 @@ class LiveMatchEngine {
         const player = teamManager.getPlayer(teamState.teamId, assignment.playerId);
         if (!playerState || !player) return;
         playerState.assignedPosition = assignment.slotPosition;
+        playerState.effectiveOverall = teamManager.getEffectiveOverall(player, assignment.slotPosition);
         playerState.formationLine = assignment.line;
         const anchor = engine.getAnchor(player, teamState, teamState.onField);
         playerState.baseX = anchor.x;

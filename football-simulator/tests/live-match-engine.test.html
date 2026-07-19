@@ -162,6 +162,41 @@
       return result.valid && tactics.mentality === 'Ofensiva' && tactics.pressure === 'Alta' && tactics.setPiecePreference === 'Disparar';
     });
 
+    test('Permite cambiar a 3-4-3 durante el partido y recoloca las líneas', () => {
+      const { engine, home } = createEngine(202);
+      const result = engine.changeFormation(home.id, '3-4-3');
+      const state = engine.getTeamState(home.id);
+      const lines = engine.onField('home').reduce((counts, player) => {
+        counts[player.formationLine] = (counts[player.formationLine] || 0) + 1;
+        return counts;
+      }, {});
+      return result.valid && state.formation === '3-4-3' && home.formation === '3-4-3' &&
+        lines.gk === 1 && lines.def === 3 && lines.mid === 4 && lines.att === 3 &&
+        state.formationAssignments.every(assignment => {
+          const player = engine.state.players[assignment.playerId];
+          return player.assignedPosition === assignment.slotPosition && player.baseX === engine.getAnchor(player, state, state.onField).x;
+        });
+    });
+
+    test('La media efectiva cambia al adaptar un jugador a otro puesto', () => {
+      const { manager, home } = createEngine(203);
+      const player = manager.getStartingXI(home.id).find(item => item.position !== 'GK');
+      const target = player.position === 'ST' ? 'CB' : 'ST';
+      const natural = manager.getEffectiveOverall(player, player.position);
+      const adapted = manager.getEffectiveOverall(player, target);
+      const specialist = {
+        position: 'CB', overall: 60, shooting: 95, pace: 95, physical: 90,
+        dribbling: 95, passing: 70, defending: 45, stamina: 75, goalkeeping: 5
+      };
+      const unsuitable = {
+        position: 'CB', overall: 80, shooting: 35, pace: 45, physical: 55,
+        dribbling: 35, passing: 50, defending: 85, stamina: 60, goalkeeping: 5
+      };
+      return natural === player.overall && adapted !== natural && adapted >= 1 && adapted <= 99 &&
+        manager.getEffectiveOverall(specialist, 'ST') > specialist.overall &&
+        manager.getEffectiveOverall(unsuitable, 'ST') < unsuitable.overall;
+    });
+
     test('Permite cinco sustituciones y bloquea la sexta', () => {
       const { engine, home } = createEngine(3);
       for (let index = 0; index < 5; index++) {
@@ -292,6 +327,15 @@
       const result = engine.applyTactics(home.id, { situationalInstruction: 'Presionar rival', pressTargetId: rival.id });
       return result.valid && engine.state.teams.home.tactics.situationalInstruction === 'Presionar rival' &&
         engine.state.teams.home.tactics.pressTargetId === rival.id;
+    });
+
+    test('Las órdenes rápidas cubren ataque, control, repliegue y agresividad', () => {
+      const required = ['Atacar centro', 'Mantener posesión', 'Contraatacar', 'Colgar balones', 'Disparar más', 'Replegar', 'Entradas duras'];
+      const { engine, home } = createEngine(415);
+      const applied = required.every(order => engine.applyTactics(home.id, { situationalInstruction: order }).valid &&
+        engine.getTeamState(home.id).tactics.situationalInstruction === order);
+      return applied && required.every(order => DATA.QUICK_ORDERS.some(item => item.value === order)) &&
+        new Set(DATA.QUICK_ORDERS.map(item => item.value)).size === DATA.QUICK_ORDERS.length;
     });
 
     test('Un gol aumenta la confianza del goleador', () => {

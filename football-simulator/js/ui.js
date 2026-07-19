@@ -1260,9 +1260,12 @@ class UIManager {
       const condition = player.fitness < 60 ? 'warning' : '';
       const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
       const adaptedClass = assignment.line !== 'gk' && player.position !== assignment.slotPosition ? 'is-adapted' : '';
+      const effectiveOverall = this.gameApp.teamManager.getEffectiveOverall(player, assignment.slotPosition);
+      const overallDelta = effectiveOverall - player.overall;
+      const overallChange = overallDelta ? ` · ${overallDelta > 0 ? '+' : ''}${overallDelta} MED` : '';
       const replacementClass = this.lineupReplacementId === player.id ? 'is-replacing' : '';
-      return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${adaptedClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${y}%" title="${replacementClass ? `Elige el sustituto de ${player.name}` : `Cambiar a ${player.name}`}">
-        <span class="pitch-shirt">${player.overall}</span><strong>${lastName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${adaptedClass ? ' · ADAPT.' : ''} · ${Math.round(player.fitness)}%</small>
+      return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${adaptedClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name}: media base ${player.overall}, media como ${DATA.getPositionLabel(assignment.slotPosition)} ${effectiveOverall}">
+        <span class="pitch-shirt ${overallDelta > 0 ? 'overall-up' : overallDelta < 0 ? 'overall-down' : ''}">${effectiveOverall}</span><strong>${lastName}</strong><small>${DATA.getPositionLabel(assignment.slotPosition)}${adaptedClass ? ' · ADAPT.' : ''}${overallChange} · ${Math.round(player.fitness)}%</small>
       </button>`;
     }).join('');
 

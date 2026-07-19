@@ -71,41 +71,57 @@ function getRandomName() {
 const PHILOSOPHICAL_IDENTITIES = {
   'club-atletico': {
     name: 'Estoicos CF', shortName: 'EST', current: 'Estoicismo', reserveName: 'Homero B',
+    principle: 'La serenidad ante la adversidad y el dominio de aquello que depende de uno mismo.',
+    footballMeaning: 'Disciplina, estructura y resistencia emocional: competir sin perder la forma aunque el partido se vuelva incómodo.',
     thinkers: ['Zenón de Citio', 'Cleantes de Aso', 'Crisipo de Solos', 'Séneca', 'Epicteto', 'Marco Aurelio', 'Musonio Rufo', 'Panecio de Rodas', 'Posidonio', 'Hierocles', 'Catón de Útica', 'Junio Rústico', 'Cornuto', 'Aristón de Quíos', 'Diógenes de Babilonia', 'Antípatro de Tarso', 'Hecatón de Rodas', 'Trásea Peto'],
     poets: ['Homero', 'Safo', 'Píndaro', 'Hesíodo', 'Simónides', 'Alceo', 'Baquílides', 'Teognis']
   },
   'elite-united': {
     name: 'Academia Idealista', shortName: 'IDE', current: 'Idealismo', reserveName: 'Dante B',
+    principle: 'La realidad se orienta hacia una forma superior que primero debe ser pensada.',
+    footballMeaning: 'Persigue un modelo de juego reconocible y colectivo, convencido de que la idea debe ordenar cada movimiento.',
     thinkers: ['Platón', 'Plotino', 'Porfirio', 'Jámblico', 'Proclo', 'San Agustín', 'San Anselmo', 'Nicolás de Cusa', 'Immanuel Kant', 'Johann Fichte', 'Friedrich Schelling', 'Georg Hegel', 'Arthur Schopenhauer', 'Francis Bradley', 'Bernard Bosanquet', 'Josiah Royce', 'Benedetto Croce', 'Ernst Cassirer'],
     poets: ['Dante Alighieri', 'William Blake', 'Novalis', 'Friedrich Hölderlin', 'John Keats', 'Percy Shelley', 'Giacomo Leopardi', 'Walt Whitman']
   },
   'real-victoria': {
     name: 'Círculo Racionalista', shortName: 'RAC', current: 'Racionalismo', reserveName: 'Sor Juana B',
+    principle: 'La razón, el método y las relaciones claras permiten comprender y organizar el mundo.',
+    footballMeaning: 'Interpreta el campo como un problema de espacios: orden, pase calculado y decisiones con poco margen para la improvisación.',
     thinkers: ['René Descartes', 'Baruch Spinoza', 'Gottfried Leibniz', 'Nicolas Malebranche', 'Blaise Pascal', 'Christian Wolff', 'Antoine Arnauld', 'Arnold Geulincx', 'Anne Conway', 'Émilie du Châtelet', 'Pierre Bayle', 'Moses Mendelssohn', 'Gotthold Lessing', 'Nicolas de Condorcet', 'Bernard de Fontenelle', 'Louis de La Forge', 'Johannes Clauberg', 'François Poulain'],
     poets: ['Sor Juana Inés', 'Luis de Góngora', 'Francisco Quevedo', 'Lope de Vega', 'Calderón de la Barca', 'Molière', 'Jean Racine', 'Alexander Pope']
   },
   'sport-juvenil': {
     name: 'Jardín Epicúreo', shortName: 'EPI', current: 'Epicureísmo', reserveName: 'Horacio B',
+    principle: 'La buena vida nace del placer sobrio, la amistad y la ausencia de perturbación.',
+    footballMeaning: 'Quiere disfrutar con el balón, asociarse con sencillez y evitar un partido caótico o innecesariamente sufrido.',
     thinkers: ['Epicuro de Samos', 'Metrodoro de Lámpsaco', 'Hermarco de Mitilene', 'Lucrecio', 'Filodemo de Gadara', 'Zenón de Sidón', 'Demetrio de Laconia', 'Colotes de Lámpsaco', 'Polieno de Lámpsaco', 'Leontion', 'Temista de Lámpsaco', 'Idomeneo de Lámpsaco', 'Diógenes de Enoanda', 'Apolodoro de Atenas', 'Basilides de Tiro', 'Patrón de Atenas', 'Fedro de Atenas', 'Cayo Amafinio'],
     poets: ['Horacio', 'Virgilio', 'Ovidio', 'Catulo', 'Propercio', 'Tibulo', 'Marcial', 'Juvenal']
   },
   'dynamo-central': {
     name: 'Ágora Existencialista', shortName: 'EXI', current: 'Existencialismo', reserveName: 'Rilke B',
+    principle: 'Cada elección construye lo que somos y nos hace responsables de nuestro destino.',
+    footballMeaning: 'Un equipo intenso y valiente que acepta el riesgo, exige iniciativa individual y se define mediante sus decisiones.',
     thinkers: ['Søren Kierkegaard', 'Friedrich Nietzsche', 'Martin Heidegger', 'Jean-Paul Sartre', 'Simone de Beauvoir', 'Albert Camus', 'Karl Jaspers', 'Gabriel Marcel', 'Maurice Merleau-Ponty', 'Emmanuel Levinas', 'Miguel de Unamuno', 'José Ortega y Gasset', 'Nicola Abbagnano', 'Viktor Frankl', 'Martin Buber', 'Paul Tillich', 'Nikolái Berdiáyev', 'Lev Shestov'],
     poets: ['Rainer Maria Rilke', 'Paul Celan', 'Fernando Pessoa', 'Alejandra Pizarnik', 'Sylvia Plath', 'Cesare Pavese', 'T. S. Eliot', 'Wisława Szymborska']
   },
   'phoenix-power': {
     name: 'Unión Empirista', shortName: 'EMP', current: 'Empirismo', reserveName: 'Shakespeare B',
+    principle: 'El conocimiento comienza en la experiencia, la observación y la prueba.',
+    footballMeaning: 'Lee lo que sucede, prueba soluciones y adapta su plan a la evidencia que ofrece el partido.',
     thinkers: ['Francis Bacon', 'Thomas Hobbes', 'John Locke', 'George Berkeley', 'David Hume', 'Robert Boyle', 'Isaac Newton', 'David Hartley', 'Thomas Reid', 'Adam Smith', 'Jeremy Bentham', 'John Stuart Mill', 'Étienne de Condillac', 'Claude Helvétius', 'A. J. Ayer', 'Rudolf Carnap', 'Otto Neurath', 'Moritz Schlick'],
     poets: ['William Shakespeare', 'John Milton', 'William Wordsworth', 'Samuel Coleridge', 'Lord Byron', 'Emily Dickinson', 'Robert Frost', 'W. B. Yeats']
   },
   'titan-forces': {
     name: 'Deportivo Materialista', shortName: 'MAT', current: 'Materialismo', reserveName: 'Neruda B',
+    principle: 'Las condiciones materiales y las fuerzas concretas explican el movimiento de la realidad.',
+    footballMeaning: 'Da valor al físico, al territorio y al trabajo colectivo: el partido se conquista con acciones tangibles.',
     thinkers: ['Leucipo de Mileto', 'Demócrito de Abdera', 'Julien de La Mettrie', 'Paul d’Holbach', 'Denis Diderot', 'Ludwig Feuerbach', 'Karl Marx', 'Friedrich Engels', 'Vladimir Lenin', 'Antonio Gramsci', 'György Lukács', 'Ernst Bloch', 'Louis Althusser', 'Walter Benjamin', 'Herbert Marcuse', 'Theodor Adorno', 'Lucio Colletti', 'Evald Iliénkov'],
     poets: ['Pablo Neruda', 'César Vallejo', 'Rafael Alberti', 'Miguel Hernández', 'Roque Dalton', 'Nicolás Guillén', 'Bertolt Brecht', 'Nazım Hikmet']
   },
   'noble-lions': {
     name: 'Ateneo Humanista', shortName: 'HUM', current: 'Humanismo', reserveName: 'Garcilaso B',
+    principle: 'La dignidad, la capacidad y el desarrollo integral de la persona ocupan el centro.',
+    footballMeaning: 'Busca un equipo equilibrado que potencie a cada futbolista y ponga el talento individual al servicio del conjunto.',
     thinkers: ['Erasmo de Róterdam', 'Pico della Mirandola', 'Tomás Moro', 'Juan Luis Vives', 'Michel de Montaigne', 'Nicolás Maquiavelo', 'Coluccio Salutati', 'Leonardo Bruni', 'Leon Battista Alberti', 'Marsilio Ficino', 'Guillaume Budé', 'Johannes Reuchlin', 'Rodolfo Agrícola', 'Pier Paolo Vergerio', 'Giannozzo Manetti', 'François Rabelais', 'Baltasar Castiglione', 'Lorenzo Valla'],
     poets: ['Garcilaso de la Vega', 'Francesco Petrarca', 'Giovanni Boccaccio', 'Pierre de Ronsard', 'Joachim du Bellay', 'Ausonio', 'Torquato Tasso', 'Ludovico Ariosto']
   }
@@ -294,6 +310,13 @@ const QUICK_ORDERS = [
   { value: 'Presionar rival', label: 'Presionar salida', description: 'Ahogar al poseedor.' },
   { value: 'Atacar izquierda', label: 'Atacar izquierda', description: 'Volcar el juego a esa banda.' },
   { value: 'Atacar derecha', label: 'Atacar derecha', description: 'Volcar el juego a esa banda.' },
+  { value: 'Atacar centro', label: 'Atacar por dentro', description: 'Juntar pases y llegadas en el carril central.' },
+  { value: 'Mantener posesión', label: 'Conservar balón', description: 'Pases seguros y ataques más largos.' },
+  { value: 'Contraatacar', label: 'Salir a la contra', description: 'Replegar y acelerar tras recuperar.' },
+  { value: 'Colgar balones', label: 'Colgar balones', description: 'Buscar centros tempranos hacia el área.' },
+  { value: 'Disparar más', label: 'Disparar más', description: 'Finalizar antes desde media distancia.' },
+  { value: 'Replegar', label: 'Replegar líneas', description: 'Reducir espacios detrás del balón.' },
+  { value: 'Entradas duras', label: 'Entrar fuerte', description: 'Más agresividad con mayor riesgo de falta.' },
   { value: 'Defender resultado', label: 'Cerrar el partido', description: 'Priorizar la protección.' }
 ];
 

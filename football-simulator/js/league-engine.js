@@ -224,9 +224,12 @@ class LeagueEngine {
     const available = team.players.filter(player => this.teamManager.isPlayerAvailable(player));
     const squad = starters.length === 11 ? starters : available.slice(0, 11);
     if (!squad.length) return team.overall || 70;
+    const assignments = this.teamManager.assignLineupToFormation(team.id, squad.map(player => player.id));
+    const assignedById = new Map(assignments.map(item => [item.playerId, item.slotPosition]));
     const playerScore = squad.reduce((sum, player) => {
       const availability = (player.injured || player.redCards > 0) ? 0.75 : 1;
-      return sum + ((player.overall * 0.7) + (player.fitness * 0.2) + (player.morale * 0.1)) * availability;
+      const effectiveOverall = this.teamManager.getEffectiveOverall(player, assignedById.get(player.id) || player.position);
+      return sum + ((effectiveOverall * 0.7) + (player.fitness * 0.2) + (player.morale * 0.1)) * availability;
     }, 0) / squad.length;
     const mentalityBonus = team.tactics.mentality === 'Ofensiva' ? 1 :
       team.tactics.mentality === 'Defensiva' ? -0.5 : 0;

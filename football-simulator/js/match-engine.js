@@ -96,19 +96,33 @@ class MatchEngine {
     });
   }
 
+  getLineupContext(team) {
+    const players = this.teamManager.getStartingXI(team.id);
+    const assignments = this.teamManager.assignLineupToFormation(team.id, players.map(player => player.id));
+    const assignedById = new Map(assignments.map(item => [item.playerId, item.slotPosition]));
+    return players.map(player => {
+      const assignedPosition = assignedById.get(player.id) || player.position;
+      return {
+        player,
+        assignedPosition,
+        effectiveOverall: this.teamManager.getEffectiveOverall(player, assignedPosition)
+      };
+    });
+  }
+
   // Calcular fuerza ofensiva
   calculateAttackStrength(team) {
-    const XI = this.teamManager.getStartingXI(team.id);
+    const XI = this.getLineupContext(team);
     if (XI.length === 0) return 0;
 
     let totalAttack = 0;
-    XI.forEach(player => {
+    XI.forEach(({ player, effectiveOverall }) => {
       const attackValue = (
         (player.shooting * 0.3) +
         (player.pace * 0.2) +
         (player.dribbling * 0.2) +
         (player.passing * 0.15) +
-        (player.overall * 0.15)
+        (effectiveOverall * 0.15)
       );
       totalAttack += attackValue;
     });
@@ -118,16 +132,16 @@ class MatchEngine {
 
   // Calcular fuerza defensiva
   calculateDefenseStrength(team) {
-    const XI = this.teamManager.getStartingXI(team.id);
+    const XI = this.getLineupContext(team);
     if (XI.length === 0) return 0;
 
     let totalDefense = 0;
-    XI.forEach(player => {
+    XI.forEach(({ player, effectiveOverall }) => {
       const defenseValue = (
         (player.defending * 0.3) +
         (player.physical * 0.25) +
         (player.pace * 0.2) +
-        (player.overall * 0.25)
+        (effectiveOverall * 0.25)
       );
       totalDefense += defenseValue;
     });
@@ -137,22 +151,22 @@ class MatchEngine {
 
   // Calcular fuerza del centro del campo
   calculateMidfieldStrength(team) {
-    const XI = this.teamManager.getStartingXI(team.id);
+    const XI = this.getLineupContext(team);
     if (XI.length === 0) return 0;
 
-    const midfielders = XI.filter(p => 
-      ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(p.position)
+    const midfielders = XI.filter(item =>
+      ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(item.assignedPosition)
     );
 
     if (midfielders.length === 0) return 0;
 
     let totalMidfield = 0;
-    midfielders.forEach(player => {
+    midfielders.forEach(({ player, effectiveOverall }) => {
       const midfieldValue = (
         (player.passing * 0.35) +
         (player.dribbling * 0.25) +
         (player.stamina * 0.2) +
-        (player.overall * 0.2)
+        (effectiveOverall * 0.2)
       );
       totalMidfield += midfieldValue;
     });
