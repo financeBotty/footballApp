@@ -139,7 +139,8 @@ class LiveMatchEngine {
   }
 
   createTeamState(team, side, kit = null) {
-    if (this.teamManager.getStartingXI(team.id).length !== 11) {
+    const storedLineup = Array.isArray(team.startingXI) ? team.startingXI : [];
+    if (!this.teamManager.validateLineup(team.id, storedLineup).valid) {
       this.teamManager.autoSelectStartingXI(team.id);
     }
     const onField = this.teamManager.getStartingXI(team.id).map(player => player.id);
@@ -2559,6 +2560,10 @@ class LiveMatchEngine {
     if (!incoming || incoming.teamId !== teamId || incoming.onField || incoming.appeared || !teamState.bench.includes(playerInId)) {
       return { valid: false, error: 'El suplente no está disponible' };
     }
+    const goalkeeperChange = outgoing.position === 'GK' || incoming.position === 'GK';
+    if (goalkeeperChange && outgoing.position !== incoming.position) {
+      return { valid: false, error: 'Un portero solo puede sustituir a otro portero' };
+    }
     const outgoingOwnedBall = this.state.ball.ownerId === playerOutId;
     const ballBeforeChange = { x: this.state.ball.x, y: this.state.ball.y };
     const benchX = teamState.side === 'home' ? 38 : 62;
@@ -2626,7 +2631,8 @@ class LiveMatchEngine {
     const outgoing = this.state.players[playerOutId];
     if (!outgoing || teamState.substitutions >= 5) return false;
     const bench = teamState.bench.map(id => this.state.players[id])
-      .filter(player => player && !player.appeared)
+      .filter(player => player && !player.appeared &&
+        (player.position === 'GK') === (outgoing.position === 'GK'))
       .sort((a, b) => {
         return this.getAutomaticSubstitutionScore(b, outgoing) - this.getAutomaticSubstitutionScore(a, outgoing);
       });

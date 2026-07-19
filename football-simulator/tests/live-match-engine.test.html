@@ -122,12 +122,22 @@
       for (let index = 0; index < 5; index++) {
         const state = engine.getTeamState(home.id);
         const outgoing = state.onField.find(id => engine.state.players[id].position !== 'GK');
-        const incoming = state.bench.find(id => !engine.state.players[id].appeared);
+        const incoming = state.bench.find(id => !engine.state.players[id].appeared && engine.state.players[id].position !== 'GK');
         if (!engine.makeSubstitution(home.id, outgoing, incoming).valid) return false;
       }
       const state = engine.getTeamState(home.id);
-      const sixth = engine.makeSubstitution(home.id, state.onField[1], state.bench.find(id => !engine.state.players[id].appeared));
+      const sixth = engine.makeSubstitution(home.id, state.onField[1], state.bench.find(id => !engine.state.players[id].appeared && engine.state.players[id].position !== 'GK'));
       return state.substitutions === 5 && !sixth.valid && engine.onField('home').length === 11;
+    });
+
+    test('Nunca permite tener dos porteros en el mismo equipo', () => {
+      const { engine, home } = createEngine(31);
+      const state = engine.getTeamState(home.id);
+      const outfield = state.onField.map(id => engine.state.players[id]).find(player => player.position !== 'GK');
+      const reserveKeeper = state.bench.map(id => engine.state.players[id]).find(player => player.position === 'GK');
+      const invalid = engine.makeSubstitution(home.id, outfield.id, reserveKeeper.id);
+      const keepers = engine.onField('home').filter(player => player.position === 'GK');
+      return !invalid.valid && keepers.length === 1 && engine.onField('home').length === 11;
     });
 
     test('Dos amarillas expulsan y reducen el equipo', () => {
@@ -674,7 +684,8 @@
       const blocked = engine.state.status === 'paused' && engine.state.pausedReason === 'injury-substitution' &&
         engine.state.minute === frozenMinute;
       const team = engine.getTeamState(home.id);
-      const incoming = team.bench.find(id => !engine.state.players[id].appeared);
+      const incoming = team.bench.find(id => !engine.state.players[id].appeared &&
+        (engine.state.players[id].position === 'GK') === (victim.position === 'GK'));
       const changed = engine.makeSubstitution(home.id, victim.id, incoming);
       return requirement && requirement.playerId === victim.id && blocked && changed.valid &&
         !engine.getRequiredInjurySubstitution();
@@ -695,7 +706,7 @@
       const { engine, home } = createEngine(61);
       const team = engine.getTeamState(home.id);
       const outgoingId = team.onField.find(id => engine.state.players[id].position !== 'GK');
-      const incomingId = team.bench.find(id => !engine.state.players[id].appeared);
+      const incomingId = team.bench.find(id => !engine.state.players[id].appeared && engine.state.players[id].position !== 'GK');
       const addedTimeBefore = engine.state.addedTime.firstHalf;
       const result = engine.makeSubstitution(home.id, outgoingId, incomingId);
       const incoming = engine.state.players[incomingId];
@@ -730,7 +741,7 @@
       engine.maybeDismissCoach();
       const team = engine.getTeamState(home.id);
       const outgoingId = team.onField.find(id => engine.state.players[id].position !== 'GK');
-      const incomingId = team.bench.find(id => !engine.state.players[id].appeared);
+      const incomingId = team.bench.find(id => !engine.state.players[id].appeared && engine.state.players[id].position !== 'GK');
       return engine.state.coaches.home.dismissed && engine.makeSubstitution(home.id, outgoingId, incomingId).valid &&
         engine.state.events.some(event => event.type === 'COACH_RED_CARD');
     });
@@ -1099,7 +1110,7 @@
     test('Sustituir al poseedor deja el balón en el campo y no se lo entrega al suplente', () => {
       const { engine, home } = createEngine(1502);
       const outgoing = engine.onField('home').find(player => player.position !== 'GK');
-      const incomingId = engine.state.teams.home.bench[0];
+      const incomingId = engine.state.teams.home.bench.find(id => engine.state.players[id].position !== 'GK');
       engine.givePossession(outgoing.id);
       const before = { x: engine.state.ball.x, y: engine.state.ball.y };
       const result = engine.makeSubstitution(home.id, outgoing.id, incomingId);

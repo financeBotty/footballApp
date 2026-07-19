@@ -463,10 +463,29 @@ class TeamManager {
     const attackCount = Math.max(1, numbers[numbers.length - 1] || 1);
     const midfieldCount = 10 - defenseCount - attackCount;
     const fieldPositions = formation.positions.slice(1);
-    const slots = fieldPositions.map((position, index) => ({
-      position,
-      line: index < defenseCount ? 'def' : index < defenseCount + midfieldCount ? 'mid' : 'att'
-    }));
+    const configuredBands = Array.isArray(formation.bands) ? formation.bands.map(Number) : [];
+    const bandCounts = configuredBands.length && configuredBands.reduce((sum, count) => sum + count, 0) === 10
+      ? configuredBands
+      : [defenseCount, midfieldCount, attackCount];
+    const slots = fieldPositions.map((position, index) => {
+      let bandStart = 0;
+      let bandIndex = 0;
+      for (let candidate = 0; candidate < bandCounts.length; candidate++) {
+        if (index < bandStart + bandCounts[candidate]) {
+          bandIndex = candidate;
+          break;
+        }
+        bandStart += bandCounts[candidate];
+      }
+      return {
+        position,
+        line: index < defenseCount ? 'def' : index < defenseCount + midfieldCount ? 'mid' : 'att',
+        visualBand: bandIndex,
+        visualLineIndex: index - bandStart,
+        visualLineCount: bandCounts[bandIndex],
+        visualY: bandCounts.length === 1 ? 43 : 68 - (bandIndex * 50 / (bandCounts.length - 1))
+      };
+    });
     const remaining = playerIds.map(id => this.getPlayer(teamId, id)).filter(player => player && player.position !== 'GK');
     const goalkeeper = playerIds.map(id => this.getPlayer(teamId, id)).find(player => player && player.position === 'GK');
     const naturalLine = position => ['CB', 'RB', 'LB'].includes(position) ? 'def' :
@@ -486,10 +505,14 @@ class TeamManager {
       const linePlayers = slots.filter(item => item.line === slot.line);
       const lineIndex = slots.slice(0, slotIndex).filter(item => item.line === slot.line).length;
       const best = remaining.sort((a, b) => {
-        const score = player => (player.position === slot.position ? 100 : 0) +
+        const score = player => {
+          const reservedForLater = player.position !== slot.position &&
+            slots.slice(slotIndex + 1).some(futureSlot => futureSlot.position === player.position) ? -120 : 0;
+          return (player.position === slot.position ? 100 : 0) +
           roleAffinity(player.position, slot.position) +
           (naturalLine(player.position) === slot.line ? 42 : 0) + sideAffinity(player.position, slot.position) +
-          (Number(player.overall) || 0) * 0.08;
+          (Number(player.overall) || 0) * 0.08 + reservedForLater;
+        };
         return score(b) - score(a);
       })[0];
       if (!best) return;
@@ -499,7 +522,11 @@ class TeamManager {
         slotPosition: slot.position,
         line: slot.line,
         lineIndex,
-        lineCount: linePlayers.length
+        lineCount: linePlayers.length,
+        visualBand: slot.visualBand,
+        visualLineIndex: slot.visualLineIndex,
+        visualLineCount: slot.visualLineCount,
+        visualY: slot.visualY
       });
     });
     if (goalkeeper) assignments.unshift({
@@ -507,7 +534,11 @@ class TeamManager {
       slotPosition: 'GK',
       line: 'gk',
       lineIndex: 0,
-      lineCount: 1
+      lineCount: 1,
+      visualBand: -1,
+      visualLineIndex: 0,
+      visualLineCount: 1,
+      visualY: 87
     });
     return assignments;
   }
@@ -649,15 +680,33 @@ class TeamManager {
       }
     }
 
-    // Si no se pueden llenar todas las posiciones, buscar alternativas
+    // Si falta un perfil exacto, completar primero la línea que tenga déficit.
+    // Nunca se usa el segundo portero como relleno de una posición de campo.
     if (selectedIds.length < 11) {
-      for (const pos in playersByPosition) {
-        while (playersByPosition[pos].length > 0 && selectedIds.length < 11) {
-          const player = playersByPosition[pos].shift();
-          if (!selectedIds.includes(player.id)) {
-            selectedIds.push(player.id);
-          }
-        }
+      const numbers = team.formation.split('-').map(Number);
+      const required = {
+        def: Math.max(3, numbers[0] || 4),
+        att: Math.max(1, numbers[numbers.length - 1] || 1)
+      };
+      required.mid = 10 - required.def - required.att;
+      const lineFor = position => ['CB', 'RB', 'LB'].includes(position) ? 'def' :
+        ['CDM', 'CM', 'CAM', 'RM', 'LM'].includes(position) ? 'mid' : position === 'GK' ? 'gk' : 'att';
+      const remaining = Object.values(playersByPosition).flat()
+        .filter(player => player.position !== 'GK' && !selectedIds.includes(player.id));
+
+      while (selectedIds.length < 11 && remaining.length) {
+        const counts = { def: 0, mid: 0, att: 0 };
+        selectedIds.map(id => this.getPlayer(teamId, id)).forEach(player => {
+          const line = player ? lineFor(player.position) : null;
+          if (line && counts[line] !== undefined) counts[line]++;
+        });
+        remaining.sort((a, b) => {
+          const deficit = player => required[lineFor(player.position)] - counts[lineFor(player.position)];
+          const score = player => deficit(player) * 1000 +
+            (player.overall * 0.6) + (player.fitness * 0.25) + (player.morale * 0.15);
+          return score(b) - score(a);
+        });
+        selectedIds.push(remaining.shift().id);
       }
     }
 

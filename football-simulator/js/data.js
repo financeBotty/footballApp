@@ -183,27 +183,74 @@ const FORMATIONS = {
   '4-4-2': {
     name: '4-4-2',
     positions: ['GK', 'RB', 'CB', 'CB', 'LB', 'RM', 'CM', 'CM', 'LM', 'ST', 'ST'],
+    bands: [4, 4, 2],
     description: 'Clásica y equilibrada'
   },
   '4-3-3': {
     name: '4-3-3',
     positions: ['GK', 'RB', 'CB', 'CB', 'LB', 'CM', 'CDM', 'CM', 'RW', 'ST', 'LW'],
+    bands: [4, 3, 3],
     description: 'Ofensiva y dinámica'
   },
   '4-2-3-1': {
     name: '4-2-3-1',
     positions: ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CDM', 'CAM', 'RW', 'LW', 'ST'],
+    bands: [4, 2, 3, 1],
     description: 'Defensiva y compacta'
+  },
+  '4-1-4-1': {
+    name: '4-1-4-1',
+    positions: ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'RM', 'CM', 'CM', 'LM', 'ST'],
+    bands: [4, 1, 4, 1],
+    description: 'Pivote único y bloque equilibrado'
+  },
+  '4-3-2-1': {
+    name: '4-3-2-1',
+    positions: ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CM', 'CM', 'CAM', 'CAM', 'ST'],
+    bands: [4, 3, 2, 1],
+    description: 'Árbol de Navidad y juego interior'
+  },
+  '4-2-2-2': {
+    name: '4-2-2-2',
+    positions: ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CDM', 'CAM', 'CAM', 'ST', 'ST'],
+    bands: [4, 2, 2, 2],
+    description: 'Doble pivote y dos mediapuntas'
   },
   '3-5-2': {
     name: '3-5-2',
     positions: ['GK', 'CB', 'CB', 'CB', 'RB', 'CM', 'CDM', 'CM', 'LB', 'ST', 'ST'],
+    bands: [3, 5, 2],
     description: 'Arriesgada y ofensiva'
+  },
+  '3-4-3': {
+    name: '3-4-3',
+    positions: ['GK', 'CB', 'CB', 'CB', 'RM', 'CM', 'CM', 'LM', 'RW', 'ST', 'LW'],
+    bands: [3, 4, 3],
+    description: 'Amplitud y presión con tres atacantes'
+  },
+  '3-4-2-1': {
+    name: '3-4-2-1',
+    positions: ['GK', 'CB', 'CB', 'CB', 'RM', 'CM', 'CM', 'LM', 'CAM', 'CAM', 'ST'],
+    bands: [3, 4, 2, 1],
+    description: 'Carrileros y dos jugadores entre líneas'
   },
   '5-3-2': {
     name: '5-3-2',
     positions: ['GK', 'RB', 'CB', 'CB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'ST', 'ST'],
+    bands: [5, 3, 2],
     description: 'Muy defensiva'
+  },
+  '5-4-1': {
+    name: '5-4-1',
+    positions: ['GK', 'RB', 'CB', 'CB', 'CB', 'LB', 'RM', 'CM', 'CM', 'LM', 'ST'],
+    bands: [5, 4, 1],
+    description: 'Bloque bajo y máxima protección'
+  },
+  '5-2-3': {
+    name: '5-2-3',
+    positions: ['GK', 'RB', 'CB', 'CB', 'CB', 'LB', 'CM', 'CM', 'RW', 'ST', 'LW'],
+    bands: [5, 2, 3],
+    description: 'Defensa de cinco y salida con tres puntas'
   }
 };
 

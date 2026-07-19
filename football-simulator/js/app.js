@@ -128,6 +128,22 @@ class FootballSimulator {
       default:
         this.showDashboard();
     }
+    this.resetScreenViewport();
+  }
+
+  resetScreenViewport() {
+    window.scrollTo(0, 0);
+    const content = document.getElementById('main-content');
+    if (content) {
+      content.scrollTop = 0;
+      content.scrollLeft = 0;
+    }
+    window.requestAnimationFrame(() => {
+      const menu = document.querySelector('.navbar-menu');
+      const active = menu?.querySelector('.nav-btn.active');
+      if (!menu || !active || menu.scrollWidth <= menu.clientWidth) return;
+      menu.scrollLeft = Math.max(0, active.offsetLeft - (menu.clientWidth - active.offsetWidth) / 2);
+    });
   }
 
   // Mostrar dashboard principal
@@ -223,6 +239,8 @@ class FootballSimulator {
             </div>
           </div>
 
+          ${this.renderMatchBriefing(homePreviewTeam, awayPreviewTeam)}
+
           <div class="formation-info pre-match-lineup">
             <div class="pre-match-lineup-heading">
               <div><span>Tu once</span><h4>Alineación titular</h4></div>
@@ -280,6 +298,73 @@ class FootballSimulator {
     });
   }
 
+  renderMatchBriefing(homeTeam, awayTeam) {
+    const standings = this.leagueEngine.getStandings();
+    const standingFor = team => standings.find(item => item.teamId === team.id) || {
+      played: 0, points: 0, goalsFor: 0, goalsAgainst: 0
+    };
+    const positionFor = team => Math.max(1, standings.findIndex(item => item.teamId === team.id) + 1);
+    const average = (team, field) => Math.round(team.players.reduce(
+      (sum, player) => sum + (Number(player[field]) || 0), 0
+    ) / Math.max(1, team.players.length));
+    const starFor = team => [...team.players].sort((a, b) =>
+      (Number(b.overall) || 0) - (Number(a.overall) || 0) ||
+      (Number(b.morale) || 0) - (Number(a.morale) || 0)
+    )[0];
+    const scorerFor = team => [...team.players].sort((a, b) =>
+      (Number(b.goals) || 0) - (Number(a.goals) || 0) ||
+      (Number(b.assists) || 0) - (Number(a.assists) || 0) ||
+      (Number(b.shooting) || 0) - (Number(a.shooting) || 0)
+    )[0];
+    const formFor = team => Array.isArray(team.form) ? team.form.slice(-5) : [];
+    const describeForm = team => {
+      const form = formFor(team);
+      if (!form.length) return `<strong>${team.shortName}</strong> llega sin resultados previos esta temporada`;
+      const wins = form.filter(result => result === 'V').length;
+      const losses = form.filter(result => result === 'D').length;
+      const trend = wins >= 3 ? 'en una dinámica muy positiva' : losses >= 3
+        ? 'necesitado de una reacción' : wins > losses ? 'con buenas sensaciones' : wins < losses
+          ? 'en un momento irregular' : 'en una fase equilibrada';
+      return `<strong>${team.shortName}</strong> llega ${trend} (<strong>${form.join(' · ')}</strong>)`;
+    };
+    const moraleLabel = value => value >= 82 ? 'muy alta' : value >= 74 ? 'positiva' : value >= 65
+      ? 'estable' : value >= 55 ? 'delicada' : 'baja';
+    const scorerSummary = team => {
+      const scorer = scorerFor(team);
+      const goals = Number(scorer?.goals) || 0;
+      if (goals) return `<strong>${scorer.name}</strong> lidera a ${team.shortName} con <strong>${goals} gol${goals === 1 ? '' : 'es'}</strong>`;
+      return `<strong>${scorer.name}</strong> aparece como principal amenaza de ${team.shortName} aunque todavía no se ha estrenado`;
+    };
+
+    const homeStanding = standingFor(homeTeam);
+    const awayStanding = standingFor(awayTeam);
+    const homeStar = starFor(homeTeam);
+    const awayStar = starFor(awayTeam);
+    const homeMorale = average(homeTeam, 'morale');
+    const awayMorale = average(awayTeam, 'morale');
+    const homeFitness = average(homeTeam, 'fitness');
+    const awayFitness = average(awayTeam, 'fitness');
+    const classification = homeStanding.played || awayStanding.played
+      ? `<strong>${homeTeam.shortName}</strong> ocupa el <strong>${positionFor(homeTeam)}.º puesto</strong> con ${homeStanding.points} puntos; ` +
+        `<strong>${awayTeam.shortName}</strong>, el <strong>${positionFor(awayTeam)}.º</strong> con ${awayStanding.points}`
+      : `La <strong>clasificación todavía está por estrenarse</strong>: ambos equipos parten en igualdad antes de la jornada inaugural`;
+
+    return `
+      <section class="match-briefing" aria-labelledby="match-briefing-title">
+        <div class="match-briefing-heading">
+          <span class="season-kicker">Claves del partido</span>
+          <h4 id="match-briefing-title">Lo que debes saber antes de jugar</h4>
+        </div>
+        <ul>
+          <li>Los cracks del duelo son <strong>${homeStar.name}</strong> (${homeTeam.shortName}, ${homeStar.overall}) y <strong>${awayStar.name}</strong> (${awayTeam.shortName}, ${awayStar.overall}).</li>
+          <li>${classification}.</li>
+          <li>${describeForm(homeTeam)}; ${describeForm(awayTeam)}.</li>
+          <li>La moral es <strong>${moraleLabel(homeMorale)}</strong> en ${homeTeam.shortName} (${homeMorale}/100) y <strong>${moraleLabel(awayMorale)}</strong> en ${awayTeam.shortName} (${awayMorale}/100), con un estado físico medio de <strong>${homeFitness}% · ${awayFitness}%</strong>.</li>
+          <li>${scorerSummary(homeTeam)}; ${scorerSummary(awayTeam)}.</li>
+        </ul>
+      </section>`;
+  }
+
   renderPreMatchLineup(team, players) {
     const assignments = this.teamManager.assignLineupToFormation(team.id, players.map(player => player.id));
     const yByLine = { gk: 87, def: 68, mid: 43, att: 18 };
@@ -287,11 +372,14 @@ class FootballSimulator {
     const lineup = assignments.map(assignment => {
       const player = playerById[assignment.playerId];
       if (!player) return '';
-      const x = ((assignment.lineIndex + 1) / (assignment.lineCount + 1)) * 100;
+      const visualIndex = assignment.visualLineIndex ?? assignment.lineIndex;
+      const visualCount = assignment.visualLineCount ?? assignment.lineCount;
+      const x = ((visualIndex + 1) / (visualCount + 1)) * 100;
+      const y = assignment.visualY ?? yByLine[assignment.line];
       const displayName = player.name.split(' ').slice(-1)[0];
       const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
       const captain = player.id === team.captainId ? '<i aria-label="Capitán">C</i>' : '';
-      return `<div class="pitch-player preview-player ${goalkeeperClass}" style="--player-x:${x}%;--player-y:${yByLine[assignment.line]}%" title="${player.name} · ${assignment.slotPosition}">
+      return `<div class="pitch-player preview-player ${goalkeeperClass}" style="--player-x:${x}%;--player-y:${y}%" title="${player.name} · ${assignment.slotPosition}">
         <span class="pitch-shirt">${player.overall}${captain}</span><strong>${displayName}</strong><small>${assignment.slotPosition}</small>
       </div>`;
     }).join('');
@@ -511,6 +599,7 @@ class FootballSimulator {
     this.renderLiveMatchState();
     if (!restoredEngine) this.liveMatchEngine.startMatch();
     if (!this.isMatchPaused) this.startLiveMatchLoop();
+    this.resetScreenViewport();
   }
 
   renderLiveTactics(tactics, teamState = null) {
@@ -545,7 +634,7 @@ class FootballSimulator {
       const fitness = Math.round(state.fitness);
       const fitnessLevel = fitness < 40 ? 'critical' : fitness < 65 ? 'low' : fitness < 80 ? 'medium' : 'high';
       return `
-        <button type="button" class="live-player-row" data-player-id="${state.id}" title="Preparar cambio de ${state.name}">
+        <button type="button" class="live-player-row" data-player-id="${state.id}" aria-pressed="false" title="Preparar cambio de ${state.name}">
           <span class="live-player-dot ${state.side}" style="background:${teamState.kitColor}">${state.number}</span>
           <span><strong>${state.name}${state.isCaptain ? ' (C)' : ''}</strong><small>${state.position} · ${state.role || 'Sin rol'} · confianza ${Math.round(state.confidence || 50)}</small></span>
           <span class="fitness ${fitnessLevel}" aria-label="Cansancio: ${fitness}%">
@@ -568,7 +657,8 @@ class FootballSimulator {
     const players = ids.map(id => this.liveMatchEngine.state.players[id])
       .filter(player => player && (onField
         ? player.onField && !queuedOut.has(player.id) && (!requiredChange || player.id === requiredChange.playerId)
-        : !player.appeared && !queuedIn.has(player.id)));
+        : !player.appeared && !queuedIn.has(player.id) &&
+          (!outgoing || (player.position === 'GK') === (outgoing.position === 'GK'))));
     if (!onField && outgoing) {
       players.sort((a, b) => this.getSubstitutionFitScore(b, outgoing) - this.getSubstitutionFitScore(a, outgoing));
     }
@@ -589,6 +679,7 @@ class FootballSimulator {
   }
 
   getSubstitutionFitScore(candidate, outgoing) {
+    if ((candidate.position === 'GK') !== (outgoing.position === 'GK')) return -Infinity;
     const data = this.teamManager.getPlayer(this.userTeamId, candidate.id);
     const exact = candidate.position === outgoing.position ? 1000 : 0;
     const sameLine = this.getPositionLine(candidate.position) === this.getPositionLine(outgoing.position) ? 450 : 0;
@@ -739,7 +830,17 @@ class FootballSimulator {
     const outgoing = document.getElementById('sub-player-out');
     outgoing.innerHTML = this.renderSubstitutionOptions(true);
     outgoing.value = playerId;
+    document.querySelectorAll('.live-player-row').forEach(row => {
+      const selected = row.dataset.playerId === playerId;
+      row.classList.toggle('selected-for-change', selected);
+      row.setAttribute('aria-pressed', String(selected));
+    });
     this.updateSubstitutionRecommendations(true);
+    if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) {
+      window.setTimeout(() => {
+        document.querySelector('.change-selector-grid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
   }
 
   updateSubstitutionRecommendations(selectFirst = false) {
@@ -748,9 +849,16 @@ class FootballSimulator {
     if (!outgoing || !incoming) return;
     incoming.innerHTML = this.renderSubstitutionOptions(false, outgoing.value || null);
     if (selectFirst && incoming.options.length > 1) incoming.selectedIndex = 1;
+    document.querySelectorAll('.live-player-row').forEach(row => {
+      const selected = Boolean(outgoing.value) && row.dataset.playerId === outgoing.value;
+      row.classList.toggle('selected-for-change', selected);
+      row.setAttribute('aria-pressed', String(selected));
+    });
     const feedback = document.getElementById('substitution-feedback');
     if (feedback && outgoing.value) {
-      feedback.textContent = 'Los suplentes están ordenados por encaje, nivel y fitness.';
+      feedback.textContent = selectFirst && incoming.value
+        ? 'Hemos seleccionado el suplente con mejor encaje. Puedes cambiarlo o añadir el cambio.'
+        : 'Los suplentes están ordenados por encaje, nivel y fitness.';
       feedback.className = 'coach-feedback';
     }
   }

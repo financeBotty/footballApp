@@ -201,7 +201,7 @@ class UIManager {
       <nav class="navbar">
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
-          <button class="nav-btn" data-screen="dashboard">Inicio</button>
+          <button class="nav-btn active" data-screen="dashboard">Inicio</button>
           <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="tactics">Tácticas</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
@@ -787,6 +787,17 @@ class UIManager {
       </div>
     `;
 
+    const matchdaySelector = content.querySelector('.matchday-selector');
+    const activeMatchday = matchdaySelector?.querySelector('.matchday-btn.active');
+    if (matchdaySelector && activeMatchday) {
+      window.requestAnimationFrame(() => {
+        matchdaySelector.scrollLeft = Math.max(
+          0,
+          activeMatchday.offsetLeft - (matchdaySelector.clientWidth - activeMatchday.offsetWidth) / 2
+        );
+      });
+    }
+
     this.currentScreen = 'league';
   }
 
@@ -1116,12 +1127,15 @@ class UIManager {
     const yByLine = { gk: 87, def: 68, mid: 43, att: 18 };
     pitch.innerHTML = assignments.map(assignment => {
       const player = team.players.find(item => item.id === assignment.playerId);
-      const x = ((assignment.lineIndex + 1) / (assignment.lineCount + 1)) * 100;
+      const visualIndex = assignment.visualLineIndex ?? assignment.lineIndex;
+      const visualCount = assignment.visualLineCount ?? assignment.lineCount;
+      const x = ((visualIndex + 1) / (visualCount + 1)) * 100;
+      const y = assignment.visualY ?? yByLine[assignment.line];
       const lastName = player.name.split(' ').slice(-1)[0];
       const condition = player.fitness < 60 ? 'warning' : '';
       const goalkeeperClass = assignment.line === 'gk' ? 'goalkeeper' : '';
       const replacementClass = this.lineupReplacementId === player.id ? 'is-replacing' : '';
-      return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${yByLine[assignment.line]}%" title="${replacementClass ? `Elige el sustituto de ${player.name}` : `Cambiar a ${player.name}`}">
+      return `<button type="button" class="pitch-player ${condition} ${goalkeeperClass} ${replacementClass}" data-lineup-player-id="${player.id}" style="--player-x:${x}%;--player-y:${y}%" title="${replacementClass ? `Elige el sustituto de ${player.name}` : `Cambiar a ${player.name}`}">
         <span class="pitch-shirt">${player.overall}</span><strong>${lastName}</strong><small>${assignment.slotPosition} · ${Math.round(player.fitness)}%</small>
       </button>`;
     }).join('');
