@@ -5217,3 +5217,37 @@ input:focus-visible,
   .theme-retro-90s .result-club-crest,
   .theme-snes .result-club-crest { width: 54px; height: 64px; }
 }
+
+/* Alineación completa en portátiles: el alto del campo sigue al viewport. */
+@media (min-width: 701px) and (max-height: 900px) {
+  .team-hub .team-page-header {
+    margin: 0 0 .45rem;
+  }
+  .team-hub .team-page-header h2 { font-size: 1.75rem; line-height: 1; }
+  .team-hub .team-page-header p { margin-top: .15rem; font-size: .76rem; line-height: 1.25; }
+  .team-hub .availability-summary { padding: .4rem .7rem; }
+  .team-hub .team-section-nav {
+    margin-bottom: .5rem;
+    padding: .25rem;
+  }
+  .team-hub .team-section-nav button { min-height: 34px; padding-block: .25rem; }
+  .team-hub .lineup-editor { padding: .6rem; }
+  .team-hub .lineup-toolbar { margin-bottom: .4rem; }
+  .team-hub #lineup-pitch {
+    width: 100%;
+    height: clamp(330px, calc(100dvh - 350px), 460px);
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+  .team-hub .pitch-player { width: 78px; }
+  .team-hub .pitch-shirt { width: 32px; height: 32px; margin-bottom: .1rem; font-size: .7rem; }
+  .team-hub .pitch-player strong { font-size: .67rem; line-height: 1.25; }
+  .team-hub .pitch-player small { font-size: .55rem; line-height: 1.2; }
+  .team-hub .lineup-actions { margin-top: .4rem; }
+  .team-hub .lineup-actions .btn { min-height: 34px; padding-block: .35rem; }
+  .team-hub .player-picker {
+    max-height: calc(clamp(330px, calc(100dvh - 350px), 460px) + 91px);
+    padding: .7rem;
+  }
+  .team-hub .player-filter-chips { margin: .55rem 0; }
+}
