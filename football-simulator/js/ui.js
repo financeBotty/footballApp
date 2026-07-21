@@ -32,6 +32,20 @@ class UIManager {
     return selected;
   }
 
+  renderThemeChoices() {
+    return [
+      ['classic', 'Classic', 'Diseño original moderno', 'CL'],
+      ['90s', '90s', 'Gestor de PC de 1996', '96'],
+      ['snes', 'SNES', 'Estilo deportivo 16-bit', '16']
+    ].map(([value, label, description, badge]) => `
+      <label class="theme-choice theme-choice-${value}">
+        <input type="radio" name="visual-theme" value="${value}" ${this.getVisualTheme() === value ? 'checked' : ''}>
+        <span class="theme-preview" aria-hidden="true"><i>${badge}</i><b></b><b></b><b></b></span>
+        <strong>${label}</strong>
+        <small>${description}</small>
+      </label>`).join('');
+  }
+
   // Asegurar que el DOM está presente
   ensureDOM() {
     if (!document.body) {
@@ -109,6 +123,7 @@ class UIManager {
           <div class="save-team-name">${this.renderTeamCrest(savedTeam, 'save-club-crest')}<span>${save.teamName}</span></div>
           <dl class="save-slot-meta">
             <div><dt>Jornada</dt><dd>${save.matchday}/${save.totalMatchdays}</dd></div>
+            <div><dt>Modo</dt><dd>${{ arcade: 'Arcade', manager: 'Manager', director: 'Director Deportivo' }[save.gameMode]}</dd></div>
             <div><dt>Guardada</dt><dd>${savedDate}</dd></div>
           </dl>
           ${save.matchInProgress ? '<p class="save-match-live">● Partido interrumpido · se reiniciará</p>' : ''}
@@ -139,21 +154,65 @@ class UIManager {
             <div class="save-slots-grid">${slotsHtml}</div>
           </section>
           
-          <div class="welcome-info">
-            <h3>Acerca del Juego</h3>
-            <p>Gestiona tu equipo de fútbol, crea alineaciones, define tácticas y simula partidos en una liga de 8 equipos.</p>
-            <ul>
-              <li>8 equipos ficticios</li>
-              <li>14 jornadas (todos contra todos)</li>
-              <li>Simulación minuto a minuto</li>
-              <li>Guardado automático</li>
-            </ul>
-          </div>
         </div>
       </div>
     `;
 
     this.currentScreen = 'welcome';
+  }
+
+  showNewGameSetup() {
+    const content = document.getElementById('main-content');
+    const navBar = document.getElementById('navigation');
+    navBar.innerHTML = '';
+    content.innerHTML = `
+      <div class="new-game-setup-container">
+        <header class="new-game-setup-header">
+          <span class="season-kicker">Nueva partida · Ranura ${GameStorage.getActiveSlot()}</span>
+          <h2>Configura tu experiencia</h2>
+          <p>Elige la presentación y el nivel de gestión antes de seleccionar tu club.</p>
+        </header>
+
+        <section class="setup-section" aria-labelledby="setup-graphics-title">
+          <div class="setup-section-heading"><span>1</span><div><h3 id="setup-graphics-title">Gráfica</h3><p>Podrás cambiarla después desde Ajustes.</p></div></div>
+          <fieldset class="theme-picker">
+            <legend class="sr-only">Gráfica de la interfaz</legend>
+            ${this.renderThemeChoices()}
+          </fieldset>
+        </section>
+
+        <section class="setup-section" aria-labelledby="setup-mode-title">
+          <div class="setup-section-heading"><span>2</span><div><h3 id="setup-mode-title">Modo de juego</h3><p>Define qué responsabilidades quieres asumir.</p></div></div>
+          <fieldset class="game-mode-picker">
+            <legend class="sr-only">Modo de juego</legend>
+            <label class="game-mode-choice">
+              <input type="radio" name="game-mode" value="arcade">
+              <span class="game-mode-icon" aria-hidden="true">▶</span>
+              <strong>Arcade</strong>
+              <small>Solo simulador. Entra al partido sin gestionar el equipo desde el banquillo.</small>
+            </label>
+            <label class="game-mode-choice">
+              <input type="radio" name="game-mode" value="manager" checked>
+              <span class="game-mode-icon" aria-hidden="true">◆</span>
+              <strong>Manager</strong>
+              <small>Simulador y entrenador: alineaciones, tácticas y decisiones durante el partido.</small>
+            </label>
+            <label class="game-mode-choice">
+              <input type="radio" name="game-mode" value="director">
+              <span class="game-mode-icon" aria-hidden="true">★</span>
+              <strong>Director Deportivo <em>En desarrollo</em></strong>
+              <small>Todo lo anterior, más fichajes y gestión integral cuando estén disponibles.</small>
+            </label>
+          </fieldset>
+        </section>
+
+        <div class="new-game-setup-actions">
+          <button type="button" id="btn-cancel-new-game" class="btn btn-secondary">Volver</button>
+          <button type="button" id="btn-confirm-new-game" class="btn btn-primary">Elegir equipo</button>
+        </div>
+      </div>
+    `;
+    this.currentScreen = 'new-game-setup';
   }
 
   // Mostrar selección de equipo
@@ -167,11 +226,16 @@ class UIManager {
     let teamsHtml = '';
 
     teams.forEach(team => {
+      const identity = DATA.PHILOSOPHICAL_IDENTITIES[team.id] || {};
       teamsHtml += `
         <div class="team-card" data-team-id="${team.id}">
           <div class="team-crest-stage">${this.renderTeamCrest(team, 'team-card-crest')}</div>
           <div class="team-name">${team.name}</div>
           <div class="team-short">${team.shortName}</div>
+          <div class="team-definition">
+            <strong>${identity.current || 'Identidad propia'}</strong>
+            <p>${identity.footballMeaning || 'Un club preparado para competir con una idea reconocible.'}</p>
+          </div>
           <div class="team-kits" aria-label="Equipaciones local y alternativa">
             <span style="background:${team.primaryColor}" title="Equipación local"></span>
             <span style="background:${team.alternateColor}" title="Equipación alternativa"></span>
@@ -213,7 +277,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn active" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Equipo</button>
+          <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -382,7 +446,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn active" data-screen="squad">Equipo</button>
+          <button class="nav-btn active" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -422,11 +486,11 @@ class UIManager {
     content.innerHTML = `
       <div class="squad-container-v2 team-hub">
         <header class="team-page-header">
-          <div><span class="eyebrow">Gestión del equipo</span><h2>Equipo</h2><p>Elige el once y define cómo jugará, todo en el mismo lugar.</p></div>
+          <div><span class="eyebrow">Gestión de la alineación</span><h2>Alineación</h2><p>Elige el once y define cómo jugará, todo en el mismo lugar.</p></div>
           <div class="availability-summary"><strong>${medicalReport.filter(item => !item.available).length}</strong><span>bajas</span><small>${team.players.filter(player => this.isAcademyPlayer(player)).length} cantera</small></div>
         </header>
 
-        <nav class="team-section-nav" aria-label="Secciones del equipo">
+        <nav class="team-section-nav" aria-label="Secciones de la alineación">
           <button type="button" class="active" data-team-anchor="team-lineup-section">Once</button>
           <button type="button" data-team-anchor="team-tactics-section">Plan</button>
           <button type="button" data-team-anchor="team-roles-section">Roles</button>
@@ -566,7 +630,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn active" data-screen="squad">Equipo</button>
+          <button class="nav-btn active" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -921,7 +985,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Equipo</button>
+          <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn active" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -1039,7 +1103,7 @@ class UIManager {
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Equipo</button>
+          <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -1057,22 +1121,13 @@ class UIManager {
           <p>Elige la apariencia del juego. El cambio se aplica al instante y no afecta a la partida.</p>
           <fieldset class="theme-picker">
             <legend class="sr-only">Tema de la interfaz</legend>
-            ${[
-              ['classic', 'Classic', 'Diseño original moderno', 'CL'],
-              ['90s', '90s', 'Gestor de PC de 1996', '96'],
-              ['snes', 'SNES', 'Estilo deportivo 16-bit', '16']
-            ].map(([value, label, description, badge]) => `
-              <label class="theme-choice theme-choice-${value}">
-                <input type="radio" name="visual-theme" value="${value}" ${this.getVisualTheme() === value ? 'checked' : ''}>
-                <span class="theme-preview" aria-hidden="true"><i>${badge}</i><b></b><b></b><b></b></span>
-                <strong>${label}</strong>
-                <small>${description}</small>
-              </label>`).join('')}
+            ${this.renderThemeChoices()}
           </fieldset>
         </section>
         
         <div class="settings-section">
           <h3>Partida ${GameStorage.getActiveSlot() || ''}</h3>
+          <p>Modo: ${{ arcade: 'Arcade', manager: 'Manager', director: 'Director Deportivo' }[this.gameApp.gameMode || 'manager']}</p>
           <button id="btn-save-game" class="btn btn-primary">Guardar Partida</button>
           <button id="btn-save-menu" class="btn btn-secondary">Guardar y volver al menú</button>
           <button id="btn-new-game" class="btn btn-danger">Nueva Partida</button>
@@ -1144,6 +1199,18 @@ class UIManager {
         if (this.gameApp) {
           this.gameApp.showScreen(screen);
         }
+      }
+
+      if (e.target.id === 'btn-confirm-new-game' && this.currentScreen === 'new-game-setup' && this.gameApp) {
+        const theme = document.querySelector('input[name="visual-theme"]:checked')?.value || '90s';
+        const mode = document.querySelector('input[name="game-mode"]:checked')?.value || 'manager';
+        this.gameApp.configureNewGame(theme, mode);
+        return;
+      }
+
+      if (e.target.id === 'btn-cancel-new-game' && this.currentScreen === 'new-game-setup' && this.gameApp) {
+        this.gameApp.showWelcomeScreen();
+        return;
       }
 
       if (e.target.classList.contains('matchday-btn')) {

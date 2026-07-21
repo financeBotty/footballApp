@@ -152,6 +152,7 @@ class GameStorage {
         teamId: gameState.userTeamId,
         teamName: team ? team.name : 'Equipo desconocido',
         teamShortName: team ? team.shortName : '',
+        gameMode: ['arcade', 'manager', 'director'].includes(gameState.gameMode) ? gameState.gameMode : 'manager',
         matchday: league && Number(league.currentMatchday) ? Number(league.currentMatchday) : 1,
         totalMatchdays: league && Number(league.totalMatchdays) ? Number(league.totalMatchdays) : 14,
         lastSaved: gameState.lastSaved || gameState.created || null,

@@ -611,7 +611,9 @@ class TeamManager {
         visualBand: bandIndex,
         visualLineIndex: index - bandStart,
         visualLineCount: bandCounts[bandIndex],
-        visualY: bandCounts.length === 1 ? 43 : 68 - (bandIndex * 50 / (bandCounts.length - 1))
+        // Reparte también los sistemas de cuatro alturas sin que se solapen
+        // camiseta, nombre y estado entre una línea y la siguiente.
+        visualY: bandCounts.length === 1 ? 43 : 72 - (bandIndex * 60 / (bandCounts.length - 1))
       };
     });
     const remaining = playerIds.map(id => this.getPlayer(teamId, id)).filter(player => player && player.position !== 'GK');
@@ -666,7 +668,7 @@ class TeamManager {
       visualBand: -1,
       visualLineIndex: 0,
       visualLineCount: 1,
-      visualY: 87
+      visualY: 91
     });
     return assignments;
   }

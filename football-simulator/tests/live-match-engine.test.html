@@ -122,6 +122,16 @@
       });
     });
 
+    test('Las formaciones de cuatro líneas separan los nombres en el campo', () => {
+      const manager = new TeamManager();
+      const team = manager.getAllTeams()[0];
+      manager.setFormation(team.id, '4-2-3-1');
+      manager.ensureValidStartingXI(team.id, true, 1);
+      const heights = [...new Set(manager.assignLineupToFormation(team.id, team.startingXI)
+        .filter(item => item.slotPosition !== 'GK').map(item => item.visualY))].sort((a, b) => a - b);
+      return heights.length === 4 && heights.slice(1).every((height, index) => height - heights[index] >= 18);
+    });
+
     test('Completa el once con juveniles cuando faltan jugadores disponibles', () => {
       const manager = new TeamManager();
       const team = manager.getAllTeams()[0];

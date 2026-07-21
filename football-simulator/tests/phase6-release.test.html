@@ -57,6 +57,21 @@
       );
     });
 
+    test('La selección muestra una definición para cada club', () => {
+      const { manager } = create();
+      const fixture = document.createElement('div');
+      fixture.innerHTML = '<div id="navigation"></div><main id="main-content"></main>';
+      document.body.appendChild(fixture);
+      const ui = new UIManager();
+      ui.gameApp = { teamManager: manager };
+      ui.showTeamSelection();
+      const definitions = [...fixture.querySelectorAll('.team-definition')];
+      const valid = definitions.length === manager.getAllTeams().length &&
+        definitions.every(item => item.querySelector('strong')?.textContent.trim() && item.querySelector('p')?.textContent.trim().length > 30);
+      fixture.remove();
+      return valid;
+    });
+
     test('El botón Mejor XI usa y guarda el once validado por el gestor', () => {
       const { manager, league, team } = create();
       team.startingXI = [];
@@ -73,7 +88,7 @@
         selected.filter(id => manager.getPlayer(team.id, id).position === 'GK').length === 1;
     });
 
-    test('Alineación y táctica comparten una única pantalla Equipo', () => {
+    test('Alineación y táctica comparten una única pantalla Alineación', () => {
       const { manager, league, team } = create();
       team.crest = `../${team.crest}`;
       const fixture = document.createElement('div');
@@ -92,7 +107,7 @@
         Boolean(fixture.querySelector('#team-tactics-section')) &&
         sectionButtons.length === 4 && fixture.querySelector('#team-roles-section')?.open &&
         fixture.querySelector('[data-team-anchor="team-roles-section"]')?.classList.contains('active') &&
-        teamButtons.length === 1 && teamButtons[0].textContent.trim() === 'Equipo' &&
+        teamButtons.length === 1 && teamButtons[0].textContent.trim() === 'Alineación' &&
         !fixture.querySelector('[data-screen="tactics"]');
       fixture.remove();
       return valid;
@@ -138,6 +153,20 @@
           GameStorage.getSetting('visualTheme') === theme;
       });
       ui.applyVisualTheme(original);
+      return valid;
+    });
+
+    test('La nueva partida permite elegir gráfica y modo de juego', () => {
+      const fixture = document.createElement('div');
+      fixture.innerHTML = '<div id="navigation"></div><main id="main-content"></main>';
+      document.body.appendChild(fixture);
+      const ui = new UIManager();
+      ui.showNewGameSetup();
+      const modes = [...fixture.querySelectorAll('input[name="game-mode"]')].map(input => input.value);
+      const valid = fixture.querySelectorAll('input[name="visual-theme"]').length === 3 &&
+        modes.join(',') === 'arcade,manager,director' &&
+        fixture.textContent.includes('Director Deportivo') && fixture.textContent.includes('En desarrollo');
+      fixture.remove();
       return valid;
     });
 

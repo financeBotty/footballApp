@@ -17,6 +17,7 @@ class FootballSimulator {
     this.matchPlaybackSpeed = 1;
     this.matchEventCursor = 0;
     this.matchFinalized = false;
+    this.gameMode = 'manager';
     this.gameState = {
       created: new Date().toISOString(),
       lastSaved: null
@@ -63,11 +64,13 @@ class FootballSimulator {
     this.userTeamId = null;
     this.currentMatch = null;
     this.liveMatchEngine = null;
-    this.gameState = { created: new Date().toISOString(), lastSaved: null };
+    this.gameMode = 'manager';
+    this.applyGameMode(this.gameMode);
+    this.gameState = { created: new Date().toISOString(), lastSaved: null, gameMode: this.gameMode };
     GameStorage.saveCurrentMatch(null);
 
-    // Mostrar selección de equipo
-    this.showScreen('team-selection');
+    // Elegir presentación y alcance antes de seleccionar el club.
+    this.showScreen('new-game-setup');
   }
 
   // Continuar partida guardada
@@ -101,6 +104,9 @@ class FootballSimulator {
       case 'welcome':
         this.showWelcomeScreen();
         break;
+      case 'new-game-setup':
+        this.ui.showNewGameSetup();
+        break;
       case 'team-selection':
         this.ui.showTeamSelection();
         break;
@@ -108,10 +114,12 @@ class FootballSimulator {
         this.showDashboard();
         break;
       case 'squad':
-        this.ui.showSquad();
+        if (this.gameMode === 'arcade') this.showNextMatch();
+        else this.ui.showSquad();
         break;
       case 'tactics':
-        this.ui.showSquad();
+        if (this.gameMode === 'arcade') this.showNextMatch();
+        else this.ui.showSquad();
         break;
       case 'next-match':
         this.showNextMatch();
@@ -129,6 +137,26 @@ class FootballSimulator {
         this.showDashboard();
     }
     this.resetScreenViewport();
+  }
+
+  applyGameMode(mode) {
+    const selected = ['arcade', 'manager', 'director'].includes(mode) ? mode : 'manager';
+    this.gameMode = selected;
+    document.body.classList.remove('game-mode-arcade', 'game-mode-manager', 'game-mode-director');
+    document.body.classList.add(`game-mode-${selected}`);
+    document.documentElement.dataset.gameMode = selected;
+    return selected;
+  }
+
+  configureNewGame(theme, mode) {
+    const selectedTheme = this.ui.applyVisualTheme(theme);
+    const selectedMode = this.applyGameMode(mode);
+    this.gameState = {
+      ...this.gameState,
+      visualTheme: selectedTheme,
+      gameMode: selectedMode
+    };
+    this.showScreen('team-selection');
   }
 
   resetScreenViewport() {
@@ -191,7 +219,7 @@ class FootballSimulator {
         <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Equipo</button>
+          <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn active" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn" data-screen="stats">Datos</button>
@@ -281,7 +309,7 @@ class FootballSimulator {
               <p>Estás en el descanso entre jornadas: todavía puedes ajustar jugadores y táctica antes de elegir cómo disputar el encuentro.</p>
             </div>
             <div class="pre-match-management">
-              <button class="btn btn-secondary" data-screen="squad">Preparar equipo</button>
+              <button class="btn btn-secondary" data-screen="squad">Preparar alineación</button>
               <button id="btn-pre-match-best-xi" class="btn btn-secondary">Usar mejor XI</button>
             </div>
           </section>
@@ -570,6 +598,7 @@ class FootballSimulator {
     const userTeam = this.teamManager.getTeam(this.userTeamId);
     const homeKit = this.liveMatchEngine.state.teams.home;
     const awayKit = this.liveMatchEngine.state.teams.away;
+    const desktopQuickOrders = new Set(['Normal', 'Buscar el empate', 'Presionar rival', 'Mantener posesión', 'Contraatacar', 'Perder tiempo', 'Defender resultado']);
 
     content.innerHTML = `
       <div class="live-match-shell" style="--home-kit:${homeKit.kitColor};--away-kit:${awayKit.kitColor}">
@@ -625,8 +654,10 @@ class FootballSimulator {
             </div>
             <div class="live-quick-access" aria-label="Órdenes rápidas">
               <div><strong>Órdenes rápidas</strong><small>Respuesta inmediata</small></div>
-              ${DATA.QUICK_ORDERS.filter(order => ['Normal', 'Buscar el empate', 'Presionar rival', 'Mantener posesión', 'Contraatacar', 'Perder tiempo', 'Defender resultado'].includes(order.value)).map(order => `
-                <button type="button" class="live-quick-chip ${userState.tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}" title="${order.description}" aria-pressed="${userState.tactics.situationalInstruction === order.value}">${order.label}</button>`).join('')}
+              ${DATA.QUICK_ORDERS.map(order => {
+                const mobileOnlyClass = desktopQuickOrders.has(order.value) ? '' : ' live-quick-chip-mobile-extra';
+                return `<button type="button" class="live-quick-chip${mobileOnlyClass} ${userState.tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}" title="${order.description}" aria-pressed="${userState.tactics.situationalInstruction === order.value}">${order.label}</button>`;
+              }).join('')}
             </div>
             <div class="coach-narrative-always">
               <section class="match-narrative live-narrative sidebar-narrative">
@@ -1585,7 +1616,7 @@ class FootballSimulator {
         <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
         <div class="navbar-menu">
           <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Equipo</button>
+          <button class="nav-btn" data-screen="squad">Alineación</button>
           <button class="nav-btn" data-screen="next-match">Partido</button>
           <button class="nav-btn" data-screen="league">Liga</button>
           <button class="nav-btn active" data-screen="stats">Datos</button>
@@ -1637,6 +1668,8 @@ class FootballSimulator {
       userTeamId: this.userTeamId,
       teams: this.teamManager.serialize(),
       leagueState: this.leagueEngine.serialize(),
+      gameMode: this.gameMode,
+      visualTheme: this.ui.getVisualTheme(),
       created: this.gameState.created || new Date().toISOString(),
       slot: activeSlot,
       lastSaved: new Date().toISOString()
@@ -1710,6 +1743,8 @@ class FootballSimulator {
 
       this.gameState = gameState;
       this.userTeamId = gameState.userTeamId;
+      this.applyGameMode(gameState.gameMode || 'manager');
+      if (gameState.visualTheme) this.ui.applyVisualTheme(gameState.visualTheme);
 
       // Restaurar equipos
       this.teamManager = TeamManager.deserialize(gameState.teams);

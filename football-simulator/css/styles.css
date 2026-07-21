@@ -1739,6 +1739,76 @@ label {
 .theme-choice-snes .theme-preview b:nth-of-type(2) { background: #e84c79; }
 .theme-choice-snes .theme-preview b:nth-of-type(3) { background: #e6b83e; }
 
+/* Configuración inicial de cada ranura. */
+.new-game-setup-container { width: min(980px, 100%); margin: 0 auto; }
+.new-game-setup-header { margin-bottom: 1.25rem; }
+.new-game-setup-header h2 { margin: .2rem 0 .35rem; font-size: clamp(2rem, 5vw, 3rem); }
+.new-game-setup-header p,
+.setup-section-heading p { margin: .2rem 0 0; color: var(--text-muted); }
+.setup-section {
+  margin-bottom: 1rem;
+  padding: 1.2rem;
+  border: 1px solid var(--dark-border);
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+.setup-section-heading { display: flex; align-items: center; gap: .75rem; }
+.setup-section-heading > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: white;
+  background: var(--secondary-color);
+  font-weight: 900;
+}
+.setup-section-heading h3 { margin: 0; }
+.setup-section-heading p { font-size: .75rem; }
+.game-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+}
+.game-mode-choice {
+  position: relative;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-content: start;
+  gap: .25rem .65rem;
+  min-height: 136px;
+  margin: 0;
+  padding: 1rem;
+  border: 2px solid var(--dark-border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  background: var(--dark-bg);
+  cursor: pointer;
+}
+.game-mode-choice input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.game-mode-choice:has(input:checked) { border-color: var(--secondary-color); box-shadow: 0 0 0 2px color-mix(in srgb, var(--secondary-color) 35%, transparent); }
+.game-mode-choice:has(input:focus-visible) { outline: 3px solid var(--warning-color); outline-offset: 3px; }
+.game-mode-icon { display: grid; width: 38px; height: 38px; place-items: center; grid-row: 1 / 3; color: white; background: var(--secondary-color); font-weight: 900; }
+.game-mode-choice strong { align-self: end; font-size: .9rem; }
+.game-mode-choice strong em { display: inline-block; margin-left: .25rem; color: #facc15; font-size: .58rem; font-style: normal; text-transform: uppercase; }
+.game-mode-choice small { grid-column: 1 / -1; margin-top: .45rem; color: var(--text-muted); font-size: .72rem; line-height: 1.4; }
+.new-game-setup-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.25rem; }
+.new-game-setup-actions .btn { min-width: 150px; }
+:is(.theme-retro-90s, .theme-snes) :is(.setup-section, .game-mode-choice, .game-mode-icon) { border-radius: 0; }
+
+/* Arcade conserva el partido y la narración, sin herramientas de entrenador. */
+.game-mode-arcade [data-screen="squad"],
+.game-mode-arcade .pre-match-preparation,
+.game-mode-arcade #btn-quick-result,
+.game-mode-arcade .coach-primary-actions,
+.game-mode-arcade .live-quick-access { display: none !important; }
+.game-mode-arcade .coach-heading small { display: none; }
+.game-mode-arcade .match-mode-selection { grid-template-columns: minmax(0, 1fr) minmax(220px, .8fr); }
+
 /* Classic conserva el lenguaje visual moderno anterior al rediseño retro. */
 .theme-classic .retro-app-badge { display: none; }
 .theme-classic .club-crest,
@@ -2935,11 +3005,12 @@ input:focus-visible,
 .squad-player-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 108px;
   align-items: center;
   gap: .7rem;
   width: 100%;
-  padding: .65rem .75rem;
+  min-height: 64px;
+  padding: .55rem 1.8rem .55rem .65rem;
   border: 1px solid transparent;
   border-radius: 11px;
   background: var(--surface-2);
@@ -2973,8 +3044,14 @@ input:focus-visible,
 .squad-player-card.is-unavailable { opacity: .52; }
 .squad-player-main,
 .roster-player { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+.squad-player-main {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: .65rem;
+}
 .squad-player-main > span:last-child,
-.roster-player > span:last-child { display: grid; min-width: 0; }
+.roster-player > span:last-child { display: grid; align-content: center; min-width: 0; }
 .squad-player-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .83rem; }
 .squad-player-main small,
 .roster-player small { color: var(--text-muted); font-size: .67rem; }
@@ -2992,7 +3069,13 @@ input:focus-visible,
 .position-pill.gk { background: rgba(245,158,11,.14); color: #fcd34d; }
 .position-pill.def { background: rgba(52,211,153,.12); color: #6ee7b7; }
 .position-pill.atk { background: rgba(244,63,94,.12); color: #fda4af; }
-.squad-player-metrics { display: flex; gap: .6rem; padding-right: .9rem; }
+.squad-player-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  justify-content: end;
+  gap: .3rem;
+  padding: 0;
+}
 .squad-player-metrics > span { display: grid; justify-items: center; }
 .squad-player-metrics strong { font-size: .78rem; }
 .squad-player-metrics small { color: var(--text-muted); font-size: .55rem; }
@@ -3366,11 +3449,20 @@ input:focus-visible,
 .live-order-heading small { color: var(--text-muted); font-size: .64rem; }
 .live-order-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
 .live-order-button { min-height: 52px; padding: .55rem .6rem; }
-.live-quick-access { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; padding: .55rem 0; border-bottom: 1px solid var(--dark-border); }
-.live-quick-access > div { display: grid; margin-right: auto; }
+.live-quick-access {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: .4rem;
+  padding: .55rem 0;
+  border-bottom: 1px solid var(--dark-border);
+}
+.live-quick-access > div { display: grid; grid-column: 1 / -1; margin: 0 0 .15rem; }
 .live-quick-access > div strong { font-size: .69rem; }
 .live-quick-access > div small { color: var(--text-muted); font-size: .58rem; }
-.live-quick-chip { padding: .38rem .5rem; border: 1px solid var(--dark-border); border-radius: 999px; color: var(--text-secondary); background: rgba(148, 163, 184, .06); font-size: .62rem; font-weight: 750; cursor: pointer; }
+.live-quick-chip { display: grid; min-height: 38px; place-items: center; padding: .38rem .5rem; border: 1px solid var(--dark-border); border-radius: 999px; color: var(--text-secondary); background: rgba(148, 163, 184, .06); font-size: .62rem; font-weight: 750; line-height: 1.2; text-align: center; cursor: pointer; }
+.live-quick-access > .live-quick-chip:last-child { grid-column: 1 / -1; }
+.live-quick-chip-mobile-extra { display: none; }
 .live-quick-chip.active { border-color: #60a5fa; color: #bfdbfe; background: rgba(37, 99, 235, .2); }
 .live-tactical-recommendation[data-tone="urgent"] { border-left-color: #f87171; background: rgba(239, 68, 68, .1); }
 .live-tactical-recommendation[data-tone="warning"] { border-left-color: #fbbf24; background: rgba(245, 158, 11, .09); }
@@ -3392,6 +3484,10 @@ input:focus-visible,
   .squad-player-list { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 430px; }
   .tactics-command-center > .tactics-grid,
   .role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 701px) and (max-width: 980px) {
+  .live-quick-access { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
@@ -3765,6 +3861,108 @@ input:focus-visible,
   background: #62caba;
 }
 .theme-snes .save-match-live { color: #7b2949; }
+
+/* Selección de club: todos los datos comparten las mismas líneas visuales. */
+.team-selection-container .teams-grid { align-items: stretch; }
+.team-selection-container .team-card {
+  display: grid;
+  grid-template-rows: 116px minmax(3.2rem, auto) 2rem 6.5rem 2rem 1.6rem 2rem minmax(40px, auto);
+  align-items: center;
+  height: 100%;
+  text-align: center;
+}
+.team-selection-container .team-crest-stage {
+  align-self: stretch;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+}
+.team-selection-container .team-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.team-selection-container .team-short {
+  align-self: center;
+  justify-self: center;
+  margin: 0;
+}
+.team-selection-container .team-definition {
+  display: grid;
+  align-content: center;
+  gap: .25rem;
+  align-self: stretch;
+  min-width: 0;
+  padding: .45rem .25rem;
+  border-top: 1px solid color-mix(in srgb, var(--dark-border) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dark-border) 70%, transparent);
+}
+.team-selection-container .team-definition strong {
+  color: var(--alt-panel-link, #93c5fd);
+  font-size: .68rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.team-selection-container .team-definition p {
+  margin: 0;
+  color: var(--alt-panel-muted, var(--text-muted));
+  font-size: .69rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.team-selection-container .team-kits {
+  align-self: center;
+  justify-self: center;
+  justify-content: center;
+  margin: 0;
+}
+.team-selection-container :is(.team-overall, .team-budget) { margin: 0; }
+.team-selection-container .btn-select {
+  align-self: end;
+  min-height: 40px;
+  margin: 0;
+}
+
+/* En portátiles, los ocho clubes caben en una cuadrícula 4 × 2 sin scroll. */
+@media (min-width: 1050px) {
+  .team-selection-container { max-width: 1260px; }
+  .team-selection-container h2 {
+    margin-bottom: .15rem;
+    font-size: 1.65rem;
+    line-height: 1.15;
+  }
+  .team-selection-container > p { margin-bottom: .65rem; font-size: .82rem; }
+  .team-selection-container .teams-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .65rem;
+  }
+  .team-selection-container .team-card {
+    grid-template-rows: 64px 36px 22px 68px 20px 18px 22px minmax(36px, auto);
+    padding: .5rem;
+  }
+  .team-selection-container .team-card-crest { width: 52px; height: 62px; }
+  .team-selection-container .team-name { font-size: .96rem; }
+  .team-selection-container .team-short {
+    padding-block: 0;
+    font-size: .7rem;
+    letter-spacing: .12em;
+    line-height: 1.35;
+  }
+  .team-selection-container .team-definition { gap: .1rem; padding: .25rem .15rem; }
+  .team-selection-container .team-definition strong { font-size: .58rem; }
+  .team-selection-container .team-definition p { font-size: .59rem; line-height: 1.25; }
+  .team-selection-container .team-kits span { width: 24px; height: 14px; }
+  .team-selection-container :is(.team-overall, .team-budget) { font-size: .7rem; line-height: 1.2; }
+  .team-selection-container .btn-select {
+    min-height: 36px;
+    padding: .35rem .5rem;
+    font-size: .7rem;
+  }
+}
 
 /* Opciones tácticas como menú continuo, sin tarjetas anidadas. */
 .tactics-options-menu {
@@ -4671,6 +4869,14 @@ input:focus-visible,
    Auditoría visual a 320–430 px: navegación, campos, tablas y partido.
    ============================================ */
 @media (max-width: 700px) {
+  .game-mode-picker { grid-template-columns: 1fr; }
+  .game-mode-choice { min-height: 0; }
+  .new-game-setup-actions { align-items: stretch; flex-direction: column-reverse; }
+  .new-game-setup-actions .btn { width: 100%; min-height: 48px; }
+  .game-mode-arcade .navbar-menu { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .game-mode-arcade .match-mode-selection { grid-template-columns: 1fr; }
+  .game-mode-arcade .live-match-shell { padding-bottom: env(safe-area-inset-bottom); }
+
   #navigation {
     position: sticky;
     z-index: 70;
@@ -4928,6 +5134,7 @@ input:focus-visible,
 
   .live-match-shell { padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
   .live-quick-access {
+    display: flex;
     position: fixed;
     z-index: 79;
     right: 0;
@@ -4948,6 +5155,7 @@ input:focus-visible,
   .live-quick-access::-webkit-scrollbar { display: none; }
   .live-quick-access > div { display: none; }
   .live-quick-chip {
+    display: block;
     flex: 0 0 auto;
     min-height: 44px;
     padding: .55rem .75rem;
@@ -4970,6 +5178,9 @@ input:focus-visible,
   .pitch-player small { font-size: .64rem; }
   .squad-player-main small,
   .roster-player small { font-size: .72rem; }
+  .squad-player-card { grid-template-columns: minmax(0, 1fr) 66px; padding-right: 1.55rem; }
+  .squad-player-metrics { grid-template-columns: repeat(2, 30px); gap: .2rem; }
+  .squad-player-metrics > span:nth-child(3) { display: none; }
   .squad-player-metrics small { font-size: .65rem; }
   .academy-badge { font-size: .6rem; }
   .lineup-toolbar { flex-wrap: wrap; }
