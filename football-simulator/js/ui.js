@@ -309,7 +309,10 @@ class UIManager {
               <span class="vs">vs</span>
               <div class="team-name">${this.renderClubIdentity(isHome ? opponent : team, 'match-club')}</div>
             </div>
-            <button class="btn btn-primary" data-screen="next-match">Preparar partido</button>
+            <div class="dashboard-match-actions">
+              <button id="btn-play-match" class="btn btn-primary">Jugar partido</button>
+              <button class="btn btn-secondary" data-screen="next-match">Preparar partido</button>
+            </div>
           </div>
         </div>
       `;

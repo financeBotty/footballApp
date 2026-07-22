@@ -657,6 +657,13 @@ label {
   margin-top: 1rem;
 }
 
+.dashboard-match-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .45rem;
+}
+.dashboard-match-actions .btn { min-width: 0; }
+
 .team-vs {
   display: flex;
   justify-content: space-around;
@@ -4222,6 +4229,7 @@ input:focus-visible,
   .dashboard-kpi:nth-child(2n) { border-right: 0; }
   .dashboard-kpi:nth-child(n+3) { border-top: 1px solid var(--dark-border); }
   .dashboard-leaders { grid-template-columns: 1fr; }
+  .dashboard-match-actions { grid-template-columns: 1fr; }
 }
 
 /* Dashboard: las identidades largas pueden ocupar varias líneas sin empujar
