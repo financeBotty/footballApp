@@ -87,8 +87,10 @@ class MatchRenderer {
     const rect = this.canvas.getBoundingClientRect();
     const ratio = Math.min(2, window.devicePixelRatio || 1);
     const width = Math.max(320, rect.width || 900);
-    const height = Math.max(210, width * 0.6);
-    this.canvas.style.height = `${height}px`;
+    const fitToViewport = getComputedStyle(this.canvas).getPropertyValue('--match-canvas-fit').trim() === '1';
+    const height = Math.max(210, fitToViewport && rect.height ? rect.height : width * 0.6);
+    if (fitToViewport) this.canvas.style.removeProperty('height');
+    else this.canvas.style.height = `${height}px`;
     this.canvas.width = Math.round(width * ratio);
     this.canvas.height = Math.round(height * ratio);
     this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);

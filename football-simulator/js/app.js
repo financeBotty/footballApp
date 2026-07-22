@@ -117,6 +117,10 @@ class FootballSimulator {
         if (this.gameMode === 'arcade') this.showNextMatch();
         else this.ui.showSquad();
         break;
+      case 'club':
+        if (this.gameMode === 'arcade') this.showNextMatch();
+        else this.ui.showClub();
+        break;
       case 'tactics':
         if (this.gameMode === 'arcade') this.showNextMatch();
         else this.ui.showSquad();
@@ -217,14 +221,7 @@ class FootballSimulator {
     navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
-        <div class="navbar-menu">
-          <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn active" data-screen="next-match">Partido</button>
-          <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn" data-screen="stats">Datos</button>
-          <button class="nav-btn" data-screen="settings">Ajustes</button>
-        </div>
+        ${this.ui.renderMainNavigation('next-match')}
       </nav>
     `;
 
@@ -291,9 +288,13 @@ class FootballSimulator {
             </div>
           </div>
 
-          ${this.renderTeamIntroductions(homePreviewTeam, awayPreviewTeam)}
-
-          ${this.renderMatchBriefing(homePreviewTeam, awayPreviewTeam)}
+          <details class="pre-match-analysis">
+            <summary><span><strong>Ver análisis del partido</strong><small>Identidad, puntos fuertes y claves del rival</small></span><span>Opcional</span></summary>
+            <div class="pre-match-analysis-content">
+              ${this.renderTeamIntroductions(homePreviewTeam, awayPreviewTeam)}
+              ${this.renderMatchBriefing(homePreviewTeam, awayPreviewTeam)}
+            </div>
+          </details>
 
           <div class="formation-info pre-match-lineup">
             <div class="pre-match-lineup-heading">
@@ -598,7 +599,7 @@ class FootballSimulator {
     const userTeam = this.teamManager.getTeam(this.userTeamId);
     const homeKit = this.liveMatchEngine.state.teams.home;
     const awayKit = this.liveMatchEngine.state.teams.away;
-    const desktopQuickOrders = new Set(['Normal', 'Buscar el empate', 'Presionar rival', 'Mantener posesión', 'Contraatacar', 'Perder tiempo', 'Defender resultado']);
+    const desktopQuickOrders = new Set(['Normal', 'Buscar el empate', 'Presionar rival', 'Mantener posesión', 'Contraatacar', 'Perder tiempo', 'Replegar', 'Defender resultado']);
 
     content.innerHTML = `
       <div class="live-match-shell" style="--home-kit:${homeKit.kitColor};--away-kit:${awayKit.kitColor}">
@@ -709,14 +710,10 @@ class FootballSimulator {
     ).join('');
     const planButtons = Object.values(DATA.MATCH_PLANS).map(plan => `
       <button type="button" class="live-plan-button ${this.teamManager.getTeam(this.userTeamId).activeMatchPlan === plan.id ? 'active' : ''}" data-live-plan="${plan.id}"><span>Plan ${plan.id}</span><strong>${plan.name}</strong><small>${plan.effects.join(' · ')}</small></button>`).join('');
-    const orderButtons = DATA.QUICK_ORDERS.map(order => `
-      <button type="button" class="live-order-button ${tactics.situationalInstruction === order.value ? 'active' : ''}" data-live-order="${order.value}"><strong>${order.label}</strong><small>${order.description}</small></button>`).join('');
     return `
       <div id="live-tactical-recommendation" class="live-tactical-recommendation" data-reading-key="${recommendation.key}" data-tone="${recommendation.tone}">${this.renderLiveRecommendation(recommendation)}</div>
       <label class="live-formation-control"><span><strong>Sistema</strong><small>Recoloca al equipo sin detener el partido</small></span><select id="live-formation-select" class="form-control" aria-label="Cambiar formación durante el partido">${formationOptions}</select></label>
       <div class="live-plan-grid">${planButtons}</div>
-      <div class="live-order-heading"><strong>Órdenes rápidas</strong><small>Un toque, efecto inmediato</small></div>
-      <div class="live-order-grid">${orderButtons}</div>
     `;
   }
 
@@ -1614,14 +1611,7 @@ class FootballSimulator {
     navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.ui.renderClubIdentity(team)}</div>
-        <div class="navbar-menu">
-          <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="next-match">Partido</button>
-          <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn active" data-screen="stats">Datos</button>
-          <button class="nav-btn" data-screen="settings">Ajustes</button>
-        </div>
+        ${this.ui.renderMainNavigation('stats')}
       </nav>
     `;
 

@@ -105,9 +105,11 @@
       fixture.querySelector('[data-team-anchor="team-roles-section"]')?.click();
       const valid = Boolean(fixture.querySelector('#lineup-pitch')) &&
         Boolean(fixture.querySelector('#team-tactics-section')) &&
-        sectionButtons.length === 4 && fixture.querySelector('#team-roles-section')?.open &&
+        sectionButtons.length === 3 && fixture.querySelector('#team-roles-section')?.open &&
         fixture.querySelector('[data-team-anchor="team-roles-section"]')?.classList.contains('active') &&
         teamButtons.length === 1 && teamButtons[0].textContent.trim() === 'Alineación' &&
+        fixture.querySelectorAll('.navbar-menu [data-help]').length === 7 &&
+        !fixture.querySelector('[data-training-focus]') && !fixture.querySelector('#academy-development-section') &&
         !fixture.querySelector('[data-screen="tactics"]');
       fixture.remove();
       return valid;
@@ -134,11 +136,14 @@
       ui.gameApp = { userTeamId: team.id, teamManager: manager, leagueEngine: league, saveGame: () => { saves++; } };
       const playersBefore = team.players.length;
       const reservesBefore = team.reservePlayers.length;
-      ui.showSquad();
+      ui.showClub();
+      const clubIsSeparated = Boolean(fixture.querySelector('[data-training-focus]')) &&
+        Boolean(fixture.querySelector('#academy-development-section')) &&
+        !fixture.querySelector('#lineup-pitch');
       [...fixture.querySelectorAll('.btn-select-reserve')].slice(0, 3).forEach(button => button.click());
-      const valid = team.players.length === playersBefore + 3 && team.reservePlayers.length === reservesBefore - 3 &&
+      const valid = clubIsSeparated && team.players.length === playersBefore + 3 && team.reservePlayers.length === reservesBefore - 3 &&
         team.reservePromotions.count === 3 && ui.reservePromotionSelection.size === 0 && saves === 1 &&
-        fixture.querySelector('#academy-development-section')?.open;
+        Boolean(fixture.querySelector('#academy-development-section'));
       fixture.remove();
       return valid;
     });

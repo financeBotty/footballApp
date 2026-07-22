@@ -46,6 +46,20 @@ class UIManager {
       </label>`).join('');
   }
 
+  renderMainNavigation(activeScreen) {
+    const items = [
+      ['dashboard', 'Inicio', 'Resumen de la temporada'],
+      ['squad', 'Alineación', 'Once, formación y roles'],
+      ['club', 'Club', 'Entrenamiento y cantera'],
+      ['next-match', 'Partido', 'Preparación y simulador'],
+      ['league', 'Liga', 'Clasificación y calendario'],
+      ['stats', 'Datos', 'Rendimiento y estadísticas'],
+      ['settings', 'Ajustes', 'Gráfica y preferencias']
+    ];
+    return `<div class="navbar-menu" aria-label="Secciones principales">${items.map(([screen, label, help]) => `
+      <button class="nav-btn ${activeScreen === screen ? 'active' : ''}" data-screen="${screen}" data-help="${help}" title="${label}: ${help}" aria-label="${label}: ${help}">${label}</button>`).join('')}</div>`;
+  }
+
   // Asegurar que el DOM está presente
   ensureDOM() {
     if (!document.body) {
@@ -275,14 +289,7 @@ class UIManager {
     navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
-        <div class="navbar-menu">
-          <button class="nav-btn active" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="next-match">Partido</button>
-          <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn" data-screen="stats">Datos</button>
-          <button class="nav-btn" data-screen="settings">Ajustes</button>
-        </div>
+        ${this.renderMainNavigation('dashboard')}
       </nav>
     `;
 
@@ -376,8 +383,6 @@ class UIManager {
 
     content.innerHTML = `
       <div class="dashboard-container">
-        <h2>Dashboard</h2>
-        
         <div class="dashboard-grid">
           <div class="dashboard-card">
             <h3>Tu Equipo</h3>
@@ -444,15 +449,7 @@ class UIManager {
     navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
-        <div class="navbar-menu">
-          <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn active" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="next-match">Partido</button>
-          <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn" data-screen="stats">Datos</button>
-          <button class="nav-btn" data-screen="settings">Ajustes</button>
-        </div>
-
+        ${this.renderMainNavigation('squad')}
       </nav>
     `;
 
@@ -491,10 +488,9 @@ class UIManager {
         </header>
 
         <nav class="team-section-nav" aria-label="Secciones de la alineación">
-          <button type="button" class="active" data-team-anchor="team-lineup-section">Once</button>
-          <button type="button" data-team-anchor="team-tactics-section">Plan</button>
-          <button type="button" data-team-anchor="team-roles-section">Roles</button>
-          <button type="button" data-team-anchor="academy-development-section">Cantera</button>
+          <button type="button" class="active" data-team-anchor="team-lineup-section"><strong>Once</strong><small>Elegir titulares</small></button>
+          <button type="button" data-team-anchor="team-tactics-section"><strong>Plan</strong><small>Formación e identidad</small></button>
+          <button type="button" data-team-anchor="team-roles-section"><strong>Roles</strong><small>Función individual</small></button>
         </nav>
 
         <section class="lineup-workspace" id="team-lineup-section" aria-label="Editor de alineación">
@@ -560,17 +556,6 @@ class UIManager {
       <button type="button" class="visual-choice strategy-choice ${team.strategy === strategy ? 'active' : ''}" data-tactics-strategy="${strategy}" aria-pressed="${team.strategy === strategy}">
         <strong>${strategy}${strategy === team.naturalStrategy ? ' · Natural' : ''}</strong><small>${strategy === team.naturalStrategy ? 'Adaptación máxima' : 'Requiere adaptación'}</small>
       </button>`).join('');
-    const trainingPlan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
-    const medicalReport = this.gameApp.teamManager.getMedicalReport(userTeamId);
-    const currentMatchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
-    const promotionCount = team.reservePromotions.matchday === currentMatchday ? team.reservePromotions.count : 0;
-    if (this.reservePromotionTeamId !== team.id) {
-      this.reservePromotionSelection = new Set();
-      this.reservePromotionTeamId = team.id;
-    }
-    const reserveIds = new Set(team.reservePlayers.map(player => player.id));
-    this.reservePromotionSelection = new Set([...this.reservePromotionSelection].filter(id => reserveIds.has(id)));
-    const remainingPromotions = Math.max(0, 3 - promotionCount);
     const nextMatch = this.gameApp.leagueEngine.getNextUserMatch(userTeamId);
     const opponentId = nextMatch ? (nextMatch.homeTeam === userTeamId ? nextMatch.awayTeam : nextMatch.homeTeam) : null;
     const recommendation = this.gameApp.teamManager.getTacticalRecommendation(userTeamId, opponentId);
@@ -608,8 +593,6 @@ class UIManager {
           return `<button type="button" class="decision-option ${active ? 'active' : ''}" data-tactical-values="${encodeURIComponent(JSON.stringify(values))}" aria-pressed="${active}"><strong>${label}</strong><small>${effect}</small></button>`;
         }).join('')}</div>
       </div>`).join('');
-    const quickOrders = DATA.QUICK_ORDERS.map(order => `
-      <button type="button" class="quick-order ${tactics.situationalInstruction === order.value ? 'active' : ''}" data-quick-order="${order.value}" aria-pressed="${tactics.situationalInstruction === order.value}"><strong>${order.label}</strong><small>${order.description}</small></button>`).join('');
     const roleRows = team.players.map(player => {
       const roles = this.gameApp.teamManager.getAvailableRoles(player.position)
         .map(role => ({ role, suitability: this.gameApp.teamManager.getRoleSuitability(player, role) }))
@@ -628,20 +611,13 @@ class UIManager {
     if (!embedded) navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
-        <div class="navbar-menu">
-          <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn active" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="next-match">Partido</button>
-          <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn" data-screen="stats">Datos</button>
-          <button class="nav-btn" data-screen="settings">Ajustes</button>
-        </div>
+        ${this.renderMainNavigation('squad')}
       </nav>
     `;
 
     const tacticsMarkup = `
       <div class="tactics-container tactics-command-center" id="team-tactics-section">
-        <header class="tactics-page-header"><span class="eyebrow">Plan de juego</span><h2>Cómo juega el equipo</h2><p>El once, la formación y las instrucciones forman una única preparación para el próximo partido.</p></header>
+        <header class="tactics-page-header"><span class="eyebrow">Plan base</span><h2>Cómo juega el equipo</h2><p>Define la formación, la identidad y el plan de salida. Las consignas situacionales se deciden durante el partido.</p></header>
 
         <section class="tactical-identity-card">
           <div><span class="eyebrow">Estructura</span><h3>Formación e identidad</h3></div>
@@ -662,23 +638,67 @@ class UIManager {
           <aside class="tactical-recommendation"><span>Ayudante táctico</span><p>${recommendation.reason}</p><button type="button" class="btn btn-secondary" data-recommended-plan="${recommendation.planId}">Aplicar Plan ${recommendation.planId}</button></aside>
         </section>
 
-        <section class="tactical-decision-center">
-          <div class="section-heading"><div><span class="eyebrow">Ajuste directo</span><h3>Cuatro decisiones</h3></div><small>Sin menús desplegables</small></div>
-          <div class="tactical-decisions">${decisionHtml}</div>
-        </section>
-
-        <section class="quick-order-center">
-          <div class="section-heading"><div><span class="eyebrow">Orden para el próximo partido</span><h3>Consigna rápida</h3></div></div>
-          <div class="quick-order-grid">${quickOrders}</div>
-        </section>
+        <details class="tactics-detail-section tactical-advanced" id="team-advanced-tactics">
+          <summary><span><span class="eyebrow">Opcional</span><strong>Ajustes avanzados</strong></span><span>Actitud, presión, construcción y anchura</span></summary>
+          <div class="tactical-decision-center">
+            <div class="section-heading"><div><span class="eyebrow">Ajuste fino</span><h3>Cuatro decisiones</h3></div></div>
+            <div class="tactical-decisions">${decisionHtml}</div>
+          </div>
+        </details>
 
         <details class="tactics-detail-section" id="team-roles-section">
           <summary><span><span class="eyebrow">Jugadores</span><strong>Roles individuales</strong></span><span>${team.players.length} jugadores</span></summary>
           <div class="tactics-grid role-grid">${roleRows}</div>
         </details>
 
-        <details class="tactics-detail-section">
-          <summary><span><span class="eyebrow">Semana</span><strong>Entrenamiento y disponibilidad</strong></span><span>${medicalReport.length ? `${medicalReport.length} avisos` : 'Todo disponible'}</span></summary>
+      </div>
+    `;
+
+    if (embedded) return tacticsMarkup;
+    content.innerHTML = tacticsMarkup;
+
+    this.currentScreen = 'squad';
+    this.attachTacticsManagementListeners();
+  }
+
+  // Gestión diaria del club, separada de la preparación del once.
+  showClub() {
+    const userTeamId = this.gameApp.userTeamId;
+    const team = this.gameApp.teamManager.getTeam(userTeamId);
+    const trainingPlan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
+    const medicalReport = this.gameApp.teamManager.getMedicalReport(userTeamId);
+    const currentMatchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
+    const promotionCount = team.reservePromotions.matchday === currentMatchday ? team.reservePromotions.count : 0;
+    const remainingPromotions = Math.max(0, 3 - promotionCount);
+
+    if (this.reservePromotionTeamId !== team.id) {
+      this.reservePromotionSelection = new Set();
+      this.reservePromotionTeamId = team.id;
+    }
+    const reserveIds = new Set(team.reservePlayers.map(player => player.id));
+    this.reservePromotionSelection = new Set([...this.reservePromotionSelection].filter(id => reserveIds.has(id)));
+
+    document.getElementById('navigation').innerHTML = `
+      <nav class="navbar">
+        <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
+        ${this.renderMainNavigation('club')}
+      </nav>`;
+
+    document.getElementById('main-content').innerHTML = `
+      <div class="club-container">
+        <header class="section-page-header">
+          <span class="eyebrow">Gestión diaria</span>
+          <h2>Club</h2>
+          <p>Organiza el entrenamiento, revisa la disponibilidad y desarrolla la cantera.</p>
+        </header>
+
+        <nav class="club-section-menu" aria-label="Secciones del club">
+          <button type="button" class="active" data-club-anchor="club-training-section"><strong>Entrenamiento</strong><small>Plan semanal y disponibilidad</small></button>
+          <button type="button" data-club-anchor="academy-development-section"><strong>Cantera</strong><small>Filial y promociones</small></button>
+        </nav>
+
+        <section class="club-management-section" id="club-training-section">
+          <div class="section-heading"><div><span class="eyebrow">Primer equipo</span><h3>Entrenamiento y disponibilidad</h3></div><small>${medicalReport.length ? `${medicalReport.length} avisos` : 'Todo disponible'}</small></div>
           <div class="development-grid tactics-management-grid">
             <div>
               <h3>Plan semanal</h3>
@@ -690,16 +710,16 @@ class UIManager {
                 <div><strong>Intensidad</strong><div class="training-choice-grid compact">${[['low', 'Baja'], ['medium', 'Media'], ['high', 'Alta']]
                   .map(([value, label]) => `<button type="button" class="training-choice ${trainingPlan.intensity === value ? 'active' : ''}" data-training-intensity="${value}" aria-pressed="${trainingPlan.intensity === value}">${label}</button>`).join('')}</div></div>
               </div>
-              <p class="training-help">Se aplica al completar cada jornada. Una intensidad alta mejora más, pero aumenta fatiga y riesgo.</p>
+              <p class="training-help">Se aplica al completar cada jornada. Una intensidad alta mejora más, pero aumenta la fatiga y el riesgo.</p>
             </div>
             <div><h3>Parte médico y sanciones</h3><div class="medical-report">
               ${medicalReport.length ? medicalReport.map(item => `<div class="medical-item ${item.status}"><strong>${item.player.name} ${this.renderAcademyBadge(item.player)}</strong><span>${item.available ? `${item.player.yellowCardAccumulation} amarillas acumuladas` : item.reason}</span></div>`).join('') : '<p>Todos los jugadores están disponibles.</p>'}
             </div></div>
           </div>
-        </details>
+        </section>
 
-        <details class="tactics-detail-section" id="academy-development-section">
-          <summary><span><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><strong>${team.reserveName || 'Filial'}</strong></span><span id="reserve-promotion-count">${promotionCount}/3 promociones</span></summary>
+        <section class="club-management-section" id="academy-development-section">
+          <div class="section-heading"><div><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><h3>${team.reserveName || 'Filial'}</h3></div><small id="reserve-promotion-count">${promotionCount}/3 promociones</small></div>
           <div class="medical-report tactics-reserves">
             <div class="reserve-batch-bar"><span id="reserve-selection-status">Elige hasta ${remainingPromotions} canterano${remainingPromotions === 1 ? '' : 's'}</span><button type="button" id="btn-promote-selected-reserves" class="btn btn-primary" disabled>Subir seleccionados</button></div>
             ${team.reservePlayers.length ? team.reservePlayers.map(player => {
@@ -707,17 +727,15 @@ class UIManager {
               return `<div class="medical-item available reserve-candidate ${selected ? 'selected' : ''}"><strong>${player.name} ${this.renderAcademyBadge(player)} · ${player.age} años · ${DATA.getPositionLabel(player.position)} · ${player.overall}</strong><button type="button" class="btn btn-secondary btn-select-reserve" data-player-id="${player.id}" aria-pressed="${selected}" ${remainingPromotions <= 0 ? 'disabled' : ''}>${selected ? 'Elegido' : 'Elegir'}</button></div>`;
             }).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}
           </div>
-        </details>
+        </section>
+      </div>`;
 
-        <div class="tactics-save-bar"><span>Todos los cambios se aplican al instante.</span><div class="tactics-save-actions"><button id="btn-best-xi-tactics" class="btn btn-primary">Aplicar mejor XI</button></div></div>
-      </div>
-    `;
-
-    if (embedded) return tacticsMarkup;
-    content.innerHTML = tacticsMarkup;
-
-    this.currentScreen = 'squad';
+    this.currentScreen = 'club';
     this.attachTacticsManagementListeners();
+    document.querySelectorAll('[data-club-anchor]').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('[data-club-anchor]').forEach(item => item.classList.toggle('active', item === button));
+      document.getElementById(button.dataset.clubAnchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
   }
 
   attachTacticsManagementListeners() {
@@ -903,10 +921,9 @@ class UIManager {
     if (!promoted.length) return false;
     this.reservePromotionSelection.clear();
     this.gameApp.saveGame();
-    this.showSquad();
+    this.showClub();
     const section = document.getElementById('academy-development-section');
     if (section) {
-      section.open = true;
       requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'center' }));
     }
     this.showSuccess(`${promoted.map(player => player.name).join(', ')} ${promoted.length === 1 ? 'sube' : 'suben'} al primer equipo`);
@@ -983,14 +1000,7 @@ class UIManager {
     navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
-        <div class="navbar-menu">
-          <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="next-match">Partido</button>
-          <button class="nav-btn active" data-screen="league">Liga</button>
-          <button class="nav-btn" data-screen="stats">Datos</button>
-          <button class="nav-btn" data-screen="settings">Ajustes</button>
-        </div>
+        ${this.renderMainNavigation('league')}
       </nav>
     `;
 
@@ -1101,14 +1111,7 @@ class UIManager {
     navBar.innerHTML = `
       <nav class="navbar">
         <div class="navbar-brand">${this.renderClubIdentity(team)}</div>
-        <div class="navbar-menu">
-          <button class="nav-btn" data-screen="dashboard">Inicio</button>
-          <button class="nav-btn" data-screen="squad">Alineación</button>
-          <button class="nav-btn" data-screen="next-match">Partido</button>
-          <button class="nav-btn" data-screen="league">Liga</button>
-          <button class="nav-btn" data-screen="stats">Datos</button>
-          <button class="nav-btn active" data-screen="settings">Ajustes</button>
-        </div>
+        ${this.renderMainNavigation('settings')}
       </nav>
     `;
 
@@ -1128,13 +1131,20 @@ class UIManager {
         <div class="settings-section">
           <h3>Partida ${GameStorage.getActiveSlot() || ''}</h3>
           <p>Modo: ${{ arcade: 'Arcade', manager: 'Manager', director: 'Director Deportivo' }[this.gameApp.gameMode || 'manager']}</p>
-          <button id="btn-save-game" class="btn btn-primary">Guardar Partida</button>
+          <p class="settings-help">El progreso se guarda automáticamente.</p>
           <button id="btn-save-menu" class="btn btn-secondary">Guardar y volver al menú</button>
-          <button id="btn-new-game" class="btn btn-danger">Nueva Partida</button>
         </div>
 
         <div class="settings-section">
-          <h3>Copias de seguridad</h3>
+          <h3>Partidos</h3>
+          <span>Duración predeterminada por parte</span>
+          <div class="settings-choice-row" aria-label="Duración predeterminada por parte">
+            ${[1, 3, 5, 10].map(value => `<button type="button" class="settings-choice ${Number(GameStorage.getSetting('halfDuration', 3)) === value ? 'active' : ''}" data-settings-duration="${value}" aria-pressed="${Number(GameStorage.getSetting('halfDuration', 3)) === value}">${value} min</button>`).join('')}
+          </div>
+        </div>
+
+        <details class="settings-section settings-advanced">
+          <summary><strong>Copias de seguridad</strong><small>Exportar o importar partidas</small></summary>
           <p>Descarga tus partidas para conservarlas fuera de este navegador.</p>
           <div class="backup-actions">
             <button id="btn-export-slot" class="btn btn-secondary">Exportar partida actual</button>
@@ -1149,21 +1159,7 @@ class UIManager {
             <button id="btn-import-backup" class="btn btn-primary">Importar backup</button>
           </div>
           <p class="settings-help">Un backup completo restaura sus ranuras originales. Una partida individual se importa en la ranura seleccionada.</p>
-        </div>
-
-        <div class="settings-section">
-          <h3>Información</h3>
-          <p>Football Cultureta v1.2</p>
-          <p>Simulador de fútbol tipo manager simplificado.</p>
-        </div>
-
-        <div class="settings-section">
-          <h3>Partidos</h3>
-          <span>Duración predeterminada por parte</span>
-          <div class="settings-choice-row" aria-label="Duración predeterminada por parte">
-            ${[1, 3, 5, 10].map(value => `<button type="button" class="settings-choice ${Number(GameStorage.getSetting('halfDuration', 3)) === value ? 'active' : ''}" data-settings-duration="${value}" aria-pressed="${Number(GameStorage.getSetting('halfDuration', 3)) === value}">${value} min</button>`).join('')}
-          </div>
-        </div>
+        </details>
       </div>
     `;
 
