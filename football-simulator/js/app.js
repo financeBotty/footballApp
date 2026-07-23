@@ -245,76 +245,76 @@ class FootballSimulator {
     const awayPreviewTeam = isHome ? opponent : team;
     const startingXI = this.teamManager.getStartingXI(userTeamId);
     const savedHalfDuration = Number(GameStorage.getSetting('halfDuration', 3));
-    const homeStyle = homePreviewTeam.strategy || 'Equilibrio';
-    const awayStyle = awayPreviewTeam.strategy || 'Equilibrio';
+    const unavailableCount = team.players.filter(player => !this.teamManager.isPlayerAvailable(player)).length;
+    const lineupLabel = lineupStatus.valid ? 'Once válido' : 'Once pendiente';
 
     content.innerHTML = `
-      <div class="next-match-container">
-        <div class="match-page-heading"><span class="eyebrow">Jornada ${nextMatch.matchday}</span><h2>Próximo partido</h2></div>
-        
-        <div class="match-preview-large">
-          <aside class="match-identity-glance" aria-label="Resumen de identidad del partido">
-            <span>Claves del duelo</span>
-            <strong>${homeStyle} vs ${awayStyle}</strong>
-            <small>${homePreviewTeam.formation} frente a ${awayPreviewTeam.formation}</small>
-          </aside>
-          <section class="match-mode-selection match-mode-selection-top" aria-labelledby="match-mode-title">
-            <div>
-              <span class="season-kicker">Todo preparado</span>
-              <h4 id="match-mode-title">Empezar el partido</h4>
-              <p>Elige la duración y entra al campo, o resuelve directamente el resultado.</p>
-            </div>
-            <button id="btn-quick-result" class="btn btn-secondary btn-large">Ver resultado</button>
-            <div class="simulator-choice">
-              <span class="duration-label" id="match-duration-label">Duración por parte</span>
-              <div class="match-duration-menu" role="radiogroup" aria-labelledby="match-duration-label">
-                ${[1, 3, 5, 10].map(value => `<button type="button" class="match-duration-option ${savedHalfDuration === value ? 'active' : ''}" data-match-duration="${value}" role="radio" aria-checked="${savedHalfDuration === value}">${value}<small>min</small></button>`).join('')}
-              </div>
-              <button id="btn-play-match-large" class="btn btn-primary btn-large">Jugar partido</button>
-            </div>
-          </section>
+      <div class="next-match-container next-match-compact">
+        <header class="match-page-heading"><span class="eyebrow">Jornada ${nextMatch.matchday}</span><h2>Partido</h2></header>
 
-          <div class="match-teams">
+        <div class="match-preview-large compact-match-card">
+          <section class="match-teams compact-match-teams" aria-label="Próximo enfrentamiento">
             <div class="team-section">
               ${this.ui.renderTeamCrest(homePreviewTeam, 'match-preview-crest')}
               <h3>${homePreviewTeam.name}</h3>
-              <p class="team-label">${isHome ? 'LOCAL' : 'VISITANTE'}</p>
+              <p class="team-label">LOCAL · ${homePreviewTeam.formation}</p>
             </div>
-            <div class="vs-container">vs</div>
+            <div class="vs-container"><span>VS</span><small>${nextMatch.matchday}.ª jornada</small></div>
             <div class="team-section">
               ${this.ui.renderTeamCrest(awayPreviewTeam, 'match-preview-crest')}
               <h3>${awayPreviewTeam.name}</h3>
-              <p class="team-label">${isHome ? 'VISITANTE' : 'LOCAL'}</p>
-            </div>
-          </div>
-
-          <details class="pre-match-analysis">
-            <summary><span><strong>Ver análisis del partido</strong><small>Identidad, puntos fuertes y claves del rival</small></span><span>Opcional</span></summary>
-            <div class="pre-match-analysis-content">
-              ${this.renderTeamIntroductions(homePreviewTeam, awayPreviewTeam)}
-              ${this.renderMatchBriefing(homePreviewTeam, awayPreviewTeam)}
-            </div>
-          </details>
-
-          <div class="formation-info pre-match-lineup">
-            <div class="pre-match-lineup-heading">
-              <div><span>Tu once</span><h4>Alineación titular</h4></div>
-              <strong>${team.formation}</strong>
-            </div>
-            ${this.renderPreMatchLineup(team, startingXI)}
-          </div>
-
-          <section class="pre-match-preparation">
-            <div>
-              <h4>Preparación del partido</h4>
-              <p>Estás en el descanso entre jornadas: todavía puedes ajustar jugadores y táctica antes de elegir cómo disputar el encuentro.</p>
-            </div>
-            <div class="pre-match-management">
-              <button class="btn btn-secondary" data-screen="squad">Preparar alineación</button>
-              <button id="btn-pre-match-best-xi" class="btn btn-secondary">Usar mejor XI</button>
+              <p class="team-label">VISITANTE · ${awayPreviewTeam.formation}</p>
             </div>
           </section>
 
+          <div class="pre-match-status ${lineupStatus.valid ? 'ready' : 'warning'}" role="status">
+            <strong>${lineupStatus.valid ? '✓' : '!'} ${lineupLabel}</strong>
+            <span>${team.formation}</span>
+            <span>${unavailableCount ? `${unavailableCount} baja${unavailableCount === 1 ? '' : 's'}` : 'Sin bajas'}</span>
+          </div>
+
+          <section class="match-mode-selection compact-match-actions" aria-labelledby="match-mode-title">
+            <div class="match-start-copy">
+              <span class="season-kicker">Todo preparado</span>
+              <h4 id="match-mode-title">Empezar el partido</h4>
+            </div>
+            <div class="compact-duration-choice">
+              <span class="duration-label" id="match-duration-label">Minutos por parte</span>
+              <div class="match-duration-menu" role="radiogroup" aria-labelledby="match-duration-label">
+                ${[1, 3, 5, 10].map(value => `<button type="button" class="match-duration-option ${savedHalfDuration === value ? 'active' : ''}" data-match-duration="${value}" role="radio" aria-checked="${savedHalfDuration === value}">${value}<small>min</small></button>`).join('')}
+              </div>
+            </div>
+            <div class="match-primary-actions">
+              <button id="btn-play-match-large" class="btn btn-primary btn-large">Jugar partido</button>
+              <button id="btn-quick-result" class="btn btn-secondary btn-large">Ver resultado</button>
+            </div>
+          </section>
+
+          <div class="pre-match-secondary-actions">
+            <button class="btn btn-secondary" data-screen="squad">Editar alineación</button>
+            <button id="btn-pre-match-best-xi" class="btn btn-secondary">Usar mejor XI</button>
+          </div>
+
+          <div class="pre-match-optional">
+            <details class="pre-match-lineup-details">
+              <summary><span><strong>Ver alineación completa</strong><small>${team.formation} · ${startingXI.length} titulares</small></span><span>Opcional</span></summary>
+              <div class="formation-info pre-match-lineup">
+                <div class="pre-match-lineup-heading">
+                  <div><span>Tu once</span><h4>Alineación titular</h4></div>
+                  <strong>${team.formation}</strong>
+                </div>
+                ${this.renderPreMatchLineup(team, startingXI)}
+              </div>
+            </details>
+
+            <details class="pre-match-analysis">
+              <summary><span><strong>Análisis opcional</strong><small>Identidad, puntos fuertes y claves del rival</small></span><span>Opcional</span></summary>
+              <div class="pre-match-analysis-content">
+                ${this.renderTeamIntroductions(homePreviewTeam, awayPreviewTeam)}
+                ${this.renderMatchBriefing(homePreviewTeam, awayPreviewTeam)}
+              </div>
+            </details>
+          </div>
         </div>
       </div>
     `;
@@ -667,11 +667,26 @@ class FootballSimulator {
               </section>
             </div>
             <div class="coach-drawer" id="coach-drawer" aria-hidden="true">
-              <div class="coach-drawer-bar"><strong id="coach-drawer-title">Decisiones</strong><button type="button" id="btn-close-coach-drawer" aria-label="Cerrar panel">×</button></div>
+              <header class="coach-drawer-bar">
+                <div class="coach-drawer-primary">
+                  <button type="button" id="btn-close-coach-drawer" aria-label="Volver al partido">←</button>
+                  <strong id="coach-drawer-title">Decisiones</strong>
+                  <span class="coach-drawer-counter"><span id="drawer-subs-used">${userState.substitutions}</span>/5</span>
+                </div>
+                <div class="coach-drawer-score" aria-label="Marcador del partido">
+                  <strong id="drawer-match-minute">0'</strong>
+                  <span>${homeTeam.shortName} <b id="drawer-home-score">0</b>–<b id="drawer-away-score">0</b> ${awayTeam.shortName}</span>
+                </div>
+                <small id="drawer-match-context">Saque inicial · Árbitro ${this.liveMatchEngine.state.referee.cardStrictness}/10</small>
+              </header>
               <div class="coach-panel" data-coach-panel="tactics">
                 ${this.renderLiveTactics(userState.tactics, userState)}
               </div>
               <div class="coach-panel" data-coach-panel="changes">
+                <section id="required-substitution-alert" class="required-substitution-alert" role="alert" hidden>
+                  <strong>⚠ Cambio obligatorio</strong>
+                  <span>El jugador lesionado debe ser sustituido antes de continuar.</span>
+                </section>
                 <p class="change-flow-help">Elige sobre el once quién debe salir. Te recomendaremos los mejores reemplazos.</p>
                 <section class="automatic-substitutions">
                   <span><strong>Cambios automáticos</strong><small>El asistente elige por cansancio, estado y encaje.</small></span>
@@ -689,6 +704,7 @@ class FootballSimulator {
                 <div><div class="live-bench-heading"><strong>Banquillo</strong><small>Ordenado por encaje</small></div><div id="live-bench-list" class="live-bench-list">${this.renderSubstitutionCandidates()}</div></div>
                 <button id="btn-queue-substitution" class="btn btn-secondary">Preparar cambio</button>
                 <div id="queued-substitutions" class="queued-substitutions">${this.renderQueuedSubstitutions()}</div>
+                <p id="substitution-action-help" class="substitution-action-help">Selecciona un jugador y prepara el cambio para continuar.</p>
                 <button id="btn-make-substitution" class="btn btn-primary" disabled>Confirmar cambios</button>
                 <p id="substitution-feedback" class="coach-feedback"></p>
               </div>
@@ -892,10 +908,12 @@ class FootballSimulator {
         this.stopLiveMatchLoop();
         byId('btn-pause').textContent = 'Cambio obligatorio';
         this.selectPlayerForSubstitution(requiredChange.playerId);
+        const requiredAlert = document.getElementById('required-substitution-alert');
+        if (requiredAlert) requiredAlert.hidden = false;
         const feedback = document.getElementById('substitution-feedback');
         if (feedback) {
-          feedback.textContent = 'Debes sustituir al jugador lesionado antes de continuar.';
-          feedback.className = 'coach-feedback error';
+          feedback.textContent = '';
+          feedback.className = 'coach-feedback';
         }
         return;
       }
@@ -1014,7 +1032,11 @@ class FootballSimulator {
     this.updateSubstitutionRecommendations(true);
     if (window.matchMedia && window.matchMedia('(max-width: 700px)').matches) {
       window.setTimeout(() => {
-        document.querySelector('.change-selection-summary')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const required = this.liveMatchEngine.getRequiredInjurySubstitution();
+        const target = required?.playerId === playerId
+          ? document.getElementById('required-substitution-alert')
+          : document.querySelector('.change-selection-summary');
+        target?.scrollIntoView({ behavior: 'smooth', block: required ? 'start' : 'center' });
       }, 50);
     }
   }
@@ -1114,6 +1136,17 @@ class FootballSimulator {
       confirm.textContent = this.pendingSubstitutions.length
         ? `Confirmar ${this.pendingSubstitutions.length} cambio${this.pendingSubstitutions.length === 1 ? '' : 's'}`
         : 'Confirmar cambios';
+    }
+    const actionHelp = document.getElementById('substitution-action-help');
+    if (actionHelp) {
+      actionHelp.textContent = this.pendingSubstitutions.length
+        ? this.pendingSubstitutions.map(change => {
+          const outgoingPlayer = this.liveMatchEngine.state.players[change.playerOutId];
+          const incomingPlayer = this.liveMatchEngine.state.players[change.playerInId];
+          return `${outgoingPlayer.name} → ${incomingPlayer.name}`;
+        }).join(' · ')
+        : 'Selecciona un jugador y prepara el cambio para continuar.';
+      actionHelp.classList.toggle('ready', this.pendingSubstitutions.length > 0);
     }
     if (outgoing) outgoing.value = '';
     if (incoming) incoming.value = '';
@@ -1241,10 +1274,12 @@ class FootballSimulator {
     const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
     if (requiredChange) {
       this.selectPlayerForSubstitution(requiredChange.playerId);
+      const requiredAlert = document.getElementById('required-substitution-alert');
+      if (requiredAlert) requiredAlert.hidden = false;
       const feedback = document.getElementById('substitution-feedback');
       if (feedback) {
-        feedback.textContent = 'Cambio obligatorio: el jugador lesionado no puede continuar.';
-        feedback.className = 'coach-feedback error';
+        feedback.textContent = '';
+        feedback.className = 'coach-feedback';
       }
     }
     if (this.isMatchPaused) {
@@ -1263,8 +1298,14 @@ class FootballSimulator {
     };
     set('home-score', state.score.home);
     set('away-score', state.score.away);
-    set('match-minute', this.formatLiveMatchMinute(state));
-    set('match-phase', `${this.livePhaseLabel(state.phase)} · Árbitro ${state.referee.cardStrictness}/10`);
+    set('drawer-home-score', state.score.home);
+    set('drawer-away-score', state.score.away);
+    const formattedMinute = this.formatLiveMatchMinute(state);
+    const matchContext = `${this.livePhaseLabel(state.phase)} · Árbitro ${state.referee.cardStrictness}/10`;
+    set('match-minute', formattedMinute);
+    set('drawer-match-minute', formattedMinute);
+    set('match-phase', matchContext);
+    set('drawer-match-context', matchContext);
     const totalPossession = state.stats.home.possessionTicks + state.stats.away.possessionTicks;
     const homePossession = totalPossession ? Math.round(state.stats.home.possessionTicks / totalPossession * 100) : 50;
     set('possession', `${homePossession}% · ${100 - homePossession}%`);
@@ -1280,6 +1321,9 @@ class FootballSimulator {
     }
     const teamState = this.liveMatchEngine.getTeamState(this.userTeamId);
     set('subs-used', teamState.substitutions);
+    set('drawer-subs-used', teamState.substitutions);
+    const requiredAlert = document.getElementById('required-substitution-alert');
+    if (requiredAlert) requiredAlert.hidden = !this.liveMatchEngine.getRequiredInjurySubstitution();
     const teamList = document.getElementById('live-team-list');
     if (teamList) teamList.innerHTML = this.renderLiveTeamList();
     const recommendation = this.getLiveTacticalRecommendation();
