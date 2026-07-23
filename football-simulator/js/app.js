@@ -604,9 +604,9 @@ class FootballSimulator {
     content.innerHTML = `
       <div class="live-match-shell" style="--home-kit:${homeKit.kitColor};--away-kit:${awayKit.kitColor}">
         <header class="live-scoreboard">
-          <div class="score-team home">${this.ui.renderTeamCrest(homeTeam, 'score-club-crest')}<span>${homeTeam.shortName}<small>local</small></span><strong id="home-score">0</strong></div>
+          <div class="score-team home">${this.ui.renderTeamCrest(homeTeam, 'score-club-crest')}<span class="score-team-label"><b>${homeTeam.shortName}</b><small>local</small></span><strong id="home-score">0</strong></div>
           <div class="live-clock"><strong id="match-minute">0'</strong><small id="match-phase">Prepartido</small></div>
-          <div class="score-team away"><strong id="away-score">0</strong><span>${awayTeam.shortName}<small>${awayKit.kitType}</small></span>${this.ui.renderTeamCrest(awayTeam, 'score-club-crest')}</div>
+          <div class="score-team away"><strong id="away-score">0</strong><span class="score-team-label"><b>${awayTeam.shortName}</b><small>${awayKit.kitType}</small></span>${this.ui.renderTeamCrest(awayTeam, 'score-club-crest')}</div>
         </header>
         <div id="match-break-discipline" class="match-break-discipline" hidden></div>
 
@@ -673,6 +673,11 @@ class FootballSimulator {
               </div>
               <div class="coach-panel" data-coach-panel="changes">
                 <p class="change-flow-help">Elige sobre el once quién debe salir. Te recomendaremos los mejores reemplazos.</p>
+                <section class="automatic-substitutions">
+                  <span><strong>Cambios automáticos</strong><small>El asistente elige por cansancio, estado y encaje.</small></span>
+                  <button type="button" id="btn-auto-substitutions" class="btn btn-secondary">Hacer cambios automáticos</button>
+                  <small>Primera parte: deja como máximo 2 cambios usados. Desde el descanso: utiliza todos los restantes.</small>
+                </section>
                 <div id="live-team-list" class="live-change-team">${this.renderLiveTeamList()}</div>
                 <input id="sub-player-out" type="hidden" value="">
                 <input id="sub-player-in" type="hidden" value="">
@@ -705,14 +710,18 @@ class FootballSimulator {
   renderLiveTactics(tactics, teamState = null) {
     const recommendation = this.getLiveTacticalRecommendation();
     const formation = teamState?.formation || this.teamManager.getTeam(this.userTeamId).formation;
-    const formationOptions = Object.values(DATA.FORMATIONS).map(item =>
-      `<option value="${item.name}" ${item.name === formation ? 'selected' : ''}>${item.name} · ${item.description}</option>`
-    ).join('');
+    const formationButtons = Object.values(DATA.FORMATIONS).map(item => `
+      <button type="button" class="live-formation-box ${item.name === formation ? 'active' : ''}" data-live-formation="${item.name}" aria-pressed="${item.name === formation}">
+        <strong>${item.name}</strong><small>${item.description}</small>
+      </button>`).join('');
     const planButtons = Object.values(DATA.MATCH_PLANS).map(plan => `
       <button type="button" class="live-plan-button ${this.teamManager.getTeam(this.userTeamId).activeMatchPlan === plan.id ? 'active' : ''}" data-live-plan="${plan.id}"><span>Plan ${plan.id}</span><strong>${plan.name}</strong><small>${plan.effects.join(' · ')}</small></button>`).join('');
     return `
       <div id="live-tactical-recommendation" class="live-tactical-recommendation" data-reading-key="${recommendation.key}" data-tone="${recommendation.tone}">${this.renderLiveRecommendation(recommendation)}</div>
-      <label class="live-formation-control"><span><strong>Sistema</strong><small>Recoloca al equipo sin detener el partido</small></span><select id="live-formation-select" class="form-control" aria-label="Cambiar formación durante el partido">${formationOptions}</select></label>
+      <div class="live-formation-control">
+        <span><strong>Sistema</strong><small>Elige una estructura para recolocar al equipo</small></span>
+        <div class="live-formation-boxes" role="group" aria-label="Cambiar formación durante el partido">${formationButtons}</div>
+      </div>
       <div class="live-plan-grid">${planButtons}</div>
     `;
   }
@@ -922,6 +931,7 @@ class FootballSimulator {
     byId('btn-save-exit-match').addEventListener('click', () => this.saveAndExitLiveMatch());
     byId('btn-queue-substitution').addEventListener('click', () => this.queueLiveSubstitution());
     byId('btn-make-substitution').addEventListener('click', () => this.applyLiveSubstitution());
+    byId('btn-auto-substitutions').addEventListener('click', () => this.applyAutomaticSubstitutions());
     byId('btn-close-coach-drawer').addEventListener('click', () => this.closeCoachDrawer());
 
     byId('coach-console').addEventListener('click', event => {
@@ -929,6 +939,8 @@ class FootballSimulator {
       if (livePlan) this.applyLiveMatchPlan(livePlan.dataset.livePlan);
       const liveOrder = event.target.closest('[data-live-order]');
       if (liveOrder) this.applyLiveQuickOrder(liveOrder.dataset.liveOrder);
+      const liveFormation = event.target.closest('[data-live-formation]');
+      if (liveFormation) this.applyLiveFormation(liveFormation.dataset.liveFormation);
       const playerRow = event.target.closest('.live-player-row[data-player-id]');
       if (playerRow) this.selectPlayerForSubstitution(playerRow.dataset.playerId);
       const benchChoice = event.target.closest('[data-substitute-in]');
@@ -936,8 +948,6 @@ class FootballSimulator {
       const removeButton = event.target.closest('[data-remove-queued-sub]');
       if (removeButton) this.removeQueuedSubstitution(Number(removeButton.dataset.removeQueuedSub));
     });
-    byId('live-formation-select')?.addEventListener('change', event => this.applyLiveFormation(event.target.value));
-
     document.querySelectorAll('.coach-action').forEach(button => {
       button.addEventListener('click', () => this.activateCoachTab(button.dataset.coachTab));
     });
@@ -1346,6 +1356,11 @@ class FootballSimulator {
     }
     this.saveGame();
     this.persistLiveMatch(true);
+    document.querySelectorAll('[data-live-formation]').forEach(button => {
+      const active = button.dataset.liveFormation === formationName;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
     this.ui.showSuccess(`Sistema cambiado a ${formationName}`);
     this.processLiveMatchEvents();
     this.renderLiveMatchState();
@@ -1388,6 +1403,155 @@ class FootballSimulator {
         this.startLiveMatchLoop();
       }
     }
+  }
+
+  getAutomaticSubstitutionPair(excludedIds = new Set()) {
+    const teamState = this.liveMatchEngine.getTeamState(this.userTeamId);
+    const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
+    const candidates = teamState.onField
+      .map(id => this.liveMatchEngine.state.players[id])
+      .filter(player => player && player.onField && !excludedIds.has(player.id))
+      .filter(player => {
+        if (requiredChange) return player.id === requiredChange.playerId;
+        if (player.position === 'GK' && !player.injured && !player.mustLeave) return false;
+        return teamState.bench.some(id => {
+          const substitute = this.liveMatchEngine.state.players[id];
+          return substitute && !substitute.appeared && !excludedIds.has(substitute.id) &&
+            (substitute.position === 'GK') === (player.position === 'GK');
+        });
+      })
+      .sort((a, b) => {
+        const need = player => {
+          const data = this.teamManager.getPlayer(this.userTeamId, player.id);
+          const effectiveOverall = this.teamManager.getEffectiveOverall(data, player.assignedPosition);
+          return (player.injured || player.mustLeave ? 100000 : 0) +
+            (100 - Number(player.fitness || 0)) * 20 +
+            Number(player.yellowCards || 0) * 90 +
+            (100 - Number(player.confidence || 50)) * 2 -
+            effectiveOverall;
+        };
+        return need(b) - need(a);
+      });
+
+    for (const outgoing of candidates) {
+      const incoming = teamState.bench
+        .map(id => this.liveMatchEngine.state.players[id])
+        .filter(player => player && !player.appeared && !excludedIds.has(player.id) &&
+          (player.position === 'GK') === (outgoing.position === 'GK'))
+        .sort((a, b) => this.getSubstitutionFitScore(b, outgoing) - this.getSubstitutionFitScore(a, outgoing))[0];
+      if (incoming) return { playerOutId: outgoing.id, playerInId: incoming.id };
+    }
+    return null;
+  }
+
+  applyAutomaticSubstitutions() {
+    if (!this.liveMatchEngine || this.liveMatchEngine.state.complete) return false;
+    const teamState = this.liveMatchEngine.getTeamState(this.userTeamId);
+    const phase = this.liveMatchEngine.state.phase;
+    const firstHalf = Number(this.liveMatchEngine.state.half || 1) === 1 &&
+      !['HALF_TIME_SETUP', 'HALF_TIME'].includes(phase);
+    const available = Math.max(0, 5 - teamState.substitutions);
+    const limit = firstHalf ? Math.min(available, Math.max(0, 2 - teamState.substitutions)) : available;
+    const feedback = document.getElementById('substitution-feedback');
+
+    if (!limit) {
+      if (feedback) {
+        feedback.textContent = firstHalf
+          ? `El asistente no hará más cambios antes del descanso; quedan ${available} disponibles.`
+          : 'No quedan sustituciones disponibles.';
+        feedback.className = 'coach-feedback';
+      }
+      return false;
+    }
+
+    const wasPaused = this.isMatchPaused;
+    this.isMatchPaused = true;
+    this.stopLiveMatchLoop();
+    const pauseBtn = document.getElementById('btn-pause');
+    if (pauseBtn) pauseBtn.textContent = 'Reanudar';
+
+    const queued = [...(this.pendingSubstitutions || [])];
+    const executedQueued = new Set();
+    const changedIds = new Set();
+    const completed = [];
+    const errors = [];
+
+    while (completed.length < limit) {
+      const required = this.liveMatchEngine.getRequiredInjurySubstitution();
+      let changeIndex = queued.findIndex((change, index) =>
+        !executedQueued.has(index) && (!required || change.playerOutId === required.playerId)
+      );
+      if (changeIndex < 0 && !required) {
+        changeIndex = queued.findIndex((change, index) => !executedQueued.has(index));
+      }
+      let change = changeIndex >= 0 ? queued[changeIndex] : null;
+      if (changeIndex >= 0) executedQueued.add(changeIndex);
+      if (!change || changedIds.has(change.playerOutId) || changedIds.has(change.playerInId)) {
+        change = this.getAutomaticSubstitutionPair(changedIds);
+      }
+      if (!change) break;
+
+      const result = this.liveMatchEngine.makeSubstitution(
+        this.userTeamId,
+        change.playerOutId,
+        change.playerInId
+      );
+      if (!result.valid) {
+        errors.push(result.error);
+        changedIds.add(change.playerOutId);
+        changedIds.add(change.playerInId);
+        continue;
+      }
+      changedIds.add(change.playerOutId);
+      changedIds.add(change.playerInId);
+      completed.push(change);
+    }
+
+    this.pendingSubstitutions = queued.filter((change, index) => {
+      if (executedQueued.has(index) || changedIds.has(change.playerOutId) || changedIds.has(change.playerInId)) return false;
+      const outgoing = this.liveMatchEngine.state.players[change.playerOutId];
+      const incoming = this.liveMatchEngine.state.players[change.playerInId];
+      return outgoing?.onField && incoming && !incoming.onField && !incoming.appeared;
+    });
+    this.refreshSubstitutionQueueUI();
+    if (!completed.length) {
+      if (feedback) {
+        feedback.textContent = errors[0] || 'No hay recambios compatibles disponibles.';
+        feedback.className = 'coach-feedback error';
+      }
+      if (!wasPaused && !this.liveMatchEngine.getRequiredInjurySubstitution()) {
+        this.isMatchPaused = false;
+        if (pauseBtn) pauseBtn.textContent = 'Pausa';
+        this.startLiveMatchLoop();
+      }
+      return false;
+    }
+
+    const remaining = 5 - this.liveMatchEngine.getTeamState(this.userTeamId).substitutions;
+    const reserveText = firstHalf
+      ? ` Quedan ${remaining} para la segunda parte.`
+      : remaining
+        ? ` No hay más recambios compatibles; quedan ${remaining} sin utilizar.`
+        : ' Se han utilizado todos los cambios disponibles.';
+    const feedbackMessage = `${completed.length} cambio${completed.length === 1 ? '' : 's'} automático${completed.length === 1 ? '' : 's'} realizado${completed.length === 1 ? '' : 's'}.${reserveText}`;
+    if (feedback) {
+      feedback.textContent = feedbackMessage;
+      feedback.className = `coach-feedback ${errors.length ? 'error' : 'success'}`;
+    }
+    this.ui.showSuccess(feedbackMessage);
+    this.processLiveMatchEvents();
+    this.renderLiveMatchState();
+    this.persistLiveMatch(true);
+
+    const requiredChange = this.liveMatchEngine.getRequiredInjurySubstitution();
+    if (!requiredChange && !this.liveMatchEngine.state.complete) {
+      if (this.liveMatchEngine.state.phase === 'HALF_TIME') this.liveMatchEngine.resumeSecondHalf();
+      this.isMatchPaused = false;
+      if (pauseBtn) pauseBtn.textContent = 'Pausa';
+      this.closeCoachDrawer();
+      this.startLiveMatchLoop();
+    }
+    return true;
   }
 
   persistLiveMatch(force = false) {
