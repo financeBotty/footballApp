@@ -677,7 +677,7 @@ class FootballSimulator {
             <div class="coach-drawer" id="coach-drawer" aria-hidden="true">
               <header class="coach-drawer-bar">
                 <div class="coach-drawer-primary">
-                  <button type="button" id="btn-close-coach-drawer" aria-label="Volver al partido">←</button>
+                  <button type="button" id="btn-close-coach-drawer" aria-label="Cerrar y volver al partido">✕</button>
                   <strong id="coach-drawer-title">Decisiones</strong>
                   <span class="coach-drawer-counter"><span id="drawer-subs-used">${userState.substitutions}</span>/5</span>
                 </div>
@@ -1006,6 +1006,7 @@ class FootballSimulator {
     });
     drawer.classList.add('open');
     drawer.setAttribute('aria-hidden', 'false');
+    document.getElementById('coach-console')?.classList.add('drawer-is-open');
     const title = document.getElementById('coach-drawer-title');
     if (title) title.textContent = tabName === 'changes' ? 'Cambios' : 'Plan táctico';
   }
@@ -1015,6 +1016,7 @@ class FootballSimulator {
     if (!drawer) return;
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
+    document.getElementById('coach-console')?.classList.remove('drawer-is-open');
     document.querySelectorAll('.coach-action').forEach(tab => tab.classList.remove('active'));
   }
 
