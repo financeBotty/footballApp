@@ -6049,3 +6049,72 @@ input:focus-visible,
   .match-primary-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .match-primary-actions .btn { padding-inline: .25rem; font-size: .68rem; }
 }
+
+/* Navegación principal más legible y con objetivos táctiles cómodos. */
+@media (min-width: 701px) {
+  .navbar-brand,
+  .theme-retro-90s .navbar-brand,
+  .theme-snes .navbar-brand { font-size: 1.06rem; }
+
+  .nav-btn,
+  .theme-retro-90s .nav-btn,
+  .theme-snes .nav-btn {
+    min-height: 42px;
+    padding: .62rem .86rem;
+    font-size: .88rem;
+    line-height: 1.1;
+  }
+}
+
+@media (max-width: 700px) {
+  .navbar,
+  .theme-retro-90s .navbar,
+  .theme-snes .navbar {
+    gap: 7px;
+    padding: 7px 9px 8px;
+  }
+
+  .navbar-brand,
+  .theme-retro-90s .navbar-brand,
+  .theme-snes .navbar-brand {
+    font-size: .98rem;
+  }
+
+  .navbar-brand .club-crest,
+  .theme-retro-90s .navbar-brand .club-crest,
+  .theme-snes .navbar-brand .club-crest {
+    width: 29px;
+    height: 34px;
+  }
+
+  .navbar-menu,
+  .theme-retro-90s .navbar-menu,
+  .theme-snes .navbar-menu,
+  .game-mode-arcade .navbar-menu {
+    display: flex;
+    grid-template-columns: none;
+    flex-flow: row nowrap;
+    gap: 6px;
+    width: 100%;
+    padding: 1px 0 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-btn,
+  .theme-retro-90s .nav-btn,
+  .theme-snes .nav-btn,
+  .navbar-menu .nav-btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 86px;
+    min-height: 46px;
+    padding: .7rem .65rem;
+    font-size: .82rem;
+    line-height: 1.1;
+    scroll-snap-align: center;
+  }
+}
