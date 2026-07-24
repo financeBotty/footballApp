@@ -58,7 +58,6 @@ class UIManager {
       {
         id: 'play',
         label: 'Jugar',
-        index: '01',
         items: [
           ['dashboard', 'Inicio'],
           ['next-match', 'Partido'],
@@ -68,7 +67,6 @@ class UIManager {
       {
         id: 'manage',
         label: 'Gestionar',
-        index: '02',
         items: [
           ['squad', 'Alineación'],
           ['club', 'Club'],
@@ -78,7 +76,6 @@ class UIManager {
       {
         id: 'system',
         label: 'Sistema',
-        index: '03',
         items: [
           ['settings', 'Ajustes']
         ]
@@ -88,9 +85,15 @@ class UIManager {
       const localizedLabel = I18N.t(label);
       return `<button class="nav-btn ${screen === 'next-match' ? 'nav-primary-action' : ''} ${activeScreen === screen ? 'active' : ''}" data-screen="${screen}" aria-label="${localizedLabel}">${localizedLabel}</button>`;
     };
-    return `<div class="navbar-menu navbar-menu-grouped" aria-label="${I18N.t('Secciones principales')}">${groups.map(group => `
+    const activeItem = groups.flatMap(group => group.items).find(([screen]) => screen === activeScreen);
+    const activeLabel = I18N.t(activeItem?.[1] || 'Inicio');
+    return `
+      <button type="button" class="mobile-nav-toggle" data-mobile-nav-toggle aria-expanded="false" aria-controls="mobile-main-sections">
+        <span>${I18N.t('Secciones')}</span><strong>${activeLabel}</strong><i aria-hidden="true">⌄</i>
+      </button>
+      <div id="mobile-main-sections" class="navbar-menu navbar-menu-grouped" aria-label="${I18N.t('Secciones principales')}">${groups.map(group => `
       <div class="nav-group nav-group-${group.id}">
-        <span class="nav-group-label"><i>${group.index}</i>${I18N.t(group.label)}</span>
+        <span class="nav-group-label">${I18N.t(group.label)}</span>
         <div class="nav-group-items">${group.items.map(renderItem).join('')}</div>
       </div>`).join('')}</div>`;
   }
@@ -1272,7 +1275,6 @@ class UIManager {
         <header class="player-profile-hero">
           <div class="player-thinker-portrait">
             ${this.renderThinkerPortrait(team, player, 'player-profile-portrait')}
-            <small>${ThinkerPortraits.getEra(team, player).label}</small>
           </div>
           <div class="player-overall"><strong>${player.overall}</strong><span>MEDIA</span></div>
           <div><span>${DATA.getPositionLabel(player.position, true)} · ${player.age} años</span><h2>${player.name}</h2><button type="button" class="inline-club-link" data-team-profile="${team.id}">${this.renderTeamCrest(team, 'player-club-crest')}${team.name}</button></div>
@@ -1375,6 +1377,24 @@ class UIManager {
   // Adjuntar event listeners globales
   attachEventListeners() {
     document.addEventListener('click', (e) => {
+      const mobileNavToggle = e.target.closest('[data-mobile-nav-toggle]');
+      if (mobileNavToggle) {
+        const menu = mobileNavToggle.closest('.navbar')?.querySelector('.navbar-menu-grouped');
+        const willOpen = !menu?.classList.contains('is-open');
+        menu?.classList.toggle('is-open', willOpen);
+        mobileNavToggle.setAttribute('aria-expanded', String(willOpen));
+        mobileNavToggle.classList.toggle('is-open', willOpen);
+        return;
+      }
+
+      const openMobileMenu = document.querySelector('.navbar-menu-grouped.is-open');
+      if (openMobileMenu && !e.target.closest('.navbar-menu-grouped')) {
+        openMobileMenu.classList.remove('is-open');
+        const toggle = openMobileMenu.closest('.navbar')?.querySelector('[data-mobile-nav-toggle]');
+        toggle?.setAttribute('aria-expanded', 'false');
+        toggle?.classList.remove('is-open');
+      }
+
       const saveAction = e.target.closest('[data-save-action]');
       if (saveAction && this.currentScreen === 'welcome' && this.gameApp) {
         const action = saveAction.getAttribute('data-save-action');

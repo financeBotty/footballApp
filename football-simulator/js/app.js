@@ -1790,6 +1790,12 @@ class FootballSimulator {
           </div>
         </div>
 
+        <div class="result-actions result-actions-primary">
+          <button id="btn-continue-to-dashboard" class="btn btn-primary">
+            ${summary.complete ? 'Ver resumen final' : 'Continuar'}
+          </button>
+        </div>
+
         <div class="post-match-report">
           ${statsHtml}
           ${playersHtml}
@@ -1802,12 +1808,6 @@ class FootballSimulator {
         </div>
 
         ${seasonEndHtml}
-
-        <div class="result-actions">
-          <button id="btn-continue-to-dashboard" class="btn btn-primary">
-            ${summary.complete ? 'Ver resumen final' : 'Continuar'}
-          </button>
-        </div>
       </div>
     `;
 

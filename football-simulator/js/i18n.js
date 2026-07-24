@@ -76,6 +76,7 @@ const I18N = (() => {
     'Ajustes': 'Settings',
     'Gráfica y preferencias': 'Graphics and preferences',
     'Secciones principales': 'Main sections',
+    'Secciones': 'Sections',
     'Jugar': 'Play',
     'Gestionar': 'Manage',
     'Tu Equipo': 'Your Team',

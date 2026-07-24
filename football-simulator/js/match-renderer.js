@@ -9,10 +9,11 @@ class MatchRenderer {
     this.ctx = canvas.getContext('2d');
     this.frameId = null;
     this.resizeObserver = null;
+    this.monochrome = document.body.classList.contains('theme-minimal-bw');
     this.colors = {
-      home: engine.state?.teams?.home?.kitColor || '#0ea5e9',
-      away: engine.state?.teams?.away?.kitColor || '#f43f5e',
-      referee: '#050505'
+      home: this.monochrome ? '#ffffff' : (engine.state?.teams?.home?.kitColor || '#0ea5e9'),
+      away: this.monochrome ? '#050505' : (engine.state?.teams?.away?.kitColor || '#f43f5e'),
+      referee: this.monochrome ? '#8a8a8a' : '#050505'
     };
     this.visualPlayers = {};
     this.visualBall = null;
@@ -259,7 +260,9 @@ class MatchRenderer {
       ctx.beginPath();
       ctx.moveTo(top.x, top.y);
       ctx.lineTo(bottom.x, bottom.y);
-      ctx.strokeStyle = side === 'home' ? 'rgba(56, 189, 248, .42)' : 'rgba(251, 113, 133, .42)';
+      ctx.strokeStyle = this.monochrome
+        ? (side === 'home' ? 'rgba(255, 255, 255, .72)' : 'rgba(0, 0, 0, .72)')
+        : (side === 'home' ? 'rgba(56, 189, 248, .42)' : 'rgba(251, 113, 133, .42)');
       ctx.lineWidth = 1.5;
       ctx.setLineDash([3, 7]);
       ctx.stroke();
@@ -352,14 +355,16 @@ class MatchRenderer {
     }
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = player.position === 'GK' && player.goalkeeperColor
+    ctx.fillStyle = !this.monochrome && player.position === 'GK' && player.goalkeeperColor
       ? player.goalkeeperColor
       : this.colors[player.side];
     ctx.fill();
-    ctx.strokeStyle = player.yellowCards ? '#fde047' : player.redCards ? '#ef4444' : '#0f172a';
+    ctx.strokeStyle = this.monochrome
+      ? (player.side === 'home' ? '#050505' : '#ffffff')
+      : (player.yellowCards ? '#fde047' : player.redCards ? '#ef4444' : '#0f172a');
     ctx.lineWidth = player.yellowCards || player.redCards ? 3 : 1.5;
     ctx.stroke();
-    ctx.fillStyle = '#07111f';
+    ctx.fillStyle = this.monochrome && player.side === 'away' ? '#ffffff' : '#07111f';
     ctx.font = `800 ${this.width < 550 ? 6 : 8}px system-ui`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -468,7 +473,7 @@ class MatchRenderer {
     ctx.arc(p.x, p.y, this.width < 550 ? 5.5 : 7, 0, Math.PI * 2);
     ctx.fillStyle = this.colors.referee;
     ctx.fill();
-    ctx.strokeStyle = '#f8fafc';
+    ctx.strokeStyle = this.monochrome ? '#222222' : '#f8fafc';
     ctx.lineWidth = 1.75;
     ctx.stroke();
   }

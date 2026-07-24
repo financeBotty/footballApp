@@ -1449,6 +1449,10 @@ label {
   min-width: 150px;
 }
 
+.result-actions-primary {
+  margin: -1rem 0 1.25rem;
+}
+
 #btn-continue-to-dashboard {
   min-width: 200px;
 }
@@ -1628,12 +1632,6 @@ label {
     text-transform: uppercase;
   }
 
-  .nav-group-label i {
-    color: #facc15;
-    font-size: .55rem;
-    font-style: normal;
-  }
-
   .nav-group-system .nav-group-label {
     justify-content: center;
     font-size: .58rem;
@@ -1669,12 +1667,60 @@ label {
 }
 
 @media (max-width: 700px) {
-  .navbar-menu-grouped .nav-group,
-  .navbar-menu-grouped .nav-group-items {
-    display: contents;
+  .navbar-menu.navbar-menu-grouped,
+  .theme-retro-90s .navbar-menu.navbar-menu-grouped,
+  .theme-snes .navbar-menu.navbar-menu-grouped,
+  .theme-minimal-bw .navbar-menu.navbar-menu-grouped {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(82px, 1fr);
+    grid-template-rows: repeat(2, 42px);
+    gap: 5px 4px;
+    width: 100%;
+    height: auto;
+    padding: 1px 0 3px;
+    overflow: visible;
   }
 
+  .navbar-menu-grouped .nav-group {
+    display: grid;
+    min-width: 0;
+  }
+  .navbar-menu-grouped .nav-group-play {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .navbar-menu-grouped .nav-group-manage {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .navbar-menu-grouped .nav-group-system {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .navbar-menu-grouped .nav-group-items {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    min-width: 0;
+  }
+  .navbar-menu-grouped .nav-group-system .nav-group-items {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .navbar-menu-grouped .nav-group-label { display: none; }
+  .navbar-menu-grouped .nav-btn,
+  .theme-retro-90s .navbar-menu-grouped .nav-btn,
+  .theme-snes .navbar-menu-grouped .nav-btn,
+  .theme-minimal-bw .navbar-menu-grouped .nav-btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    height: 42px;
+    padding: .35rem .2rem;
+    font-size: clamp(.64rem, 2.7vw, .74rem);
+  }
 }
 
 /* ============================================
@@ -6671,18 +6717,6 @@ input:focus-visible,
   image-rendering: pixelated;
 }
 
-.player-thinker-portrait small {
-  max-width: 126px;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: .58rem;
-  font-weight: 750;
-  line-height: 1.2;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .stat-player-portrait {
   width: 44px;
   height: 44px;
@@ -6716,12 +6750,6 @@ input:focus-visible,
     width: 88px;
     height: 88px;
     box-shadow: 3px 3px 0 rgba(0, 0, 0, .3);
-  }
-
-  .player-thinker-portrait small {
-    max-width: 92px;
-    font-size: .52rem;
-    white-space: normal;
   }
 
   .player-profile-hero .player-overall {
@@ -6792,8 +6820,7 @@ input:focus-visible,
   backdrop-filter: none;
 }
 .theme-minimal-bw .navbar-brand { color: #111; }
-.theme-minimal-bw .nav-group-label,
-.theme-minimal-bw .nav-group-label i { color: #555; }
+.theme-minimal-bw .nav-group-label { color: #555; }
 .theme-minimal-bw .nav-group-system { border-left-color: #c9c9c4; }
 .theme-minimal-bw .nav-btn {
   color: #333;
@@ -6920,4 +6947,210 @@ input:focus-visible,
 @media (max-width: 700px) {
   .theme-minimal-bw #main-content { padding: 10px; }
   .theme-minimal-bw .navbar { border-bottom-width: 1px; }
+}
+
+/* En B/N toda la interfaz construida como panel o control comparte geometría. */
+.theme-minimal-bw :is(
+  button, input, select, textarea, details,
+  .welcome-content, .save-slot, .team-card, .dashboard-card, .settings-section,
+  .setup-section, .stat-card, .compact-match-card, .fixtures-panel,
+  .team-section-nav, .club-section-menu, .club-management-section,
+  .lineup-editor, .player-picker, .tactical-identity-card, .match-plan-center,
+  .tactical-decision-center, .quick-order-center, .automatic-substitutions,
+  .coach-drawer, .coach-panel, .live-scoreboard, .live-match-grid,
+  .coach-console, .pitch-frame, .tactical-pitch, .pre-match-lineup-pitch,
+  .result-display, .profile-summary-strip, .player-skills
+) {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 700px) {
+  .navbar-menu-grouped .nav-btn {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    height: 42px;
+    padding: .35rem .2rem;
+    font-size: clamp(.64rem, 2.7vw, .74rem);
+    scroll-snap-align: unset;
+  }
+}
+
+/* Simulador B/N: opciones con límites y estados inequívocos. */
+.theme-minimal-bw .live-match-shell :is(
+  .coach-action, .live-quick-chip, .live-plan-button, .live-order-button,
+  .live-formation-box, .bench-choice, .speed-control .btn,
+  .live-player-row, .automatic-substitutions, .live-formation-control,
+  .live-tactical-recommendation, .change-selection-summary
+) {
+  color: #111;
+  border: 1px solid #555;
+  border-radius: 0 !important;
+  background: #fff;
+  box-shadow: none !important;
+}
+
+.theme-minimal-bw .live-match-shell :is(
+  .coach-action, .live-quick-chip, .live-plan-button, .live-order-button,
+  .live-formation-box, .bench-choice, .speed-control .btn
+):is(:hover, :focus-visible) {
+  color: #fff;
+  border-color: #111;
+  background: #333;
+}
+
+.theme-minimal-bw .live-match-shell :is(
+  .coach-action, .live-quick-chip, .live-plan-button, .live-order-button,
+  .live-formation-box, .bench-choice, .speed-control .btn
+).active {
+  color: #fff !important;
+  border-color: #111 !important;
+  background: #111 !important;
+  outline: 0;
+}
+
+.theme-minimal-bw .live-match-shell :is(
+  .coach-action, .live-quick-chip, .live-plan-button, .live-order-button,
+  .live-formation-box, .bench-choice, .speed-control .btn
+).active :is(span, strong, small) {
+  color: #fff !important;
+}
+
+.theme-minimal-bw .live-match-shell :is(
+  .coach-action, .live-quick-chip, .live-plan-button, .live-order-button,
+  .live-formation-box, .bench-choice, .speed-control .btn
+):disabled {
+  color: #666 !important;
+  border-color: #aaa !important;
+  background: #ddd !important;
+}
+
+.theme-minimal-bw .live-match-shell :is(
+  .live-quick-chip, .live-plan-button, .live-order-button,
+  .live-formation-box, .bench-choice, .coach-action
+) :is(small, span) {
+  color: #555;
+}
+
+.theme-minimal-bw .live-match-shell .coach-primary-actions {
+  gap: 1px;
+  border-color: #555;
+  background: #555;
+}
+
+.theme-minimal-bw .live-match-shell .live-stats-strip {
+  border-color: #777;
+  background: #777;
+}
+
+.theme-minimal-bw .live-match-shell .live-stats-strip span {
+  color: #444;
+  border-color: #777;
+  border-radius: 0 !important;
+  background: #fff;
+}
+
+.theme-minimal-bw .live-match-shell .live-stats-strip strong { color: #111; }
+.theme-minimal-bw .live-match-shell .coach-drawer-bar {
+  color: #111;
+  border-color: #111;
+  background: #fff;
+  backdrop-filter: none;
+}
+.theme-minimal-bw .live-match-shell .coach-drawer-primary button {
+  color: #fff;
+  border: 1px solid #111;
+  background: #111;
+}
+.theme-minimal-bw .live-match-shell .coach-panel {
+  color: #111;
+  background: #f5f5f2;
+}
+
+.theme-minimal-bw .live-match-shell {
+  --home-kit: #fff !important;
+  --away-kit: #111 !important;
+}
+.theme-minimal-bw .live-player-dot.home {
+  color: #111;
+  border: 1px solid #111;
+  background: #fff !important;
+}
+.theme-minimal-bw .live-player-dot.away {
+  color: #fff;
+  border: 1px solid #fff;
+  background: #111 !important;
+}
+
+/* Navegación móvil compacta: la cuadrícula completa aparece bajo demanda. */
+.mobile-nav-toggle { display: none; }
+
+@media (max-width: 700px) {
+  .navbar,
+  .theme-retro-90s .navbar,
+  .theme-snes .navbar,
+  .theme-minimal-bw .navbar {
+    position: relative;
+    z-index: 90;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 9px;
+  }
+
+  .mobile-nav-toggle {
+    display: grid;
+    grid-template-columns: auto auto 14px;
+    align-items: center;
+    gap: .35rem;
+    min-height: 42px;
+    padding: .35rem .55rem;
+    border: 1px solid var(--dark-border);
+    border-radius: 0;
+    color: var(--text-primary);
+    background: var(--surface-1);
+    font: inherit;
+    cursor: pointer;
+  }
+  .mobile-nav-toggle span {
+    color: var(--text-muted);
+    font-size: .62rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .mobile-nav-toggle strong { font-size: .75rem; }
+  .mobile-nav-toggle i {
+    font-style: normal;
+    transition: transform .18s ease;
+  }
+  .mobile-nav-toggle.is-open i { transform: rotate(180deg); }
+
+  .navbar-menu.navbar-menu-grouped,
+  .theme-retro-90s .navbar-menu.navbar-menu-grouped,
+  .theme-snes .navbar-menu.navbar-menu-grouped,
+  .theme-minimal-bw .navbar-menu.navbar-menu-grouped {
+    position: absolute;
+    z-index: 100;
+    top: calc(100% - 1px);
+    right: 9px;
+    left: 9px;
+    display: none;
+    width: auto;
+    height: auto;
+    padding: 7px;
+    border: 1px solid var(--dark-border);
+    background: var(--dark-bg);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, .38);
+  }
+  .navbar-menu.navbar-menu-grouped.is-open,
+  .theme-retro-90s .navbar-menu.navbar-menu-grouped.is-open,
+  .theme-snes .navbar-menu.navbar-menu-grouped.is-open,
+  .theme-minimal-bw .navbar-menu.navbar-menu-grouped.is-open {
+    display: grid;
+  }
+  .theme-minimal-bw .navbar-menu.navbar-menu-grouped { background: #fff; }
 }
