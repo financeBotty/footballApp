@@ -398,6 +398,22 @@ class LeagueEngine {
     };
   }
 
+  // Resumen limitado al calendario de un club, no al total de partidos de la liga.
+  getTeamSeasonSummary(teamId) {
+    const matches = this.schedule.filter(match =>
+      match.homeTeam === teamId || match.awayTeam === teamId
+    );
+    const completed = matches.filter(match => match.played).length;
+    const total = matches.length;
+
+    return {
+      totalMatches: total,
+      completedMatches: completed,
+      remainingMatches: total - completed,
+      progress: total ? (completed / total) * 100 : 0
+    };
+  }
+
   // Verificar si la liga está completa
   isLeagueComplete() {
     return this.schedule.length > 0 && this.schedule.every(m => m.played);

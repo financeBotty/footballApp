@@ -14,19 +14,25 @@ class UIManager {
   init(gameApp) {
     this.gameApp = gameApp;
     this.ensureDOM();
+    I18N.init();
     this.applyVisualTheme(GameStorage.getSetting('visualTheme', '90s'), false);
     this.attachEventListeners();
   }
 
   getVisualTheme() {
     const selected = GameStorage.getSetting('visualTheme', '90s');
-    return ['classic', '90s', 'snes'].includes(selected) ? selected : '90s';
+    return ['classic', '90s', 'snes', 'minimal-bw'].includes(selected) ? selected : '90s';
   }
 
   applyVisualTheme(theme, persist = true) {
-    const selected = ['classic', '90s', 'snes'].includes(theme) ? theme : '90s';
-    document.body.classList.remove('theme-classic', 'theme-retro-90s', 'theme-snes');
-    document.body.classList.add({ classic: 'theme-classic', '90s': 'theme-retro-90s', snes: 'theme-snes' }[selected]);
+    const selected = ['classic', '90s', 'snes', 'minimal-bw'].includes(theme) ? theme : '90s';
+    document.body.classList.remove('theme-classic', 'theme-retro-90s', 'theme-snes', 'theme-minimal-bw');
+    document.body.classList.add({
+      classic: 'theme-classic',
+      '90s': 'theme-retro-90s',
+      snes: 'theme-snes',
+      'minimal-bw': 'theme-minimal-bw'
+    }[selected]);
     document.documentElement.dataset.visualTheme = selected;
     if (persist) GameStorage.setSetting('visualTheme', selected);
     return selected;
@@ -36,7 +42,8 @@ class UIManager {
     return [
       ['classic', 'Classic', 'Diseño original moderno', 'CL'],
       ['90s', '90s', 'Gestor de PC de 1996', '96'],
-      ['snes', 'SNES', 'Estilo deportivo 16-bit', '16']
+      ['snes', 'SNES', 'Estilo deportivo 16-bit', '16'],
+      ['minimal-bw', 'B/N', 'Blanco, negro y sin ruido visual', 'B/N']
     ].map(([value, label, description, badge]) => `
       <label class="theme-choice theme-choice-${value}">
         <input type="radio" name="visual-theme" value="${value}" ${this.getVisualTheme() === value ? 'checked' : ''}>
@@ -47,17 +54,45 @@ class UIManager {
   }
 
   renderMainNavigation(activeScreen) {
-    const items = [
-      ['dashboard', 'Inicio', 'Resumen de la temporada'],
-      ['squad', 'Alineación', 'Once, formación y roles'],
-      ['club', 'Club', 'Entrenamiento y cantera'],
-      ['next-match', 'Partido', 'Preparación y simulador'],
-      ['league', 'Liga', 'Clasificación y calendario'],
-      ['stats', 'Datos', 'Rendimiento y estadísticas'],
-      ['settings', 'Ajustes', 'Gráfica y preferencias']
+    const groups = [
+      {
+        id: 'play',
+        label: 'Jugar',
+        index: '01',
+        items: [
+          ['dashboard', 'Inicio'],
+          ['next-match', 'Partido'],
+          ['league', 'Liga']
+        ]
+      },
+      {
+        id: 'manage',
+        label: 'Gestionar',
+        index: '02',
+        items: [
+          ['squad', 'Alineación'],
+          ['club', 'Club'],
+          ['stats', 'Datos']
+        ]
+      },
+      {
+        id: 'system',
+        label: 'Sistema',
+        index: '03',
+        items: [
+          ['settings', 'Ajustes']
+        ]
+      }
     ];
-    return `<div class="navbar-menu" aria-label="Secciones principales">${items.map(([screen, label, help]) => `
-      <button class="nav-btn ${activeScreen === screen ? 'active' : ''}" data-screen="${screen}" data-help="${help}" title="${label}: ${help}" aria-label="${label}: ${help}">${label}</button>`).join('')}</div>`;
+    const renderItem = ([screen, label]) => {
+      const localizedLabel = I18N.t(label);
+      return `<button class="nav-btn ${screen === 'next-match' ? 'nav-primary-action' : ''} ${activeScreen === screen ? 'active' : ''}" data-screen="${screen}" aria-label="${localizedLabel}">${localizedLabel}</button>`;
+    };
+    return `<div class="navbar-menu navbar-menu-grouped" aria-label="${I18N.t('Secciones principales')}">${groups.map(group => `
+      <div class="nav-group nav-group-${group.id}">
+        <span class="nav-group-label"><i>${group.index}</i>${I18N.t(group.label)}</span>
+        <div class="nav-group-items">${group.items.map(renderItem).join('')}</div>
+      </div>`).join('')}</div>`;
   }
 
   // Asegurar que el DOM está presente
@@ -86,6 +121,10 @@ class UIManager {
   renderClubIdentity(team, className = '') {
     if (!team) return '';
     return `<span class="club-identity ${className}">${this.renderTeamCrest(team)}<span>${team.name}</span></span>`;
+  }
+
+  renderThinkerPortrait(team, player, className = 'thinker-portrait') {
+    return ThinkerPortraits.render(team, player, className);
   }
 
   isAcademyPlayer(player) {
@@ -125,7 +164,7 @@ class UIManager {
         `;
       }
       const savedDate = save.lastSaved
-        ? new Date(save.lastSaved).toLocaleString('es-ES')
+        ? new Date(save.lastSaved).toLocaleString(I18N.locale())
         : 'Sin fecha';
       const savedTeam = this.gameApp?.teamManager?.getTeam(save.teamId);
       return `
@@ -154,9 +193,14 @@ class UIManager {
     content.innerHTML = `
       <div class="welcome-container">
         <div class="welcome-header">
-          <div class="retro-app-badge" aria-hidden="true"><span>FS/</span><span class="edition-mark">96</span></div>
-          <h1>Football Cultureta</h1>
-          <p>Gestor de fútbol · Edición 1996</p>
+          <div class="welcome-philosopher-frame">
+            <img class="welcome-philosopher" src="assets/philosopher-pixel.svg" alt="Retrato pixelado de un filósofo clásico" width="128" height="128">
+          </div>
+          <div class="welcome-title-copy">
+            <div class="retro-app-badge" aria-hidden="true"><span>FS/</span><span class="edition-mark">96</span></div>
+            <h1>Football Cultureta</h1>
+            <p class="welcome-manifesto">Nuestros pensadores también la rompen en la dinámica de lo inesperado: el fútbol.</p>
+          </div>
         </div>
         
         <div class="welcome-content">
@@ -328,15 +372,19 @@ class UIManager {
       `;
     }
 
-    // Top 5 de la clasificación
-    let standingsHtml = '<div class="standings-preview"><h3>Clasificación (Top 5)</h3><ol>';
-    standings.slice(0, 5).forEach(standing => {
+    // Clasificación completa, con cada club accesible desde su fila.
+    let standingsHtml = '<div class="standings-preview standings-preview-full"><h3>Clasificación</h3><ol>';
+    standings.forEach((standing, index) => {
       const isUserTeam = standing.teamId === userTeamId;
       const standingTeam = this.gameApp.teamManager.getTeam(standing.teamId);
       const highlight = isUserTeam ? ' class="user-team"' : '';
       standingsHtml += `
         <li${highlight}>
-          <button type="button" class="pos team-profile-link" data-team-profile="${standing.teamId}">${this.renderTeamCrest(standingTeam, 'table-club-crest')}<span>${standing.teamName}</span></button>
+          <button type="button" class="pos team-profile-link" data-team-profile="${standing.teamId}">
+            <b class="standing-rank">${index + 1}</b>
+            ${this.renderTeamCrest(standingTeam, 'table-club-crest')}
+            <span>${standing.teamName}</span>
+          </button>
           <span class="points">${standing.points}pts</span>
         </li>
       `;
@@ -366,7 +414,12 @@ class UIManager {
       <div class="dashboard-leaderboard">
         <h4>${title}</h4>
         <ol>${entries.length ? entries.map((player, index) => `
-          <li><span><b>${index + 1}</b><span>${player.name}</span></span><strong>${value(player)}</strong></li>`).join('') : '<li class="empty"><span>Sin registros todavía</span></li>'}</ol>
+          <li>
+            <button type="button" class="dashboard-player-link" data-player-profile="${player.id}" data-player-team="${team.id}" data-player-return="dashboard">
+              <b>${index + 1}</b><span>${player.name}</span>
+            </button>
+            <strong>${value(player)}</strong>
+          </li>`).join('') : '<li class="empty"><span>Sin registros todavía</span></li>'}</ol>
       </div>`;
     const performanceHtml = `
       <div class="dashboard-kpi-strip" aria-label="Indicadores del equipo">
@@ -406,7 +459,7 @@ class UIManager {
           </div>
 
           <div class="dashboard-card">
-            <h3>Progreso de Temporada</h3>
+            <h3>Partidos del equipo</h3>
             <div id="season-progress"></div>
           </div>
 
@@ -418,16 +471,14 @@ class UIManager {
       </div>
     `;
 
-    // Actualizar barra de progreso
-    const summary = this.gameApp.leagueEngine.getSeasonSummary();
+    // Mostrar únicamente el calendario del equipo, no los partidos de toda la liga.
+    const summary = this.gameApp.leagueEngine.getTeamSeasonSummary(userTeamId);
     const progressBar = document.getElementById('season-progress');
     if (progressBar) {
       progressBar.innerHTML = `
-        <div class="progress-stat">
-          <p>${summary.completedMatches} / ${summary.totalMatches} partidos</p>
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${summary.progress}%"></div>
-          </div>
+        <div class="team-season-count">
+          <strong>${summary.completedMatches}<i>/</i>${summary.totalMatches}</strong>
+          <span>partidos disputados</span>
         </div>
       `;
     }
@@ -486,14 +537,14 @@ class UIManager {
     content.innerHTML = `
       <div class="squad-container-v2 team-hub">
         <header class="team-page-header">
-          <div><span class="eyebrow">Gestión de la alineación</span><h2>Alineación</h2><p>Elige el once y define cómo jugará, todo en el mismo lugar.</p></div>
+          <div><span class="eyebrow">Gestión de la alineación</span><h2>Alineación</h2></div>
           <div class="availability-summary"><strong>${medicalReport.filter(item => !item.available).length}</strong><span>bajas</span><small>${team.players.filter(player => this.isAcademyPlayer(player)).length} cantera</small></div>
         </header>
 
         <nav class="team-section-nav" aria-label="Secciones de la alineación">
-          <button type="button" class="active" data-team-anchor="team-lineup-section"><strong>Once</strong><small>Elegir titulares</small></button>
-          <button type="button" data-team-anchor="team-tactics-section"><strong>Plan</strong><small>Formación e identidad</small></button>
-          <button type="button" data-team-anchor="team-roles-section"><strong>Roles</strong><small>Función individual</small></button>
+          <button type="button" class="active" data-team-anchor="team-lineup-section"><strong>Once</strong></button>
+          <button type="button" data-team-anchor="team-tactics-section"><strong>Plan</strong></button>
+          <button type="button" data-team-anchor="team-roles-section"><strong>Roles</strong></button>
         </nav>
 
         <section class="lineup-workspace" id="team-lineup-section" aria-label="Editor de alineación">
@@ -620,7 +671,7 @@ class UIManager {
 
     const tacticsMarkup = `
       <div class="tactics-container tactics-command-center" id="team-tactics-section">
-        <header class="tactics-page-header"><span class="eyebrow">Plan base</span><h2>Cómo juega el equipo</h2><p>Define la formación, la identidad y el plan de salida. Las consignas situacionales se deciden durante el partido.</p></header>
+        <header class="tactics-page-header"><span class="eyebrow">Plan base</span><h2>Cómo juega el equipo</h2></header>
 
         <section class="tactical-identity-card">
           <div><span class="eyebrow">Estructura</span><h3>Formación e identidad</h3></div>
@@ -670,6 +721,10 @@ class UIManager {
     const team = this.gameApp.teamManager.getTeam(userTeamId);
     const trainingPlan = team.trainingPlan || { focus: 'balanced', intensity: 'medium' };
     const medicalReport = this.gameApp.teamManager.getMedicalReport(userTeamId);
+    const unavailableReport = medicalReport.filter(item => !item.available);
+    const availableCount = team.players.length - unavailableReport.length;
+    const focusLabels = { recovery: 'Recuperación', balanced: 'Equilibrado', physical: 'Físico', tactical: 'Táctico', technical: 'Técnico' };
+    const intensityLabels = { low: 'Baja', medium: 'Media', high: 'Alta' };
     const currentMatchday = this.gameApp.leagueEngine.getCurrentMatchday() || 1;
     const promotionCount = team.reservePromotions.matchday === currentMatchday ? team.reservePromotions.count : 0;
     const remainingPromotions = Math.max(0, 3 - promotionCount);
@@ -689,22 +744,29 @@ class UIManager {
 
     document.getElementById('main-content').innerHTML = `
       <div class="club-container">
-        <header class="section-page-header">
-          <span class="eyebrow">Gestión diaria</span>
-          <h2>Club</h2>
-          <p>Organiza el entrenamiento, revisa la disponibilidad y desarrolla la cantera.</p>
+        <header class="section-page-header club-command-header">
+          <div class="club-command-copy">
+            <span class="eyebrow">Gestión diaria</span>
+            <h2>Club</h2>
+          </div>
+          <div class="club-overview-grid" aria-label="Resumen del club">
+            <span><small>Disponibles</small><strong>${availableCount}/${team.players.length}</strong></span>
+            <span><small>Plan semanal</small><strong>${focusLabels[trainingPlan.focus]}</strong></span>
+            <span><small>Intensidad</small><strong>${intensityLabels[trainingPlan.intensity]}</strong></span>
+            <span><small>Cupo cantera</small><strong>${remainingPromotions}/3</strong></span>
+          </div>
         </header>
 
         <nav class="club-section-menu" aria-label="Secciones del club">
-          <button type="button" class="active" data-club-anchor="club-training-section"><strong>Entrenamiento</strong><small>Plan semanal y disponibilidad</small></button>
-          <button type="button" data-club-anchor="academy-development-section"><strong>Cantera</strong><small>Filial y promociones</small></button>
+          <button type="button" class="active" data-club-anchor="club-training-section"><span>01</span><strong>Entrenamiento</strong></button>
+          <button type="button" data-club-anchor="academy-development-section"><span>02</span><strong>Cantera</strong></button>
         </nav>
 
-        <section class="club-management-section" id="club-training-section">
-          <div class="section-heading"><div><span class="eyebrow">Primer equipo</span><h3>Entrenamiento y disponibilidad</h3></div><small>${medicalReport.length ? `${medicalReport.length} avisos` : 'Todo disponible'}</small></div>
-          <div class="development-grid tactics-management-grid">
-            <div>
-              <h3>Plan semanal</h3>
+        <section class="club-management-section club-training-section" id="club-training-section">
+          <div class="section-heading"><div><span class="eyebrow">Primer equipo</span><h3>Entrenamiento y disponibilidad</h3></div><small>${unavailableReport.length ? `${unavailableReport.length} avisos` : 'Todo disponible'}</small></div>
+          <div class="club-workspace-grid">
+            <article class="club-work-card training-plan-card">
+              <header><span>01</span><div><h3>Plan semanal</h3><small>Define la carga de la próxima jornada</small></div></header>
               <div class="training-controls">
                 <div><strong>Enfoque</strong><div class="training-choice-grid">${[
                   ['recovery', 'Recuperación'], ['balanced', 'Equilibrado'], ['physical', 'Físico'],
@@ -714,21 +776,30 @@ class UIManager {
                   .map(([value, label]) => `<button type="button" class="training-choice ${trainingPlan.intensity === value ? 'active' : ''}" data-training-intensity="${value}" aria-pressed="${trainingPlan.intensity === value}">${label}</button>`).join('')}</div></div>
               </div>
               <p class="training-help">Se aplica al completar cada jornada. Una intensidad alta mejora más, pero aumenta la fatiga y el riesgo.</p>
-            </div>
-            <div><h3>Parte médico y sanciones</h3><div class="medical-report">
-              ${medicalReport.length ? medicalReport.map(item => `<div class="medical-item ${item.status}"><strong>${item.player.name} ${this.renderAcademyBadge(item.player)}</strong><span>${item.available ? `${item.player.yellowCardAccumulation} amarillas acumuladas` : item.reason}</span></div>`).join('') : '<p>Todos los jugadores están disponibles.</p>'}
-            </div></div>
+            </article>
+            <article class="club-work-card availability-card">
+              <header><span>02</span><div><h3>Disponibilidad</h3><small>Parte médico y sanciones</small></div></header>
+              <div class="availability-score"><strong>${availableCount}</strong><span>de ${team.players.length} disponibles</span></div>
+              <div class="medical-report">
+                ${unavailableReport.length ? unavailableReport.map(item => `<div class="medical-item ${item.status}"><strong>${item.player.name} ${this.renderAcademyBadge(item.player)}</strong><span>${item.reason}</span></div>`).join('') : '<p class="all-available-message"><strong>Plantilla completa</strong><span>Todos los jugadores están disponibles.</span></p>'}
+              </div>
+            </article>
           </div>
         </section>
 
-        <section class="club-management-section" id="academy-development-section">
-          <div class="section-heading"><div><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><h3>${team.reserveName || 'Filial'}</h3></div><small id="reserve-promotion-count">${promotionCount}/3 promociones</small></div>
-          <div class="medical-report tactics-reserves">
+        <section class="club-management-section academy-management-section" id="academy-development-section">
+          <div class="section-heading"><div><span class="eyebrow">Desarrollo · ${team.current || 'Cantera'}</span><h3>${team.reserveName || 'Filial'}</h3><p>Selecciona talento del filial para incorporarlo al primer equipo.</p></div><small id="reserve-promotion-count">${promotionCount}/3 promociones</small></div>
+          <div class="tactics-reserves">
             <div class="reserve-batch-bar"><span id="reserve-selection-status">Elige hasta ${remainingPromotions} canterano${remainingPromotions === 1 ? '' : 's'}</span><button type="button" id="btn-promote-selected-reserves" class="btn btn-primary" disabled>Subir seleccionados</button></div>
-            ${team.reservePlayers.length ? team.reservePlayers.map(player => {
+            <div class="reserve-candidate-grid">${team.reservePlayers.length ? team.reservePlayers.map(player => {
               const selected = this.reservePromotionSelection.has(player.id);
-              return `<div class="medical-item available reserve-candidate ${selected ? 'selected' : ''}"><strong>${player.name} ${this.renderAcademyBadge(player)} · ${player.age} años · ${DATA.getPositionLabel(player.position)} · ${player.overall}</strong><button type="button" class="btn btn-secondary btn-select-reserve" data-player-id="${player.id}" aria-pressed="${selected}" ${remainingPromotions <= 0 ? 'disabled' : ''}>${selected ? 'Elegido' : 'Elegir'}</button></div>`;
-            }).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}
+              return `<article class="reserve-candidate ${selected ? 'selected' : ''}">
+                <span class="position-pill">${DATA.getPositionLabel(player.position)}</span>
+                <div><strong>${player.name} ${this.renderAcademyBadge(player)}</strong><small>${player.age} años · ${DATA.getPositionLabel(player.position, true)}</small></div>
+                <span class="reserve-overall"><strong>${player.overall}</strong><small>MEDIA</small></span>
+                <button type="button" class="btn btn-secondary btn-select-reserve" data-player-id="${player.id}" aria-pressed="${selected}" ${remainingPromotions <= 0 ? 'disabled' : ''}>${selected ? 'Elegido' : 'Elegir'}</button>
+              </article>`;
+            }).join('') : '<p>No quedan jugadores disponibles en el filial.</p>'}</div>
           </div>
         </section>
       </div>`;
@@ -1199,6 +1270,10 @@ class UIManager {
       <div class="profile-page player-profile-page">
         <button type="button" class="profile-back" data-profile-back="${returnScreen}" data-profile-team="${team.id}">← Volver</button>
         <header class="player-profile-hero">
+          <div class="player-thinker-portrait">
+            ${this.renderThinkerPortrait(team, player, 'player-profile-portrait')}
+            <small>${ThinkerPortraits.getEra(team, player).label}</small>
+          </div>
           <div class="player-overall"><strong>${player.overall}</strong><span>MEDIA</span></div>
           <div><span>${DATA.getPositionLabel(player.position, true)} · ${player.age} años</span><h2>${player.name}</h2><button type="button" class="inline-club-link" data-team-profile="${team.id}">${this.renderTeamCrest(team, 'player-club-crest')}${team.name}</button></div>
         </header>
@@ -1245,11 +1320,18 @@ class UIManager {
 
         <section class="settings-section appearance-settings">
           <h3>Estilo visual</h3>
-          <p>Elige la apariencia del juego. El cambio se aplica al instante y no afecta a la partida.</p>
           <fieldset class="theme-picker">
             <legend class="sr-only">Tema de la interfaz</legend>
             ${this.renderThemeChoices()}
           </fieldset>
+        </section>
+
+        <section class="settings-section language-settings">
+          <h3>Idioma</h3>
+          <div class="settings-choice-row language-choice-row" role="radiogroup" aria-label="Idioma">
+            ${[['es', 'Español'], ['en', 'Inglés']].map(([value, label]) => `
+              <button type="button" class="settings-choice ${I18N.getLanguage() === value ? 'active' : ''}" data-settings-language="${value}" role="radio" aria-checked="${I18N.getLanguage() === value}">${label}</button>`).join('')}
+          </div>
         </section>
         
         <div class="settings-section">
@@ -1462,11 +1544,19 @@ class UIManager {
         this.showSuccess('Duración predeterminada guardada');
       }
 
+      const language = e.target.closest('[data-settings-language]');
+      if (language && this.currentScreen === 'settings') {
+        I18N.setLanguage(language.dataset.settingsLanguage);
+        this.showSettings();
+        I18N.localizeDOM(document.body);
+        this.showSuccess(I18N.getLanguage() === 'en' ? 'Language changed to English' : 'Idioma cambiado a Español');
+      }
+
     });
 
     document.addEventListener('change', (e) => {
       if (e.target.name === 'visual-theme') {
-        const labels = { classic: 'Classic', '90s': '90s', snes: 'SNES' };
+        const labels = { classic: 'Classic', '90s': '90s', snes: 'SNES', 'minimal-bw': 'B/N minimalista' };
         const selected = this.applyVisualTheme(e.target.value);
         this.showSuccess(`Estilo ${labels[selected]} aplicado`);
       }
@@ -1757,7 +1847,7 @@ class UIManager {
   showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
-    errorDiv.textContent = message;
+    errorDiv.textContent = I18N.t(message);
     document.body.appendChild(errorDiv);
     setTimeout(() => errorDiv.remove(), 5000);
   }
@@ -1766,7 +1856,7 @@ class UIManager {
   showSuccess(message) {
     const successDiv = document.createElement('div');
     successDiv.className = 'success-message';
-    successDiv.textContent = message;
+    successDiv.textContent = I18N.t(message);
     document.body.appendChild(successDiv);
     setTimeout(() => successDiv.remove(), 3000);
   }

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges" role="img" aria-labelledby="title description">
+  <title id="title">Filósofo clásico en estilo píxel</title>
+  <desc id="description">Retrato original de un filósofo barbado inspirado en la Grecia clásica.</desc>
+
+  <!-- Silueta y cabello -->
+  <path fill="#07162c" d="M20 4h24v4h8v8h4v20h-4v8h-4v8h-8v8H24v-8h-8v-8h-4v-8H8V16h4V8h8z"/>
+  <path fill="#d8c7a1" d="M20 8h20v4h8v8h4v12h-4v8h-4v8h-8v4h-8v-4h-8v-8h-4v-8h-4V20h4v-8h4z"/>
+
+  <!-- Rizos -->
+  <g fill="#f3ead1">
+    <rect x="16" y="8" width="8" height="8"/>
+    <rect x="24" y="4" width="8" height="8"/>
+    <rect x="36" y="4" width="8" height="8"/>
+    <rect x="44" y="8" width="8" height="8"/>
+    <rect x="12" y="16" width="8" height="8"/>
+    <rect x="44" y="16" width="8" height="8"/>
+  </g>
+  <g fill="#9b875f">
+    <rect x="20" y="8" width="8" height="4"/>
+    <rect x="32" y="8" width="8" height="4"/>
+    <rect x="16" y="12" width="8" height="4"/>
+    <rect x="40" y="12" width="8" height="4"/>
+  </g>
+
+  <!-- Rostro -->
+  <path fill="#e8c69a" d="M20 16h24v4h4v16h-4v8h-8v4h-8v-4h-8v-8h-4V20h4z"/>
+  <rect x="12" y="24" width="4" height="8" fill="#c99a6b"/>
+  <rect x="48" y="24" width="4" height="8" fill="#c99a6b"/>
+
+  <!-- Cejas, ojos y nariz -->
+  <rect x="20" y="20" width="8" height="4" fill="#6f5a3b"/>
+  <rect x="36" y="20" width="8" height="4" fill="#6f5a3b"/>
+  <rect x="24" y="24" width="4" height="4" fill="#07162c"/>
+  <rect x="36" y="24" width="4" height="4" fill="#07162c"/>
+  <path fill="#bd875a" d="M30 24h4v8h4v4h-8z"/>
+  <rect x="28" y="36" width="8" height="4" fill="#8d503f"/>
+
+  <!-- Barba geométrica -->
+  <path fill="#f3ead1" d="M16 32h8v4h4v4h8v-4h4v-4h8v12h-4v8h-8v8H28v-4h-8v-8h-4z"/>
+  <g fill="#b9a782">
+    <rect x="16" y="36" width="8" height="4"/>
+    <rect x="40" y="36" width="8" height="4"/>
+    <rect x="20" y="44" width="8" height="4"/>
+    <rect x="36" y="44" width="8" height="4"/>
+    <rect x="28" y="52" width="8" height="4"/>
+  </g>
+
+  <!-- Toga -->
+  <path fill="#1d64c8" d="M12 52h12v4h16v-4h12v4h8v8H4v-8h8z"/>
+  <path fill="#8db7e8" d="M12 56h12v4h16v-4h12v8H12z"/>
+  <rect x="28" y="56" width="8" height="8" fill="#ffe349"/>
+</svg>

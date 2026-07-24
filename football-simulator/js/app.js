@@ -744,11 +744,11 @@ class FootballSimulator {
       <button type="button" class="live-plan-button ${this.teamManager.getTeam(this.userTeamId).activeMatchPlan === plan.id ? 'active' : ''}" data-live-plan="${plan.id}"><span>Plan ${plan.id}</span><strong>${plan.name}</strong><small>${plan.effects.join(' · ')}</small></button>`).join('');
     return `
       <div id="live-tactical-recommendation" class="live-tactical-recommendation" data-reading-key="${recommendation.key}" data-tone="${recommendation.tone}">${this.renderLiveRecommendation(recommendation)}</div>
+      <div class="live-plan-grid">${planButtons}</div>
       <div class="live-formation-control">
         <span><strong>Sistema</strong><small>Elige una estructura para recolocar al equipo</small></span>
         <div class="live-formation-boxes" role="group" aria-label="Cambiar formación durante el partido">${formationButtons}</div>
       </div>
-      <div class="live-plan-grid">${planButtons}</div>
     `;
   }
 
@@ -1836,19 +1836,41 @@ class FootballSimulator {
     `;
 
     const leaguePlayers = this.teamManager.getAllTeams().flatMap(club =>
-      club.players.map(player => ({ ...player, teamId: club.id, teamName: club.shortName }))
+      club.players.map(player => ({ ...player, teamId: club.id, teamName: club.name }))
     );
     const sortedByGoals = [...leaguePlayers].sort((a, b) => b.goals - a.goals).slice(0, 5);
     const sortedByAssists = [...leaguePlayers].sort((a, b) => b.assists - a.assists).slice(0, 5);
 
     let topScorersHtml = '';
     sortedByGoals.forEach((player, i) => {
-      topScorersHtml += `<li><button type="button" class="player-stat-link" data-player-profile="${player.id}" data-player-team="${player.teamId}" data-player-return="stats"><span><b>${i + 1}</b><strong>${player.name}</strong><small>${player.teamName} · ${DATA.getPositionLabel(player.position, true)}</small></span><em>${player.goals} goles</em></button></li>`;
+      const playerTeam = this.teamManager.getTeam(player.teamId);
+      topScorersHtml += `
+        <li class="player-stat-entry">
+          <button type="button" class="player-stat-link" data-player-profile="${player.id}" data-player-team="${player.teamId}" data-player-return="stats">
+            ${this.ui.renderThinkerPortrait(playerTeam, player, 'stat-player-portrait')}
+            <span><b>${i + 1}</b><strong>${player.name}</strong><small>${DATA.getPositionLabel(player.position, true)}</small></span>
+            <em>${player.goals} goles</em>
+          </button>
+          <button type="button" class="stat-club-link team-profile-link" data-team-profile="${player.teamId}" aria-label="Ver ficha de ${player.teamName}">
+            ${this.ui.renderTeamCrest(playerTeam, 'stat-club-crest')}<span>${player.teamName}</span>
+          </button>
+        </li>`;
     });
 
     let topAssistsHtml = '';
     sortedByAssists.forEach((player, i) => {
-      topAssistsHtml += `<li><button type="button" class="player-stat-link" data-player-profile="${player.id}" data-player-team="${player.teamId}" data-player-return="stats"><span><b>${i + 1}</b><strong>${player.name}</strong><small>${player.teamName} · ${DATA.getPositionLabel(player.position, true)}</small></span><em>${player.assists} asist.</em></button></li>`;
+      const playerTeam = this.teamManager.getTeam(player.teamId);
+      topAssistsHtml += `
+        <li class="player-stat-entry">
+          <button type="button" class="player-stat-link" data-player-profile="${player.id}" data-player-team="${player.teamId}" data-player-return="stats">
+            ${this.ui.renderThinkerPortrait(playerTeam, player, 'stat-player-portrait')}
+            <span><b>${i + 1}</b><strong>${player.name}</strong><small>${DATA.getPositionLabel(player.position, true)}</small></span>
+            <em>${player.assists} asist.</em>
+          </button>
+          <button type="button" class="stat-club-link team-profile-link" data-team-profile="${player.teamId}" aria-label="Ver ficha de ${player.teamName}">
+            ${this.ui.renderTeamCrest(playerTeam, 'stat-club-crest')}<span>${player.teamName}</span>
+          </button>
+        </li>`;
     });
 
     content.innerHTML = `
