@@ -16,6 +16,7 @@
   <p id="summary">Ejecutando…</p>
   <ol id="results"></ol>
   <script src="../js/data.js"></script>
+  <script src="../js/i18n.js"></script>
   <script src="../js/storage.js"></script>
   <script src="../js/team-manager.js"></script>
   <script src="../js/league-engine.js"></script>
@@ -108,7 +109,7 @@
         sectionButtons.length === 3 && fixture.querySelector('#team-roles-section')?.open &&
         fixture.querySelector('[data-team-anchor="team-roles-section"]')?.classList.contains('active') &&
         teamButtons.length === 1 && teamButtons[0].textContent.trim() === 'Alineación' &&
-        fixture.querySelectorAll('.navbar-menu [data-help]').length === 7 &&
+        fixture.querySelectorAll('.navbar-menu .nav-btn').length === 7 &&
         !fixture.querySelector('[data-training-focus]') && !fixture.querySelector('#academy-development-section') &&
         !fixture.querySelector('[data-screen="tactics"]');
       fixture.remove();
@@ -148,10 +149,10 @@
       return valid;
     });
 
-    test('Permite alternar y conservar los tres estilos visuales', () => {
+    test('Permite alternar y conservar los cuatro estilos visuales', () => {
       const ui = new UIManager();
       const original = GameStorage.getSetting('visualTheme', '90s');
-      const valid = ['classic', '90s', 'snes'].every(theme => {
+      const valid = ['classic', '90s', 'snes', 'minimal-bw'].every(theme => {
         const selected = ui.applyVisualTheme(theme);
         return selected === theme && document.documentElement.dataset.visualTheme === theme &&
           document.body.classList.contains(theme === '90s' ? 'theme-retro-90s' : `theme-${theme}`) &&
@@ -168,7 +169,7 @@
       const ui = new UIManager();
       ui.showNewGameSetup();
       const modes = [...fixture.querySelectorAll('input[name="game-mode"]')].map(input => input.value);
-      const valid = fixture.querySelectorAll('input[name="visual-theme"]').length === 3 &&
+      const valid = fixture.querySelectorAll('input[name="visual-theme"]').length === 4 &&
         modes.join(',') === 'arcade,manager,director' &&
         fixture.textContent.includes('Director Deportivo') && fixture.textContent.includes('En desarrollo');
       fixture.remove();

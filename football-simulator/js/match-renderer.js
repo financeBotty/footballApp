@@ -391,8 +391,8 @@ class MatchRenderer {
       const left = this.point(centerX - 11, 68).x;
       const right = this.point(centerX + 11, 68).x;
       ctx.save();
-      ctx.fillStyle = 'rgba(15, 23, 42, .82)';
-      ctx.strokeStyle = bench.side === 'home' ? this.colors.home : this.colors.away;
+      ctx.fillStyle = this.monochrome ? '#d6d6d6' : 'rgba(15, 23, 42, .82)';
+      ctx.strokeStyle = this.monochrome ? '#111111' : this.colors[bench.side];
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.rect(left, pitchBottom + 9, right - left, 28);
@@ -405,14 +405,14 @@ class MatchRenderer {
         const radius = this.width < 550 ? 5.5 : 7;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = player.position === 'GK' && player.goalkeeperColor
+        ctx.fillStyle = !this.monochrome && player.position === 'GK' && player.goalkeeperColor
           ? player.goalkeeperColor
           : this.colors[bench.side];
         ctx.fill();
-        ctx.strokeStyle = '#0f172a';
+        ctx.strokeStyle = this.monochrome && bench.side === 'away' ? '#ffffff' : '#111111';
         ctx.lineWidth = 1.5;
         ctx.stroke();
-        ctx.fillStyle = '#07111f';
+        ctx.fillStyle = this.monochrome && bench.side === 'away' ? '#ffffff' : '#111111';
         ctx.font = `800 ${this.width < 550 ? 6 : 8}px system-ui`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

@@ -7137,3 +7137,252 @@ input:focus-visible,
   }
   .theme-minimal-bw .navbar-menu.navbar-menu-grouped { background: #fff; }
 }
+
+/* Auditoría de contraste B/N.
+   Los módulos incorporados tras la primera versión del tema conservaban
+   acentos pastel pensados para superficies oscuras. En B/N todos los paneles
+   claros usan tinta oscura; el campo y los marcadores negros son excepciones
+   deliberadas. */
+.theme-minimal-bw {
+  --alt-panel-text: #111;
+  --alt-panel-muted: #444;
+  --alt-panel-link: #292929;
+}
+
+.theme-minimal-bw :is(
+  .team-section-nav, .club-section-menu, .club-management-section,
+  .lineup-editor, .player-picker, .tactical-identity-card,
+  .tactics-detail-section, .match-plan-center, .tactical-decision-center,
+  .quick-order-center, .tactics-save-bar, .reserve-batch-bar,
+  .pre-match-analysis, .pre-match-optional details, .post-match-card,
+  .post-match-stats > div, .post-match-player, .medical-item,
+  .team-introduction, .match-mode-selection-top
+) {
+  color: #111;
+  border-color: #aaa;
+  background: #fff;
+}
+
+.theme-minimal-bw :is(.team-section-nav, .club-section-menu) {
+  border-color: #111;
+  background: #fff;
+  backdrop-filter: none;
+}
+
+.theme-minimal-bw :is(.team-section-nav, .club-section-menu) button {
+  color: #333;
+  border-color: transparent;
+  background: #fff;
+}
+
+.theme-minimal-bw :is(.team-section-nav, .club-section-menu) button :is(strong, small) {
+  color: inherit;
+}
+
+.theme-minimal-bw :is(.team-section-nav, .club-section-menu) button:hover {
+  color: #111;
+  border-color: #777;
+  background: #eee;
+}
+
+.theme-minimal-bw :is(.team-section-nav, .club-section-menu) button.active {
+  color: #fff;
+  border-color: #111;
+  background: #111;
+}
+
+.theme-minimal-bw :is(
+  .eyebrow, .season-kicker, .team-definition strong, .plan-code,
+  .result-team-side, .post-match-stats-heading strong,
+  .post-match-timeline li > strong, .match-briefing strong,
+  .match-identity-glance span, .team-introduction header span,
+  .club-profile-hero span, .player-profile-hero > div:last-child > span
+) {
+  color: #333;
+}
+
+.theme-minimal-bw :is(
+  p, small, label, dt, .team-short, .team-budget, .team-info p,
+  .next-match-info, .vs, .settings-help, .training-help,
+  .section-heading > span, .section-heading > small, .picker-hint,
+  .active-formation > span, .replacement-suggestion,
+  .tactical-identity-card > p, .tactical-identity-grid small,
+  .visual-choice-heading small, .role-choice small, .role-suitability,
+  .tactics-save-bar span, .match-plan-card > small,
+  .tactical-decision-group small, .quick-order small,
+  .reserve-batch-bar span, .team-introduction p,
+  .team-introduction > small, .match-identity-glance small,
+  .match-briefing li, .pre-match-lineup-heading span,
+  .pre-match-optional summary small, .profile-player-card small,
+  .player-stat-link small, .stat-club-link
+) {
+  color: #444;
+}
+
+.theme-minimal-bw :is(
+  .team-selection-container .team-definition strong,
+  .active-formation > button, .visual-choice strong,
+  .match-plan-card strong, .quick-order strong,
+  .team-game-model span, .pre-match-lineup-heading > strong,
+  .pre-match-status strong, .match-briefing strong,
+  .player-stat-link em
+) {
+  color: #111;
+}
+
+.theme-minimal-bw :is(
+  .availability-summary small, .academy-badge, .lineup-count,
+  .position-pill, .selection-mark, .role-suitability,
+  .pre-match-status strong, .post-match-player > strong,
+  .coach-feedback, .fitness em
+) {
+  color: #222;
+}
+
+.theme-minimal-bw :is(.academy-badge, .position-pill, .lineup-count, .pre-match-status) {
+  border-color: #777;
+  background: #eee;
+}
+
+.theme-minimal-bw .availability-summary small { color: #444; }
+.theme-minimal-bw .availability-score strong { color: #222; }
+.theme-minimal-bw .squad-player-card.is-unavailable { opacity: .72; }
+.theme-minimal-bw .selection-mark { color: #111; }
+.theme-minimal-bw .theme-choice-classic .theme-preview i {
+  color: #fff;
+  background: #1e40af;
+}
+.theme-minimal-bw .game-mode-choice strong em {
+  color: #333;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.theme-minimal-bw :is(
+  .visual-choice, .training-choice, .role-choice, .match-plan-card,
+  .decision-option, .quick-order, .squad-player-card, .role-card,
+  .medical-item, .post-match-stats > div, .post-match-player,
+  .team-introduction, .team-game-model span
+) {
+  color: #111;
+  border-color: #aaa;
+  background: #f4f4f2;
+}
+
+.theme-minimal-bw :is(
+  .visual-choice, .training-choice, .role-choice, .match-plan-card,
+  .decision-option, .quick-order
+).active {
+  color: #fff;
+  border-color: #111;
+  background: #111;
+}
+
+.theme-minimal-bw :is(
+  .visual-choice, .training-choice, .role-choice, .match-plan-card,
+  .decision-option, .quick-order
+).active :is(strong, small, span, em) {
+  color: #fff;
+}
+
+.theme-minimal-bw .plan-effects em {
+  color: #333;
+  border: 1px solid #aaa;
+  background: #eee;
+}
+
+.theme-minimal-bw .match-plan-card.active .plan-effects em {
+  color: #fff;
+  border-color: #777;
+  background: #222;
+}
+.theme-minimal-bw .match-plan-card.active :is(.plan-code, strong i) { color: #fff; }
+.theme-minimal-bw .match-plan-card > strong i { color: #111; }
+
+.theme-minimal-bw :is(.tactical-recommendation, .reserve-batch-bar) {
+  color: #111;
+  border-color: #777;
+  background: #f0f0ed;
+}
+
+.theme-minimal-bw .tactical-recommendation :is(span, p) { color: #222; }
+
+.theme-minimal-bw .standings-table thead,
+.theme-minimal-bw .squad-table-v2 thead {
+  color: #fff;
+  background: #111;
+}
+
+.theme-minimal-bw .standings-table thead :is(th, tr),
+.theme-minimal-bw .squad-table-v2 thead :is(th, tr) {
+  color: #fff;
+}
+
+.theme-minimal-bw :is(.dashboard-leaderboard li b, .matchday-result-score) {
+  color: #fff;
+  background: #111;
+}
+
+.theme-minimal-bw .pre-match-status strong { color: #222; }
+.theme-minimal-bw .pre-match-status.warning strong { color: #333; }
+.theme-minimal-bw :is(.match-duration-option.active, .match-primary-actions .btn-primary) small {
+  color: #fff;
+  opacity: 1;
+}
+
+.theme-minimal-bw .club-section-menu button.active > span { color: #fff; }
+
+.theme-minimal-bw .result-display {
+  color: #fff;
+  border-color: #111;
+  background: #111;
+}
+
+.theme-minimal-bw .result-display :is(h2, h3, strong, .result-team-side) { color: #fff; }
+.theme-minimal-bw .result-display :is(small, p) { color: #ddd; }
+.theme-minimal-bw .result-display .team-result {
+  color: #111;
+  border-color: #aaa;
+  background: #fff;
+}
+.theme-minimal-bw .result-display .team-result :is(h3, strong, .final-score, .result-team-side) {
+  color: #111;
+}
+.theme-minimal-bw .result-display .team-result :is(small, p) { color: #444; }
+.theme-minimal-bw .result-display .result-status {
+  color: #111;
+  border: 1px solid #fff;
+  background: #fff;
+}
+.theme-minimal-bw .result-display .result-status :is(strong, small) { color: #111; }
+
+.theme-minimal-bw .post-match-timeline li > strong {
+  color: #fff;
+  background: #111;
+}
+
+.theme-minimal-bw .live-match-shell :is(
+  .match-break-discipline, .coach-feedback, .queue-empty,
+  .substitution-action-help, .live-player-row small, .fitness em
+) {
+  color: #333;
+}
+.theme-minimal-bw .live-match-shell .score-team > strong {
+  color: #111 !important;
+  background: transparent;
+}
+.theme-minimal-bw .live-match-shell .bench-choice :is(strong, small) { color: #222; }
+.theme-minimal-bw .live-match-shell .bench-choice:is(:hover, :focus-visible) :is(strong, small),
+.theme-minimal-bw .live-match-shell .bench-choice.active :is(strong, small) {
+  color: #fff !important;
+}
+.theme-minimal-bw .live-match-shell .bench-choice.recommended { border-left-color: #111; }
+
+/* En el césped, el rótulo oscuro conserva una relación blanco/negro máxima. */
+.theme-minimal-bw :is(.tactical-pitch, .pre-match-lineup-pitch) .pitch-player {
+  color: #fff;
+}
+.theme-minimal-bw :is(.tactical-pitch, .pre-match-lineup-pitch) .pitch-player :is(strong, small) {
+  color: #fff;
+  background: #111;
+}
