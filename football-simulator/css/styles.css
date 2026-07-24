@@ -1579,7 +1579,7 @@ label {
   }
 }
 
-/* Navegación web en dos bandas: jugar, gestionar y sistema. */
+/* Navegación web compacta en dos bandas. */
 @media (min-width: 701px) {
   .navbar:has(.navbar-menu-grouped),
   .theme-retro-90s .navbar:has(.navbar-menu-grouped),
@@ -1600,8 +1600,7 @@ label {
   }
 
   .nav-group {
-    display: grid;
-    grid-template-columns: 92px minmax(0, 1fr);
+    display: block;
     align-items: center;
     min-width: 0;
   }
@@ -1610,31 +1609,17 @@ label {
   .nav-group-manage { grid-column: 1; grid-row: 2; }
 
   .nav-group-system {
+    display: flex;
     grid-column: 2;
     grid-row: 1 / span 2;
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    align-content: center;
-    gap: 4px;
+    align-items: stretch;
     min-width: 92px;
     padding-left: 12px;
     border-left: 1px solid rgba(255, 255, 255, .2);
   }
 
-  .nav-group-label {
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    color: rgba(255, 255, 255, .72);
-    font-size: .66rem;
-    font-weight: 900;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-  }
-
-  .nav-group-system .nav-group-label {
-    justify-content: center;
-    font-size: .58rem;
+  .nav-group-system .nav-group-items {
+    width: 100%;
   }
 
   .nav-group-items {
@@ -1709,7 +1694,6 @@ label {
   .navbar-menu-grouped .nav-group-system .nav-group-items {
     grid-template-columns: minmax(0, 1fr);
   }
-  .navbar-menu-grouped .nav-group-label { display: none; }
   .navbar-menu-grouped .nav-btn,
   .theme-retro-90s .navbar-menu-grouped .nav-btn,
   .theme-snes .navbar-menu-grouped .nav-btn,
@@ -6820,7 +6804,6 @@ input:focus-visible,
   backdrop-filter: none;
 }
 .theme-minimal-bw .navbar-brand { color: #111; }
-.theme-minimal-bw .nav-group-label { color: #555; }
 .theme-minimal-bw .nav-group-system { border-left-color: #c9c9c4; }
 .theme-minimal-bw .nav-btn {
   color: #333;

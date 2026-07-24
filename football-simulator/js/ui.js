@@ -57,7 +57,6 @@ class UIManager {
     const groups = [
       {
         id: 'play',
-        label: 'Jugar',
         items: [
           ['dashboard', 'Inicio'],
           ['next-match', 'Partido'],
@@ -66,7 +65,6 @@ class UIManager {
       },
       {
         id: 'manage',
-        label: 'Gestionar',
         items: [
           ['squad', 'Alineación'],
           ['club', 'Club'],
@@ -75,7 +73,6 @@ class UIManager {
       },
       {
         id: 'system',
-        label: 'Sistema',
         items: [
           ['settings', 'Ajustes']
         ]
@@ -93,7 +90,6 @@ class UIManager {
       </button>
       <div id="mobile-main-sections" class="navbar-menu navbar-menu-grouped" aria-label="${I18N.t('Secciones principales')}">${groups.map(group => `
       <div class="nav-group nav-group-${group.id}">
-        <span class="nav-group-label">${I18N.t(group.label)}</span>
         <div class="nav-group-items">${group.items.map(renderItem).join('')}</div>
       </div>`).join('')}</div>`;
   }
