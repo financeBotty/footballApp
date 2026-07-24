@@ -305,9 +305,9 @@ class UIManager {
           <h3>Próximo Partido - Jornada ${nextMatch.matchday}</h3>
           <div class="match-preview">
             <div class="team-vs">
-              <div class="team-name">${this.renderClubIdentity(isHome ? team : opponent, 'match-club')}</div>
+              <button type="button" class="team-name team-profile-link" data-team-profile="${(isHome ? team : opponent).id}">${this.renderClubIdentity(isHome ? team : opponent, 'match-club')}</button>
               <span class="vs">vs</span>
-              <div class="team-name">${this.renderClubIdentity(isHome ? opponent : team, 'match-club')}</div>
+              <button type="button" class="team-name team-profile-link" data-team-profile="${(isHome ? opponent : team).id}">${this.renderClubIdentity(isHome ? opponent : team, 'match-club')}</button>
             </div>
             <div class="dashboard-match-actions">
               <button id="btn-play-match" class="btn btn-primary">Jugar partido</button>
@@ -336,7 +336,7 @@ class UIManager {
       const highlight = isUserTeam ? ' class="user-team"' : '';
       standingsHtml += `
         <li${highlight}>
-          <span class="pos">${this.renderTeamCrest(standingTeam, 'table-club-crest')}<span>${standing.teamName}</span></span>
+          <button type="button" class="pos team-profile-link" data-team-profile="${standing.teamId}">${this.renderTeamCrest(standingTeam, 'table-club-crest')}<span>${standing.teamName}</span></button>
           <span class="points">${standing.points}pts</span>
         </li>
       `;
@@ -390,7 +390,7 @@ class UIManager {
           <div class="dashboard-card">
             <h3>Tu Equipo</h3>
             <div class="team-info">
-              <div class="dashboard-club">${this.renderTeamCrest(team, 'dashboard-club-crest')}<strong>${team.name}</strong></div>
+              <button type="button" class="dashboard-club team-profile-link" data-team-profile="${team.id}">${this.renderTeamCrest(team, 'dashboard-club-crest')}<strong>${team.name}</strong></button>
               <p>Posición: <strong>${Number.isFinite(userPosition) ? `#${userPosition}` : 'Pretemporada'}</strong></p>
               <p>Jugadores: <strong>${team.players.length}</strong></p>
               <p>Formación: <strong>${team.formation}</strong></p>
@@ -500,12 +500,12 @@ class UIManager {
           <div class="lineup-editor">
             <div class="lineup-toolbar">
               <div class="active-formation"><span>Formación</span><strong id="active-formation-value">${formation}</strong><button type="button" id="btn-scroll-team-tactics">Cambiar sistema</button></div>
+              <button id="btn-auto-select" class="btn btn-secondary lineup-auto-top">Once automático</button>
               <span id="lineup-selection-status" class="lineup-count">${this.squadSelection.size}/11</span>
             </div>
             <div class="tactical-pitch" id="lineup-pitch"></div>
             <div class="lineup-actions">
               <button id="btn-clear-lineup" class="btn btn-secondary">Limpiar</button>
-              <button id="btn-auto-select" class="btn btn-secondary">Mejor XI</button>
               <button id="btn-save-lineup" class="btn btn-primary">Guardar alineación</button>
             </div>
           </div>
@@ -1013,7 +1013,7 @@ class UIManager {
       standingsHtml += `
         <tr class="${isUserTeam}">
           <td class="pos">${index + 1}</td>
-          <td class="team">${this.renderTeamCrest(this.gameApp.teamManager.getTeam(standing.teamId), 'table-club-crest')}${standing.teamName}</td>
+          <td class="team"><button type="button" class="team-profile-link" data-team-profile="${standing.teamId}">${this.renderTeamCrest(this.gameApp.teamManager.getTeam(standing.teamId), 'table-club-crest')}<span>${standing.teamName}</span></button></td>
           <td>${standing.played}</td>
           <td>${standing.wins}</td>
           <td>${standing.draws}</td>
@@ -1037,9 +1037,9 @@ class UIManager {
       const score = match.played ? `${match.homeGoals} - ${match.awayGoals}` : 'Pendiente';
       return `
         <li class="fixture-row ${match.played ? 'played' : ''}">
-          <span class="fixture-team home">${this.renderTeamCrest(home, 'fixture-club-crest')}${home.name}</span>
+          <button type="button" class="fixture-team home team-profile-link" data-team-profile="${home.id}">${this.renderTeamCrest(home, 'fixture-club-crest')}<span>${home.name}</span></button>
           <strong class="fixture-score">${score}</strong>
-          <span class="fixture-team">${this.renderTeamCrest(away, 'fixture-club-crest')}${away.name}</span>
+          <button type="button" class="fixture-team team-profile-link" data-team-profile="${away.id}">${this.renderTeamCrest(away, 'fixture-club-crest')}<span>${away.name}</span></button>
         </li>
       `;
     }).join('');
@@ -1102,6 +1102,127 @@ class UIManager {
     }
 
     this.currentScreen = 'league';
+  }
+
+  showTeamProfile(teamId, returnScreen = 'league') {
+    const team = this.gameApp?.teamManager.getTeam(teamId);
+    if (!team) return;
+    const identity = DATA.PHILOSOPHICAL_IDENTITIES[team.id] || {};
+    const standing = this.gameApp.leagueEngine.getStandings().find(item => item.teamId === team.id);
+    const standingPosition = standing
+      ? this.gameApp.leagueEngine.getStandings().findIndex(item => item.teamId === team.id) + 1
+      : null;
+    const starters = (team.startingXI || [])
+      .map(id => team.players.find(player => player.id === id))
+      .filter(Boolean);
+    const navBar = document.getElementById('navigation');
+    const content = document.getElementById('main-content');
+    this.teamProfileReturnScreen = returnScreen;
+
+    navBar.innerHTML = `
+      <nav class="navbar">
+        <div class="navbar-brand">${this.renderClubIdentity(this.gameApp.teamManager.getTeam(this.gameApp.userTeamId))}</div>
+        ${this.renderMainNavigation(returnScreen)}
+      </nav>`;
+    content.innerHTML = `
+      <div class="profile-page team-profile-page">
+        <button type="button" class="profile-back" data-profile-back="${returnScreen}">← Volver</button>
+        <header class="club-profile-hero">
+          ${this.renderTeamCrest(team, 'club-profile-crest')}
+          <div><span>${identity.current || 'Club de fútbol'}</span><h2>${team.name}</h2><p>${identity.principle || 'Una identidad construida para competir en equipo.'}</p></div>
+        </header>
+        <section class="club-profile-description">
+          <span class="season-kicker">Así juega</span>
+          <p>${identity.footballMeaning || 'Un equipo con una idea reconocible y colectiva.'}</p>
+        </section>
+        <div class="profile-summary-strip">
+          <span><strong>${standingPosition ? `${standingPosition}.º` : '—'}</strong>posición</span>
+          <span><strong>${standing?.points ?? 0}</strong>puntos</span>
+          <span><strong>${standing?.played ?? 0}</strong>partidos</span>
+          <span><strong>${standing?.wins ?? 0}</strong>victorias</span>
+          <span><strong>${standing?.goalsFor ?? 0}</strong>goles a favor</span>
+          <span><strong>${standing?.goalsAgainst ?? 0}</strong>goles en contra</span>
+          <span><strong>${team.formation}</strong>sistema</span>
+          <span><strong>${team.strategy || 'Equilibrado'}</strong>estilo</span>
+        </div>
+        <section class="club-lineup-profile">
+          <div class="profile-section-heading"><div><span class="season-kicker">Once actual</span><h3>Alineación</h3></div><strong>${starters.length}/11</strong></div>
+          ${starters.length === 11 ? this.gameApp.renderPreMatchLineup(team, starters) : '<p class="profile-empty">Este club todavía no tiene un once completo.</p>'}
+        </section>
+        <section class="club-squad-profile">
+          <div class="profile-section-heading"><div><span class="season-kicker">Plantilla</span><h3>Jugadores</h3></div><small>Pulsa para abrir su ficha</small></div>
+          <div class="profile-player-grid">${team.players.map(player => `
+            <button type="button" class="profile-player-card" data-player-profile="${player.id}" data-player-team="${team.id}" data-player-return="team-profile">
+              <span class="position-pill">${DATA.getPositionLabel(player.position)}</span>
+              <span><strong>${player.name}</strong><small>${DATA.getPositionLabel(player.position, true)} · ${player.age} años</small></span>
+              <b>${player.overall}</b>
+            </button>`).join('')}</div>
+        </section>
+      </div>`;
+    this.currentScreen = 'team-profile';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  showPlayerProfile(teamId, playerId, returnScreen = 'stats') {
+    const team = this.gameApp?.teamManager.getTeam(teamId);
+    const player = team?.players.find(item => item.id === playerId);
+    if (!team || !player) return;
+    this.playerProfileReturnScreen = returnScreen;
+    const positionDescriptions = {
+      GK: 'Protege la portería, domina el área y da el primer pase.',
+      CB: 'Defiende el centro, gana duelos y sostiene la salida de balón.',
+      LB: 'Ocupa el lateral izquierdo y equilibra defensa, recorrido y apoyo.',
+      RB: 'Ocupa el lateral derecho y combina defensa, recorrido y apoyo.',
+      CDM: 'Protege a la defensa, recupera y ordena la circulación.',
+      CM: 'Conecta las líneas y marca el ritmo con y sin balón.',
+      CAM: 'Juega entre líneas para crear ocasiones y llegar al área.',
+      LW: 'Ataca desde la izquierda con velocidad, regate y desborde.',
+      RW: 'Ataca desde la derecha con velocidad, regate y desborde.',
+      ST: 'Fija a los centrales y convierte las ocasiones del equipo.'
+    };
+    const skillLabels = {
+      pace: 'Velocidad', shooting: 'Tiro', passing: 'Pase', dribbling: 'Regate',
+      defending: 'Defensa', physical: 'Físico', goalkeeping: 'Portería'
+    };
+    const skillKeys = player.position === 'GK'
+      ? ['goalkeeping', 'passing', 'physical', 'pace', 'defending']
+      : ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical'];
+    const bestSkills = [...skillKeys].sort((a, b) => player[b] - player[a]).slice(0, 3);
+    const navBar = document.getElementById('navigation');
+    const content = document.getElementById('main-content');
+    navBar.innerHTML = `
+      <nav class="navbar">
+        <div class="navbar-brand">${this.renderClubIdentity(this.gameApp.teamManager.getTeam(this.gameApp.userTeamId))}</div>
+        ${this.renderMainNavigation(returnScreen === 'team-profile' ? this.teamProfileReturnScreen : returnScreen)}
+      </nav>`;
+    content.innerHTML = `
+      <div class="profile-page player-profile-page">
+        <button type="button" class="profile-back" data-profile-back="${returnScreen}" data-profile-team="${team.id}">← Volver</button>
+        <header class="player-profile-hero">
+          <div class="player-overall"><strong>${player.overall}</strong><span>MEDIA</span></div>
+          <div><span>${DATA.getPositionLabel(player.position, true)} · ${player.age} años</span><h2>${player.name}</h2><button type="button" class="inline-club-link" data-team-profile="${team.id}">${this.renderTeamCrest(team, 'player-club-crest')}${team.name}</button></div>
+        </header>
+        <section class="player-description-card">
+          <h3>Su función</h3>
+          <p>${positionDescriptions[player.position] || 'Aporta equilibrio y soluciones en su zona del campo.'}</p>
+          <p>Sus cualidades principales son <strong>${bestSkills.map(key => skillLabels[key].toLowerCase()).join(', ')}</strong>.</p>
+        </section>
+        <section class="player-skills" aria-label="Habilidades">
+          ${skillKeys.map(key => `<div><span>${skillLabels[key]}</span><strong>${Math.round(player[key])}</strong><i><b style="width:${Math.round(player[key])}%"></b></i></div>`).join('')}
+        </section>
+        <section class="player-season-stats">
+          <h3>Esta temporada</h3>
+          <div class="profile-summary-strip">
+            <span><strong>${player.matchesPlayed || 0}</strong>partidos</span>
+            <span><strong>${player.goals || 0}</strong>goles</span>
+            <span><strong>${player.assists || 0}</strong>asistencias</span>
+            <span><strong>${Math.round(player.fitness || 0)}</strong>forma</span>
+            <span><strong>${Math.round(player.morale || 0)}</strong>moral</span>
+          </div>
+        </section>
+      </div>`;
+    this.currentScreen = 'player-profile';
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
   // Mostrar pantalla de configuración
@@ -1192,9 +1313,49 @@ class UIManager {
         return;
       }
 
+      const profileBack = e.target.closest('[data-profile-back]');
+      if (profileBack && this.gameApp) {
+        const destination = profileBack.dataset.profileBack;
+        if (destination === 'team-profile') {
+          this.showTeamProfile(profileBack.dataset.profileTeam, this.teamProfileReturnScreen || 'league');
+        } else {
+          this.gameApp.showScreen(destination || 'league');
+        }
+        return;
+      }
+
+      const playerProfile = e.target.closest('[data-player-profile]');
+      if (playerProfile && this.gameApp) {
+        const returnScreen = playerProfile.dataset.playerReturn || this.currentScreen || 'stats';
+        this.showPlayerProfile(playerProfile.dataset.playerTeam, playerProfile.dataset.playerProfile, returnScreen);
+        return;
+      }
+
+      const teamProfile = e.target.closest('[data-team-profile]');
+      if (teamProfile && this.gameApp) {
+        const returnScreen = this.currentScreen === 'player-profile'
+          ? (this.playerProfileReturnScreen || 'stats')
+          : (this.currentScreen || 'league');
+        this.showTeamProfile(teamProfile.dataset.teamProfile, returnScreen);
+        return;
+      }
+
       // Navegación principal
-      if (e.target.hasAttribute('data-screen')) {
-        const screen = e.target.getAttribute('data-screen');
+      const navigationAction = e.target.closest('[data-screen]');
+      if (navigationAction) {
+        const screen = navigationAction.getAttribute('data-screen');
+        if (this.currentScreen === 'squad' && screen !== 'squad' && this.gameApp) {
+          const validation = this.gameApp.teamManager.validateLineup(
+            this.gameApp.userTeamId,
+            Array.from(this.squadSelection || [])
+          );
+          if (!validation.valid || this.lineupReplacementId) {
+            this.showError(this.lineupReplacementId
+              ? 'Termina o cancela el cambio pendiente antes de salir.'
+              : (validation.error || 'Debes dejar 11 jugadores alineados antes de salir.'));
+            return;
+          }
+        }
         if (this.gameApp) {
           this.gameApp.showScreen(screen);
         }
@@ -1390,13 +1551,16 @@ class UIManager {
     const team = this.gameApp?.teamManager.getTeam(this.gameApp.userTeamId);
     const playerToAdd = team?.players.find(player => player.id === playerId);
     if (this.squadSelection.has(playerId)) {
-      if (this.squadSelection.size === 11 && this.lineupReplacementId !== playerId) {
-        this.lineupReplacementId = playerId;
-        document.querySelectorAll('[data-squad-filter]').forEach(button => {
-          const active = button.dataset.squadFilter === 'ALL';
-          button.classList.toggle('active', active);
-          button.setAttribute('aria-pressed', String(active));
-        });
+      if (this.squadSelection.size === 11) {
+        const isStartingReplacement = this.lineupReplacementId !== playerId;
+        this.lineupReplacementId = isStartingReplacement ? playerId : null;
+        if (isStartingReplacement) {
+          document.querySelectorAll('[data-squad-filter]').forEach(button => {
+            const active = button.dataset.squadFilter === 'ALL';
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', String(active));
+          });
+        }
       } else {
         this.squadSelection.delete(playerId);
         this.lineupReplacementId = null;

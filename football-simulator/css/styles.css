@@ -5785,3 +5785,267 @@ input:focus-visible,
   .pre-match-secondary-actions { grid-template-columns: 1fr 1fr; }
   .pre-match-optional details > summary > span:last-child { display: none; }
 }
+
+/* Modos de seguimiento: el simulador es visual y no duplica la narración. */
+.match-primary-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.match-primary-actions .btn { display: grid; place-items: center; gap: .1rem; line-height: 1.1; }
+.match-primary-actions .btn small { font-size: .56rem; font-weight: 600; opacity: .74; text-transform: none; }
+.live-view-simulator .coach-narrative-always { display: none; }
+.live-view-narration .live-match-grid { grid-template-columns: minmax(0, 1fr); }
+.live-view-narration .pitch-frame,
+.live-view-narration .pitch-legend { display: none; }
+.live-view-narration .coach-console {
+  display: grid;
+  grid-template-columns: minmax(250px, .65fr) minmax(320px, 1.35fr);
+  gap: 1rem;
+  border-left: 0;
+}
+.live-view-narration .coach-heading,
+.live-view-narration .coach-primary-actions,
+.live-view-narration .live-quick-access { grid-column: 1; }
+.live-view-narration .coach-narrative-always {
+  display: block;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  padding: .75rem;
+  border-left: 1px solid var(--dark-border);
+}
+.live-view-narration .sidebar-narrative #narrative-log {
+  height: clamp(310px, calc(100dvh - 320px), 620px);
+  max-height: none;
+}
+.game-mode-arcade #btn-play-narration { display: none; }
+.game-mode-arcade .match-primary-actions { grid-template-columns: 1fr; }
+
+/* El once automático queda visible antes del campo. */
+.lineup-toolbar .lineup-auto-top {
+  min-height: 38px;
+  margin-left: auto;
+  padding: .45rem .75rem;
+}
+.team-hub .lineup-actions { grid-template-columns: minmax(100px, .45fr) minmax(170px, 1fr); }
+
+/* Fichas navegables de clubes y jugadores. */
+.team-profile-link,
+.inline-club-link,
+.profile-player-card,
+.player-stat-link,
+.profile-back {
+  color: inherit;
+  font: inherit;
+}
+.team-profile-link,
+.inline-club-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: inherit;
+  cursor: pointer;
+}
+.team-profile-link:hover span,
+.inline-club-link:hover { color: var(--secondary-color); }
+.profile-page {
+  width: min(1050px, 100%);
+  margin: 0 auto;
+}
+.profile-back {
+  min-height: 42px;
+  margin-bottom: .8rem;
+  padding: .45rem .7rem;
+  border: 1px solid var(--dark-border);
+  border-radius: 7px;
+  background: var(--surface-1);
+  cursor: pointer;
+}
+.club-profile-hero,
+.player-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--dark-border);
+}
+.club-profile-hero h2,
+.player-profile-hero h2 { margin: .12rem 0 .3rem; }
+.club-profile-hero p { max-width: 720px; margin: 0; color: var(--text-secondary); line-height: 1.45; }
+.club-profile-hero span,
+.player-profile-hero > div:last-child > span { color: var(--secondary-color); font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+.club-profile-crest { width: 72px; height: 84px; object-fit: contain; flex: 0 0 auto; }
+.club-profile-description,
+.player-description-card {
+  margin: .8rem 0;
+  padding: .8rem 1rem;
+  border-left: 3px solid var(--secondary-color);
+  background: rgba(59, 130, 246, .08);
+}
+.club-profile-description p,
+.player-description-card p { margin: .25rem 0; color: var(--text-secondary); line-height: 1.5; }
+.profile-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 1px;
+  margin: .8rem 0;
+  background: var(--dark-border);
+}
+.profile-summary-strip span {
+  display: grid;
+  gap: .15rem;
+  min-width: 0;
+  padding: .7rem;
+  background: var(--surface-1);
+  color: var(--text-muted);
+  font-size: .66rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+.profile-summary-strip strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: .9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.club-lineup-profile,
+.club-squad-profile,
+.player-season-stats { margin-top: 1rem; }
+.profile-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .6rem;
+}
+.profile-section-heading h3 { margin: .1rem 0 0; }
+.club-lineup-profile .pre-match-lineup-pitch { min-height: 430px; }
+.profile-player-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+.profile-player-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .65rem;
+  min-width: 0;
+  padding: .65rem;
+  border: 1px solid var(--dark-border);
+  border-radius: 7px;
+  background: var(--surface-1);
+  text-align: left;
+  cursor: pointer;
+}
+.profile-player-card > span:nth-child(2) { display: grid; min-width: 0; }
+.profile-player-card strong,
+.profile-player-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-player-card small { color: var(--text-muted); font-size: .68rem; }
+.profile-player-card > b { font-size: 1rem; }
+.player-overall {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  border: 2px solid var(--secondary-color);
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.player-overall strong { font-size: 1.65rem; line-height: 1; }
+.player-overall span { font-size: .55rem; }
+.player-club-crest { width: 24px; height: 28px; object-fit: contain; }
+.player-skills { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem 1rem; padding: .8rem 1rem; }
+.player-skills > div { display: grid; grid-template-columns: minmax(70px, 1fr) auto; gap: .2rem .6rem; align-items: center; }
+.player-skills span { font-size: .76rem; }
+.player-skills i { grid-column: 1 / -1; height: 5px; overflow: hidden; background: rgba(148, 163, 184, .18); }
+.player-skills i b { display: block; height: 100%; background: var(--secondary-color); }
+.stats-container .stat-card ol { list-style: none; padding: 0; }
+.player-stat-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .7rem;
+  width: 100%;
+  padding: .65rem .2rem;
+  border: 0;
+  border-bottom: 1px solid var(--dark-border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.player-stat-link > span { display: grid; grid-template-columns: 24px minmax(0, 1fr); min-width: 0; }
+.player-stat-link b { grid-row: 1 / span 2; }
+.player-stat-link strong,
+.player-stat-link small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-stat-link small { color: var(--text-muted); font-size: .66rem; }
+.player-stat-link em { color: var(--secondary-color); font-size: .72rem; font-style: normal; font-weight: 800; white-space: nowrap; }
+
+/* Portátil: panel táctico recuperable, estadísticas regulares y calendario contenido. */
+@media (min-width: 701px) {
+  .coach-drawer.open {
+    position: fixed;
+    z-index: 220;
+    top: max(72px, env(safe-area-inset-top));
+    right: 16px;
+    bottom: 16px;
+    left: auto;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: min(460px, calc(100vw - 32px));
+    max-height: calc(100dvh - 88px);
+    overflow: hidden;
+    border: 1px solid var(--dark-border);
+    background: var(--dark-bg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+  }
+  .coach-drawer-bar { display: grid; gap: .25rem; padding: .55rem .65rem; background: var(--primary-color); }
+  .coach-drawer-primary { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: .45rem; }
+  .coach-drawer-primary button { width: 44px; height: 44px; padding: 0; cursor: pointer; }
+  .coach-drawer-score { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+  .coach-drawer-bar > small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .coach-drawer .coach-panel.active { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+  .live-stats-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .live-stats-strip span {
+    display: grid;
+    place-items: center;
+    gap: .12rem;
+    min-width: 0;
+    padding: .45rem .2rem;
+    font-size: .68rem;
+    text-align: center;
+  }
+  .live-stats-strip strong { display: block; font-size: .82rem; white-space: nowrap; }
+
+  .dashboard-container .dashboard-club-crest { display: none; }
+  .dashboard-container .team-info p,
+  .dashboard-container .standings-preview li,
+  .dashboard-container .progress-stat p { font-size: .8rem; }
+  .dashboard-container .dashboard-leaderboard h4 { font-size: .74rem; }
+  .dashboard-container .dashboard-leaderboard li,
+  .dashboard-container .dashboard-leaderboard li strong { font-size: .76rem; }
+
+  .fixtures-panel { position: relative; overflow: hidden; isolation: isolate; }
+  .fixtures-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: .5rem; }
+  .matchday-selector { display: flex; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-gutter: stable; }
+  .fixtures-list { position: relative; display: grid; gap: 1px; margin: .75rem 0 0; padding: 0; }
+  .fixture-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr); align-items: center; min-width: 0; }
+  .fixture-team { min-width: 0; overflow: hidden; }
+  .fixture-team span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+@media (max-width: 700px) {
+  .live-view-narration .coach-console { display: block; }
+  .live-view-narration .coach-narrative-always { padding: .65rem 0; border-left: 0; }
+  .live-view-narration .sidebar-narrative #narrative-log { height: 38dvh; }
+  .profile-player-grid,
+  .player-skills { grid-template-columns: 1fr; }
+  .club-profile-hero,
+  .player-profile-hero { align-items: flex-start; padding-inline: .25rem; }
+  .club-profile-crest { width: 50px; height: 58px; }
+  .club-lineup-profile .pre-match-lineup-pitch { min-height: 390px; }
+  .lineup-toolbar .lineup-auto-top { order: 3; width: 100%; }
+}
+
+@media (max-width: 520px) {
+  .match-primary-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .match-primary-actions .btn { padding-inline: .25rem; font-size: .68rem; }
+}

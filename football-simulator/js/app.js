@@ -17,6 +17,7 @@ class FootballSimulator {
     this.matchPlaybackSpeed = 1;
     this.matchEventCursor = 0;
     this.matchFinalized = false;
+    this.liveViewMode = 'simulator';
     this.gameMode = 'manager';
     this.gameState = {
       created: new Date().toISOString(),
@@ -254,13 +255,13 @@ class FootballSimulator {
 
         <div class="match-preview-large compact-match-card">
           <section class="match-teams compact-match-teams" aria-label="Próximo enfrentamiento">
-            <div class="team-section">
+            <div class="team-section" data-team-profile="${homePreviewTeam.id}" role="button" tabindex="0" title="Ver ficha de ${homePreviewTeam.name}">
               ${this.ui.renderTeamCrest(homePreviewTeam, 'match-preview-crest')}
               <h3>${homePreviewTeam.name}</h3>
               <p class="team-label">LOCAL · ${homePreviewTeam.formation}</p>
             </div>
             <div class="vs-container"><span>VS</span><small>${nextMatch.matchday}.ª jornada</small></div>
-            <div class="team-section">
+            <div class="team-section" data-team-profile="${awayPreviewTeam.id}" role="button" tabindex="0" title="Ver ficha de ${awayPreviewTeam.name}">
               ${this.ui.renderTeamCrest(awayPreviewTeam, 'match-preview-crest')}
               <h3>${awayPreviewTeam.name}</h3>
               <p class="team-label">VISITANTE · ${awayPreviewTeam.formation}</p>
@@ -285,8 +286,9 @@ class FootballSimulator {
               </div>
             </div>
             <div class="match-primary-actions">
-              <button id="btn-play-match-large" class="btn btn-primary btn-large">Jugar partido</button>
-              <button id="btn-quick-result" class="btn btn-secondary btn-large">Ver resultado</button>
+              <button id="btn-play-match-large" class="btn btn-primary btn-large"><strong>Simulador</strong><small>Campo en directo</small></button>
+              <button id="btn-play-narration" class="btn btn-secondary btn-large"><strong>Narración</strong><small>Relato en directo</small></button>
+              <button id="btn-quick-result" class="btn btn-secondary btn-large"><strong>Resultado</strong><small>Resolución inmediata</small></button>
             </div>
           </section>
 
@@ -321,7 +323,11 @@ class FootballSimulator {
 
     const playBtn = document.getElementById('btn-play-match-large');
     if (playBtn) {
-      playBtn.addEventListener('click', () => this.playMatch());
+      playBtn.addEventListener('click', () => this.playMatch('simulator'));
+    }
+    const narrationBtn = document.getElementById('btn-play-narration');
+    if (narrationBtn) {
+      narrationBtn.addEventListener('click', () => this.playMatch('narration'));
     }
     const quickResultBtn = document.getElementById('btn-quick-result');
     if (quickResultBtn) {
@@ -349,6 +355,7 @@ class FootballSimulator {
       const names = lineupStatus.promoted.map(player => player.name).join(', ');
       this.ui.showSuccess(`${names} ${lineupStatus.promoted.length === 1 ? 'sube' : 'suben'} del filial y entra en la convocatoria`);
     }
+    this.ui.currentScreen = 'next-match';
   }
 
   renderTeamIntroductions(homeTeam, awayTeam) {
@@ -484,7 +491,7 @@ class FootballSimulator {
   }
 
   // Jugar partido
-  playMatch() {
+  playMatch(viewMode = 'simulator') {
     const userTeamId = this.userTeamId;
     const nextMatch = this.leagueEngine.getNextUserMatch(userTeamId);
 
@@ -500,7 +507,7 @@ class FootballSimulator {
     const durationOption = document.querySelector('.match-duration-option.active');
     const halfDuration = Number(durationOption ? durationOption.dataset.matchDuration : GameStorage.getSetting('halfDuration', 3));
     GameStorage.setSetting('halfDuration', String(halfDuration));
-    this.showMatchSimulation(nextMatch, null, halfDuration);
+    this.showMatchSimulation(nextMatch, null, halfDuration, viewMode);
   }
 
   playQuickResult() {
@@ -574,7 +581,7 @@ class FootballSimulator {
   }
 
   // Mostrar simulación de partido (mejorado Fase 3)
-  showMatchSimulation(match, restoredEngine = null, halfDuration = 3) {
+  showMatchSimulation(match, restoredEngine = null, halfDuration = 3, viewMode = 'simulator') {
     const content = document.getElementById('main-content');
     const navBar = document.getElementById('navigation');
 
@@ -582,6 +589,7 @@ class FootballSimulator {
 
     const homeTeam = this.teamManager.getTeam(match.homeTeam);
     const awayTeam = this.teamManager.getTeam(match.awayTeam);
+    this.liveViewMode = viewMode === 'narration' ? 'narration' : 'simulator';
     this.currentMatch = match;
     this.liveMatchEngine = restoredEngine
       ? LiveMatchEngine.deserialize(restoredEngine, this.teamManager)
@@ -602,7 +610,7 @@ class FootballSimulator {
     const desktopQuickOrders = new Set(['Normal', 'Buscar el empate', 'Presionar rival', 'Mantener posesión', 'Contraatacar', 'Perder tiempo', 'Replegar', 'Defender resultado']);
 
     content.innerHTML = `
-      <div class="live-match-shell" style="--home-kit:${homeKit.kitColor};--away-kit:${awayKit.kitColor}">
+      <div class="live-match-shell live-view-${this.liveViewMode}" style="--home-kit:${homeKit.kitColor};--away-kit:${awayKit.kitColor}">
         <header class="live-scoreboard">
           <div class="score-team home">${this.ui.renderTeamCrest(homeTeam, 'score-club-crest')}<span class="score-team-label"><b>${homeTeam.shortName}</b><small>local</small></span><strong id="home-score">0</strong></div>
           <div class="live-clock"><strong id="match-minute">0'</strong><small id="match-phase">Prepartido</small></div>
@@ -715,7 +723,9 @@ class FootballSimulator {
     `;
 
     const canvas = document.getElementById('match-canvas');
-    this.matchRenderer = new MatchRenderer(canvas, this.liveMatchEngine);
+    this.matchRenderer = this.liveViewMode === 'simulator'
+      ? new MatchRenderer(canvas, this.liveMatchEngine)
+      : null;
     this.attachLiveMatchControls();
     this.renderLiveMatchState();
     if (!restoredEngine) this.liveMatchEngine.startMatch();
@@ -1824,19 +1834,19 @@ class FootballSimulator {
     `;
 
     const leaguePlayers = this.teamManager.getAllTeams().flatMap(club =>
-      club.players.map(player => ({ ...player, teamName: club.shortName }))
+      club.players.map(player => ({ ...player, teamId: club.id, teamName: club.shortName }))
     );
     const sortedByGoals = [...leaguePlayers].sort((a, b) => b.goals - a.goals).slice(0, 5);
     const sortedByAssists = [...leaguePlayers].sort((a, b) => b.assists - a.assists).slice(0, 5);
 
     let topScorersHtml = '';
     sortedByGoals.forEach((player, i) => {
-      topScorersHtml += `<li>${i + 1}. ${player.name} (${player.teamName}) - ${player.goals} goles</li>`;
+      topScorersHtml += `<li><button type="button" class="player-stat-link" data-player-profile="${player.id}" data-player-team="${player.teamId}" data-player-return="stats"><span><b>${i + 1}</b><strong>${player.name}</strong><small>${player.teamName} · ${DATA.getPositionLabel(player.position, true)}</small></span><em>${player.goals} goles</em></button></li>`;
     });
 
     let topAssistsHtml = '';
     sortedByAssists.forEach((player, i) => {
-      topAssistsHtml += `<li>${i + 1}. ${player.name} (${player.teamName}) - ${player.assists} asistencias</li>`;
+      topAssistsHtml += `<li><button type="button" class="player-stat-link" data-player-profile="${player.id}" data-player-team="${player.teamId}" data-player-return="stats"><span><b>${i + 1}</b><strong>${player.name}</strong><small>${player.teamName} · ${DATA.getPositionLabel(player.position, true)}</small></span><em>${player.assists} asist.</em></button></li>`;
     });
 
     content.innerHTML = `
@@ -1856,6 +1866,8 @@ class FootballSimulator {
         </div>
       </div>
     `;
+    this.ui.currentScreen = 'stats';
+    this.resetScreenViewport();
   }
 
   // Guardar juego
